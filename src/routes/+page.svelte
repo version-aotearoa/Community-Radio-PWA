@@ -1,6 +1,18 @@
 <script lang="ts">
 	import { Button } from '@svar-ui/svelte-core';
+	import { onMount } from 'svelte';
 	import { requestPlay } from '$lib/stores/player';
+	import { live, startLivePolling } from '$lib/stores/live';
+
+	const livePayload = $derived($live);
+
+	function fmtTime(mins: number) {
+		const h = Math.floor(mins / 60);
+		const m = mins % 60;
+		return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+	}
+
+	onMount(() => startLivePolling());
 </script>
 
 <svelte:head>
@@ -25,12 +37,43 @@
 
 <section class="card listen-card">
 	<div class="listen">
+		<div class="listen-art">
+			{#if livePayload?.nowPlaying?.art}
+				<img src={livePayload.nowPlaying.art} alt="" width="96" height="96" loading="lazy" />
+			{:else if livePayload?.onAir?.djImage}
+				<img src={livePayload.onAir.djImage} alt="" width="96" height="96" loading="lazy" />
+			{:else}
+				<div class="art-fallback">▶</div>
+			{/if}
+		</div>
 		<div class="listen-copy">
-			<h2>Listening now</h2>
-			<p class="muted">
-				Hit play and take Version Radio with you — the player stays pinned to the bottom of the
-				screen while you browse.
-			</p>
+			<h2>
+				On air now
+				{#if livePayload}
+					{#if livePayload.live.isLive}
+						<em class="badge live">Live{livePayload.live.streamerName ? ` · ${livePayload.live.streamerName}` : ''}</em>
+					{:else}
+						<em class="badge replay">Replay</em>
+					{/if}
+				{/if}
+			</h2>
+			{#if livePayload?.nowPlaying?.title}
+				<p class="track">
+					<strong>{livePayload.nowPlaying.title}</strong>
+					{#if livePayload.nowPlaying.artist} — {livePayload.nowPlaying.artist}{/if}
+				</p>
+			{:else}
+				<p class="muted">Hit play and take Version Radio with you — the player stays pinned to the bottom of the screen while you browse.</p>
+			{/if}
+			{#if livePayload?.trackShow}
+				<a class="showlink" href={`/shows/${livePayload.trackShow.id}`}>On air: {livePayload.trackShow.title} →</a>
+			{:else if livePayload?.onAir}
+				<a class="showlink" href={`/shows/${livePayload.onAir.id}`}>On air: {livePayload.onAir.title} →</a>
+			{:else if livePayload?.next}
+				<span class="muted">
+					Up next: {livePayload.next.title} · {fmtTime(livePayload.next.startMinutes)}
+				</span>
+			{/if}
 		</div>
 		<button class="big-play" onclick={requestPlay} aria-label="Play live stream">▶</button>
 	</div>
@@ -106,6 +149,57 @@
 	.card h2 {
 		margin: 0 0 0.4rem;
 		font-size: 1.1rem;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.badge {
+		font-style: normal;
+		font-size: 0.62rem;
+		letter-spacing: 0.08em;
+		padding: 0.1rem 0.45rem;
+		border-radius: 999px;
+		text-transform: uppercase;
+		white-space: nowrap;
+	}
+
+	.badge.live {
+		background: rgba(255, 77, 109, 0.15);
+		border: 1px solid rgba(255, 77, 109, 0.5);
+		color: #ff8098;
+		animation: pulse 2s ease-in-out infinite;
+	}
+
+	.badge.replay {
+		background: var(--vr-surface-raised);
+		border: 1px solid var(--vr-border);
+		color: var(--vr-muted);
+	}
+
+	@keyframes pulse {
+		0%,
+		100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.55;
+		}
+	}
+
+	.track {
+		margin: 0 0 0.5rem;
+		color: var(--vr-text);
+	}
+
+	.showlink {
+		color: var(--vr-accent-strong);
+		text-decoration: none;
+		display: inline-block;
+	}
+
+	.showlink:hover {
+		text-decoration: underline;
 	}
 
 	.muted {
@@ -119,6 +213,27 @@
 		justify-content: space-between;
 		gap: 1.5rem;
 		flex-wrap: wrap;
+	}
+
+	.listen-art {
+		flex-shrink: 0;
+	}
+
+	.listen-art img,
+	.art-fallback {
+		width: 96px;
+		height: 96px;
+		border-radius: 14px;
+		object-fit: cover;
+		border: 1px solid var(--vr-border);
+		background: var(--vr-surface-raised);
+	}
+
+	.art-fallback {
+		display: grid;
+		place-items: center;
+		color: var(--vr-muted);
+		font-size: 1.4rem;
 	}
 
 	.listen-copy {

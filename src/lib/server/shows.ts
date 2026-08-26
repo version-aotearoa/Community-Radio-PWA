@@ -20,9 +20,12 @@ export interface BroadcastRow {
 	start_minutes: number;
 	duration_minutes: number;
 	interval_weeks: number;
+	replay_url: string | null;
 	created_at: number;
 	updated_at: number;
 }
+
+import { extractReplayTrackId, replayPlayUrl as azReplayPlayUrl } from '$lib/azuracast';
 
 export interface TrackRow {
 	id: string;
@@ -151,6 +154,30 @@ export async function getBroadcast(db: D1Database, id: string): Promise<Broadcas
 	return db.prepare('SELECT * FROM broadcast WHERE id = ?').bind(id).first() as Promise<BroadcastRow | null>;
 }
 
+/**
+ * Store (or clear) a broadcast's replay link. Accepts a bare track id or a raw
+ * on-demand download URL; stores the canonical absolute play URL.
+ * Returns the stored value (null when cleared).
+ */
+export async function setBroadcastReplayUrl(
+	db: D1Database,
+	broadcastId: string,
+	url: string | null
+): Promise<string | null> {
+	const replay_url = url ? replayPlayUrl(url) : null;
+	await db
+		.prepare('UPDATE broadcast SET replay_url = ?, updated_at = ? WHERE id = ?')
+		.bind(replay_url, now(), broadcastId)
+		.run();
+	return replay_url;
+}
+
+/** Derive the canonical play URL from a pasted URL or bare track id (or null). */
+export function replayPlayUrl(input: string): string | null {
+	const id = extractReplayTrackId(input);
+	return id ? azReplayPlayUrl(id) : null;
+}
+
 /* ------------------------------------------------------------------ */
 /* Shows                                                               */
 /* ------------------------------------------------------------------ */
@@ -161,12 +188,13 @@ export async function getShow(db: D1Database, id: string): Promise<ShowRow | nul
 
 export interface ShowWithDj extends ShowRow {
 	dj_name: string | null;
+	dj_image: string | null;
 }
 
 export async function getShowWithDj(db: D1Database, id: string): Promise<ShowWithDj | null> {
 	return db
 		.prepare(
-			`SELECT s.*, u.name AS dj_name
+			`SELECT s.*, u.name AS dj_name, u.image AS dj_image
 			 FROM show s
 			 LEFT JOIN user u ON u.id = s.dj_id
 			 WHERE s.id = ?`
@@ -224,6 +252,71 @@ export function cycleWeekOf(dateStr: string): number {
 export interface UpcomingBroadcast extends BroadcastRow {
 	title: string;
 	dj_name: string | null;
+}
+
+export interface AiringInfo extends UpcomingBroadcast {
+	show_id: string;
+	dj_image: string | null;
+}
+
+/** Broadcast airing right now (date + minutes given in station-local time). */
+export async function getOnAirBroadcast(
+	db: D1Database,
+	date: string,
+	minutes: number
+): Promise<AiringInfo | null> {
+	return db
+		.prepare(
+			`SELECT b.*, s.title, u.name AS dj_name, u.image AS dj_image
+			 FROM broadcast b
+			 JOIN show s ON s.id = b.show_id
+			 LEFT JOIN user u ON u.id = s.dj_id
+			 WHERE b.date = ? AND b.start_minutes <= ? AND ? < b.start_minutes + b.duration_minutes
+			   AND s.active = 1
+			 LIMIT 1`
+		)
+		.bind(date, minutes, minutes)
+		.first() as Promise<AiringInfo | null>;
+}
+
+/** The next upcoming broadcast on or after `minutes` on/after `date`. */
+export async function getNextBroadcast(
+	db: D1Database,
+	date: string,
+	minutes: number
+): Promise<AiringInfo | null> {
+	return db
+		.prepare(
+			`SELECT b.*, s.title, u.name AS dj_name, u.image AS dj_image
+			 FROM broadcast b
+			 JOIN show s ON s.id = b.show_id
+			 LEFT JOIN user u ON u.id = s.dj_id
+			 WHERE s.active = 1
+			   AND (b.date > ? OR (b.date = ? AND b.start_minutes > ?))
+			 ORDER BY b.date, b.start_minutes
+			 LIMIT 1`
+		)
+		.bind(date, date, minutes)
+		.first() as Promise<AiringInfo | null>;
+}
+
+/** Current date (YYYY-MM-DD) and minutes-since-midnight in a given IANA timezone. */
+export function zonedNow(timeZone = 'Pacific/Auckland'): { date: string; minutes: number } {
+	const now = new Date();
+	const fmt = new Intl.DateTimeFormat('en-CA', {
+		timeZone,
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit',
+		hour: '2-digit',
+		minute: '2-digit',
+		hourCycle: 'h23'
+	});
+	const parts = Object.fromEntries(fmt.formatToParts(now).map((p) => [p.type, p.value]));
+	return {
+		date: `${parts.year}-${parts.month}-${parts.day}`,
+		minutes: Number(parts.hour) * 60 + Number(parts.minute)
+	};
 }
 
 /** Upcoming airings for all active shows within the next `days` days. */

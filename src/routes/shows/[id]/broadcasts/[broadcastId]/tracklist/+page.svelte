@@ -9,7 +9,7 @@
 </script>
 
 <svelte:head>
-	<title>{show.title} — tracklist — Version Radio</title>
+	<title>{show.title} — {broadcast.date} tracklist — Version Radio</title>
 </svelte:head>
 
-<TracklistEditor {show} {broadcast} {tracks} />
+<TracklistEditor {show} {broadcast} {tracks} breadcrumbHref={`/shows/${show.id}`} />

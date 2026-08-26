@@ -70,7 +70,7 @@
 				<ul>
 					{#each day.items as b (b.id)}
 						<li>
-							<a class="slot" href={`/shows/${b.show_id}`}>
+							<a class="slot" href={`/shows/${b.show_id}?from=schedule`}>
 								<span class="time">{fmtTime(b.start_minutes)}</span>
 								<span class="show">
 									<strong>{b.title}</strong>

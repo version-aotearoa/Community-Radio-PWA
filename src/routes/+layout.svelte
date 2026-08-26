@@ -9,10 +9,16 @@
 	let { children } = $props();
 
 	const user = $derived(page.data.user);
+	let menuOpen = $state(false);
+
+	function closeMenu() {
+		menuOpen = false;
+	}
 
 	async function signOut() {
 		await authClient.signOut();
 		await invalidateAll();
+		closeMenu();
 	}
 </script>
 
@@ -38,8 +44,24 @@
 				</span>
 				<span class="brand-name">Version Radio</span>
 			</a>
+			<button
+				class="menu-toggle"
+				aria-label="Menu"
+				aria-expanded={menuOpen}
+				onclick={() => (menuOpen = !menuOpen)}
+			>
+				{#if menuOpen}
+					<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+						<path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+					</svg>
+				{:else}
+					<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+						<path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+					</svg>
+				{/if}
+			</button>
 			<nav class="site-nav" aria-label="Primary">
-				<a href="/">Listen</a>
+				<a href="/shows">Shows</a>
 				<a href="/schedule">Schedule</a>
 				<a href="/chat">Chat</a>
 			</nav>
@@ -55,6 +77,24 @@
 				<a class="signin" href="/login">Sign in</a>
 			{/if}
 		</header>
+
+		{#if menuOpen}
+			<div class="mobile-menu">
+				<nav aria-label="Mobile">
+					<a href="/shows" onclick={closeMenu}>Shows</a>
+					<a href="/schedule" onclick={closeMenu}>Schedule</a>
+					<a href="/chat" onclick={closeMenu}>Chat</a>
+					{#if user}
+						{#if user.role === 'dj' || user.role === 'admin'}
+							<a href="/studio" onclick={closeMenu}>DJ Studio</a>
+						{/if}
+						<button onclick={signOut}>Sign out</button>
+					{:else}
+						<a href="/login" onclick={closeMenu}>Sign in</a>
+					{/if}
+				</nav>
+			</div>
+		{/if}
 
 		<main class="site-main">
 			{@render children()}
@@ -131,6 +171,65 @@
 	.site-nav a:hover {
 		color: var(--vr-text);
 		background: var(--vr-surface);
+	}
+
+	.menu-toggle {
+		display: none;
+		margin-left: auto;
+		background: none;
+		border: none;
+		color: var(--vr-text);
+		padding: 0.4rem;
+		cursor: pointer;
+	}
+
+	.mobile-menu {
+		position: fixed;
+		top: 57px;
+		left: 0;
+		right: 0;
+		z-index: 25;
+		background: var(--vr-surface-raised);
+		border-bottom: 1px solid var(--vr-border);
+		padding: 0.5rem 1rem 0.75rem;
+		box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
+	}
+
+	.mobile-menu nav {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+
+	.mobile-menu a,
+	.mobile-menu button {
+		color: var(--vr-text);
+		text-decoration: none;
+		font-size: 1rem;
+		padding: 0.6rem 0.4rem;
+		border-radius: 8px;
+		background: none;
+		border: none;
+		text-align: left;
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.mobile-menu a:hover,
+	.mobile-menu button:hover {
+		background: var(--vr-surface);
+	}
+
+	@media (max-width: 720px) {
+		.menu-toggle {
+			display: block;
+		}
+
+		.site-nav,
+		.account,
+		.signin {
+			display: none;
+		}
 	}
 
 	.site-main {

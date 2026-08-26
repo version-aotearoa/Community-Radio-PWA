@@ -1,0 +1,109 @@
+import { json } from '@sveltejs/kit';
+import { getNextBroadcast, getOnAirBroadcast, getSchedule, zonedNow } from '$lib/server/shows';
+import type { RequestHandler } from './$types';
+
+const AZURACAST = 'https://stream.version.nz/api/nowplaying';
+
+function normalize(s: string): string {
+	return s.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
+}
+
+/** Match a track's artist/text against a known show name (either direction, min 4 chars). */
+function matchShowName(title: string | null | undefined, artist: string | null | undefined, text: string | null | undefined, shows: { id: string; title: string }[]) {
+	const haystacks = [artist, title, text]
+		.filter((s): s is string => Boolean(s))
+		.map(normalize)
+		.filter((s) => s.length >= 4);
+	if (haystacks.length === 0) return null;
+	for (const show of shows) {
+		const needle = normalize(show.title);
+		if (needle.length < 4) continue;
+		if (
+			haystacks.some((h) => h.includes(needle)) ||
+			haystacks.some((h) => needle.includes(h))
+		) {
+			return { id: show.id, title: show.title };
+		}
+	}
+	return null;
+}
+
+export const GET: RequestHandler = async ({ platform, fetch: cfFetch }) => {
+	const db = platform!.env.DB;
+	const now = zonedNow();
+
+	try {
+		const upstream = await cfFetch(AZURACAST, { signal: AbortSignal.timeout(8000) });
+		if (!upstream.ok) throw new Error(`upstream ${upstream.status}`);
+		const data = (await upstream.json()) as Array<Record<string, unknown>>;
+		const station = data[0] ?? {};
+
+		const np = (station.now_playing ?? {}) as Record<string, unknown>;
+		const song = (np.song ?? {}) as Record<string, unknown>;
+		const live = (station.live ?? {}) as Record<string, unknown>;
+
+		const shows = await getSchedule(db);
+		const trackShow = matchShowName(
+			typeof song.title === 'string' ? song.title : null,
+			typeof song.artist === 'string' ? song.artist : null,
+			typeof song.text === 'string' ? song.text : null,
+			shows
+		);
+
+		const [onAir, next] = await Promise.all([
+			getOnAirBroadcast(db, now.date, now.minutes),
+			getNextBroadcast(db, now.date, now.minutes)
+		]);
+
+		return json(
+			{
+				isOnline: Boolean(station.is_online ?? true),
+				live: {
+					isLive: Boolean(live.is_live),
+					streamerName: typeof live.streamer_name === 'string' ? live.streamer_name : null
+				},
+				nowPlaying: {
+					title: typeof song.title === 'string' ? song.title : null,
+					artist: typeof song.artist === 'string' ? song.artist : null,
+					text: typeof song.text === 'string' ? song.text : null,
+					art: typeof song.art === 'string' ? song.art : null,
+					playedAt: typeof np.played_at === 'number' ? np.played_at : null,
+					duration: typeof np.duration === 'number' ? np.duration : null,
+					elapsed: typeof np.elapsed === 'number' ? np.elapsed : null,
+					remaining: typeof np.remaining === 'number' ? np.remaining : null
+				},
+				trackShow,
+				onAir: onAir
+					? {
+							id: onAir.show_id,
+							title: onAir.title,
+							djName: onAir.dj_name,
+							djImage: onAir.dj_image,
+							date: onAir.date,
+							startMinutes: onAir.start_minutes,
+							durationMinutes: onAir.duration_minutes
+						}
+					: null,
+				next: next
+					? {
+							id: next.show_id,
+							title: next.title,
+							djName: next.dj_name,
+							djImage: next.dj_image,
+							date: next.date,
+							startMinutes: next.start_minutes
+						}
+					: null,
+				now
+			},
+			{
+				headers: { 'Cache-Control': 'public, max-age=15' }
+			}
+		);
+	} catch {
+		return json(
+			{ isOnline: false, live: { isLive: false, streamerName: null }, nowPlaying: null, trackShow: null, onAir: null, next: null, now },
+			{ headers: { 'Cache-Control': 'public, max-age=10' } }
+		);
+	}
+};

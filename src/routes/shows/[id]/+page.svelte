@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { Button } from '@svar-ui/svelte-core';
+	import { page } from '$app/state';
+	import { playMedia } from '$lib/stores/player';
+	import { replayArtFromUrl } from '$lib/azuracast';
 
 	let { data } = $props();
 
@@ -7,6 +10,11 @@
 	const upcoming = $derived(data.upcoming);
 	const past = $derived(data.past);
 	const tracks = $derived(data.tracks);
+
+	const backHref = $derived(
+		page.url.searchParams.get('from') === 'schedule' ? '/schedule' : '/shows'
+	);
+	const backLabel = $derived(backHref === '/schedule' ? 'Schedule' : 'Shows');
 
 	const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -37,6 +45,16 @@
 		if (show.interval_weeks === 1) return 'Every week';
 		return `Every ${show.interval_weeks} weeks`;
 	}
+
+	function playReplay(b: { replay_url: string | null; date: string }) {
+		if (!b.replay_url) return;
+		playMedia({
+			url: b.replay_url,
+			title: `${show.title} — ${fmtDate(b.date)}`,
+			artist: show.dj_name ?? null,
+			art: replayArtFromUrl(b.replay_url)
+		});
+	}
 </script>
 
 <svelte:head>
@@ -45,9 +63,12 @@
 
 <div class="head">
 	<div>
-		<p class="eyebrow"><a href="/schedule">← Schedule</a></p>
+		<p class="eyebrow"><a href={backHref}>← {backLabel}</a></p>
 		<h1>{show.title}</h1>
 		<p class="subtitle">
+			{#if show.dj_image}
+				<img class="dj-avatar" src={show.dj_image} alt="" width="24" height="24" loading="lazy" />
+			{/if}
 			{DAY_NAMES[show.day_of_week]}s · {fmtTime(show.start_minutes)}–{fmtTime(
 				show.start_minutes + show.duration_minutes
 			)} · {cycleLabel(show)} · {show.dj_name || 'Version Radio'}
@@ -70,11 +91,39 @@
 					<header>
 						<strong>{fmtDate(b.date)}</strong>
 						<span>{fmtTime(b.start_minutes)}–{fmtTime(b.start_minutes + b.duration_minutes)}</span>
+						{#if data.canEdit}
+							<a class="edit-mini" href={`/shows/${show.id}/broadcasts/${b.id}/tracklist`}>Edit</a>
+						{/if}
 					</header>
 					{#if tracks[b.id]?.length}
-						<p class="hint">Tracklist available after the show.</p>
+						<ol class="tracklist">
+							{#each tracks[b.id] as t (t.id)}
+								<li>
+									<span class="num">{t.position + 1}</span>
+									<span class="track-title">{t.title}</span>
+									{#if t.artist}<span class="artist">{t.artist}</span>{/if}
+									{#if t.album}<span class="album">{t.album}</span>{/if}
+								</li>
+							{/each}
+						</ol>
 					{:else}
 						<p class="hint">Tracklist will be added after the show.</p>
+					{/if}
+					{#if b.replay_url}
+						<div class="replay">
+							{#if replayArtFromUrl(b.replay_url)}
+								<img
+									class="replay-art"
+									src={replayArtFromUrl(b.replay_url) ?? ''}
+									alt=""
+									width="40"
+									height="40"
+									loading="lazy"
+								/>
+							{/if}
+							<button class="replay-btn" onclick={() => playReplay(b)}>▶ Replay</button>
+							<span class="replay-note">Recording of this broadcast</span>
+						</div>
 					{/if}
 				</li>
 			{/each}
@@ -91,6 +140,9 @@
 					<header>
 						<strong>{fmtDate(b.date)}</strong>
 						<span>{fmtTime(b.start_minutes)}–{fmtTime(b.start_minutes + b.duration_minutes)}</span>
+						{#if data.canEdit}
+							<a class="edit-mini" href={`/shows/${show.id}/broadcasts/${b.id}/tracklist`}>Edit</a>
+						{/if}
 					</header>
 					{#if tracks[b.id]?.length}
 						<ol class="tracklist">
@@ -105,6 +157,22 @@
 						</ol>
 					{:else}
 						<p class="hint">No tracklist for this broadcast.</p>
+					{/if}
+					{#if b.replay_url}
+						<div class="replay">
+							{#if replayArtFromUrl(b.replay_url)}
+								<img
+									class="replay-art"
+									src={replayArtFromUrl(b.replay_url) ?? ''}
+									alt=""
+									width="40"
+									height="40"
+									loading="lazy"
+								/>
+							{/if}
+							<button class="replay-btn" onclick={() => playReplay(b)}>▶ Replay</button>
+							<span class="replay-note">Recording of this broadcast</span>
+						</div>
 					{/if}
 				</li>
 			{/each}
@@ -143,6 +211,18 @@
 	.subtitle {
 		margin: 0.4rem 0 0;
 		color: var(--vr-muted);
+		display: flex;
+		align-items: center;
+		gap: 0.45rem;
+		flex-wrap: wrap;
+	}
+
+	.dj-avatar {
+		width: 24px;
+		height: 24px;
+		border-radius: 50%;
+		object-fit: cover;
+		border: 1px solid var(--vr-border);
 	}
 
 	.desc {
@@ -199,6 +279,21 @@
 		font-variant-numeric: tabular-nums;
 	}
 
+	.edit-mini {
+		margin-left: auto;
+		color: var(--vr-live);
+		border: 1px solid var(--vr-border);
+		border-radius: 8px;
+		padding: 0.15rem 0.6rem;
+		font-size: 0.8rem;
+		text-decoration: none;
+		white-space: nowrap;
+	}
+
+	.edit-mini:hover {
+		border-color: var(--vr-live);
+	}
+
 	.hint {
 		color: var(--vr-muted);
 		font-size: 0.9rem;
@@ -238,5 +333,41 @@
 	.album {
 		color: var(--vr-muted);
 		font-size: 0.85rem;
+	}
+
+	.replay {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin-top: 0.85rem;
+		padding-top: 0.75rem;
+		border-top: 1px dashed var(--vr-border);
+	}
+
+	.replay-art {
+		width: 40px;
+		height: 40px;
+		border-radius: 8px;
+		object-fit: cover;
+		border: 1px solid var(--vr-border);
+	}
+
+	.replay-btn {
+		border: 1px solid var(--vr-accent);
+		background: none;
+		color: var(--vr-accent-strong);
+		border-radius: 999px;
+		padding: 0.35rem 0.9rem;
+		font-size: 0.85rem;
+		cursor: pointer;
+	}
+
+	.replay-btn:hover {
+		background: color-mix(in srgb, var(--vr-accent) 12%, transparent);
+	}
+
+	.replay-note {
+		color: var(--vr-muted);
+		font-size: 0.8rem;
 	}
 </style>
