@@ -1,0 +1,20 @@
+# Local-only Cloudflare bindings and secrets (never commit real values)
+# Copy to .dev.vars for local `vite dev` / `wrangler` runs.
+
+# Better Auth
+AUTH_SECRET=
+AUTH_TRUST_HOST=true
+
+# OAuth providers (optional until configured)
+GITHUB_ID=
+GITHUB_SECRET=
+GOOGLE_ID=
+GOOGLE_SECRET=
+
+# Chat worker public URL (local: http://localhost:8790)
+PUBLIC_CHAT_URL=http://localhost:8790
+
+# Cloudflare Turnstile — TEST keys (always pass). Replace before production.
+TURNSTILE_SECRET=1x0000000000000000000000000000000AA
+TURNSTILE_HOSTNAMES=localhost,127.0.0.1,example.com
+PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA

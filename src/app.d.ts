@@ -1,0 +1,68 @@
+/// <reference path="../worker-configuration.d.ts" />
+
+declare global {
+	namespace App {
+		interface Session {
+			id: string;
+			token: string;
+			userId: string;
+			expiresAt: Date;
+			ipAddress?: string | null;
+			userAgent?: string | null;
+		}
+
+		interface User {
+			id: string;
+			name: string;
+			email: string;
+			emailVerified: boolean;
+			image?: string | null;
+			role: 'listener' | 'dj' | 'admin';
+			createdAt: Date;
+			updatedAt: Date;
+		}
+
+		// Server-side auth session / user context (populated in hooks.server.ts)
+		interface Locals {
+			user: App.User | null;
+			session: App.Session | null;
+		}
+
+		// Cloudflare runtime bindings available on event.platform
+		interface Platform {
+			env: CloudflareBindings;
+			ctx: ExecutionContext;
+			caches: CacheStorage;
+			cf: IncomingRequestCfProperties;
+		}
+
+		interface PageData {
+			user: App.Locals['user'];
+		}
+	}
+
+	// Secrets / vars not derived from wrangler bindings.
+	interface CloudflareBindings {
+		AUTH_SECRET: string;
+		GITHUB_ID?: string;
+		GITHUB_SECRET?: string;
+		GOOGLE_ID?: string;
+		GOOGLE_SECRET?: string;
+		EMAIL_FROM?: string;
+		EMAIL?: SendEmail;
+		PUBLIC_CHAT_URL?: string;
+		TURNSTILE_SECRET?: string;
+		TURNSTILE_HOSTNAMES?: string;
+		PUBLIC_TURNSTILE_SITE_KEY?: string;
+	}
+
+	interface Window {
+		turnstile?: {
+			render: (container: HTMLElement, config: Record<string, unknown>) => number;
+			reset: (widgetId: number) => void;
+			remove: (widgetId: number) => void;
+		};
+	}
+}
+
+export {};
