@@ -8,8 +8,15 @@ export async function handle({ event, resolve }) {
 
 		const session = await auth.api.getSession({ headers: event.request.headers });
 		if (session) {
-			event.locals.session = session.session as App.Session;
-			event.locals.user = session.user as App.User;
+			if (session.user.active === false) {
+				// Deactivated user: destroy their session and treat as signed out.
+				await auth.api.signOut({ headers: event.request.headers });
+				event.locals.session = null;
+				event.locals.user = null;
+			} else {
+				event.locals.session = session.session as App.Session;
+				event.locals.user = session.user as App.User;
+			}
 		}
 
 		return svelteKitHandler({ event, resolve, auth, building });

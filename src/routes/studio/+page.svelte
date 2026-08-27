@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { Button, Field, Text, Combo } from '@svar-ui/svelte-core';
 	import type { ShowRow } from '$lib/server/shows';
 
@@ -16,6 +17,101 @@
 	let notice = $state('');
 
 	const shows = $derived(data.shows);
+	const isAdmin = $derived(data.user?.role === 'admin');
+
+	interface AdminUser {
+		id: string;
+		name: string;
+		email: string;
+		role: 'listener' | 'dj' | 'admin';
+		active: number;
+		createdAt: string;
+	}
+
+	interface ChatMessage {
+		id: string;
+		ts: number;
+		name: string;
+		content: string;
+		userId?: string | null;
+	}
+
+	let adminUsers = $state<AdminUser[]>([]);
+	const emailById = $derived(new Map(adminUsers.map((u) => [u.id, u.email])));
+	let chatMessages = $state<ChatMessage[]>([]);
+	let chatLoaded = $state(false);
+	let purgeName = $state('');
+
+	async function loadAdmin() {
+		if (!isAdmin) return;
+		const usersRes = await fetch('/api/admin/users');
+		if (usersRes.ok) adminUsers = await usersRes.json();
+		await loadChat();
+	}
+
+	async function loadChat() {
+		const res = await fetch('/api/admin/chat');
+		if (res.ok) {
+			chatMessages = await res.json();
+			chatLoaded = true;
+		}
+	}
+
+	async function setActive(u: AdminUser, active: boolean) {
+		const res = await fetch(`/api/admin/users/${u.id}`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ action: 'active', value: active })
+		});
+		if (res.ok) {
+			u.active = active ? 1 : 0;
+		}
+	}
+
+	async function setRole(u: AdminUser, role: AdminUser['role']) {
+		const res = await fetch(`/api/admin/users/${u.id}`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ action: 'role', value: role })
+		});
+		if (res.ok) {
+			u.role = role;
+		}
+	}
+
+	async function deleteMessage(id: string) {
+		const res = await fetch(`/api/admin/chat/messages/${id}`, { method: 'DELETE' });
+		if (res.ok) chatMessages = chatMessages.filter((m) => m.id !== id);
+	}
+
+	async function purgeChatByName() {
+		const name = purgeName.trim();
+		if (!name) return;
+		const res = await fetch('/api/admin/chat/purge', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ name })
+		});
+		if (res.ok) {
+			chatMessages = chatMessages.filter((m) => m.name !== name);
+			purgeName = '';
+		}
+	}
+
+	async function purgeChatByUser(userId: string) {
+		const res = await fetch('/api/admin/chat/purge', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ userId })
+		});
+		if (res.ok) chatMessages = chatMessages.filter((m) => m.userId !== userId);
+	}
+
+	function fmtChatTime(ts: number) {
+		return new Date(ts).toLocaleTimeString('en-NZ', { hour: '2-digit', minute: '2-digit' });
+	}
+
+	onMount(loadAdmin);
 
 	const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 	const REPEATS = [
@@ -139,6 +235,84 @@
 	</form>
 </section>
 
+{#if isAdmin}
+	<section class="card">
+		<h2>Admin — users</h2>
+		{#if adminUsers.length === 0}
+			<p class="muted">Loading users…</p>
+		{:else}
+			<div class="admin-table">
+				{#each adminUsers as u (u.id)}
+					<div class="admin-row">
+						<div class="user-main">
+							<strong>{u.name || u.email}</strong>
+							<span class="meta">{u.email}</span>
+						</div>
+						<label class="role-label" title="Role">
+							<span class="meta">Role</span>
+							<select
+								value={u.role}
+								onchange={(e) => setRole(u, e.currentTarget.value as AdminUser['role'])}
+							>
+								<option value="listener">Listener</option>
+								<option value="dj">DJ</option>
+								<option value="admin">Admin</option>
+							</select>
+						</label>
+						<button
+							class="mini-btn"
+							class:off={u.active === 0}
+							onclick={() => setActive(u, u.active === 0)}
+						>
+							{u.active ? 'Deactivate' : 'Activate'}
+						</button>
+					</div>
+				{/each}
+			</div>
+		{/if}
+	</section>
+
+	<section class="card">
+		<h2>Admin — chat moderation</h2>
+		<form class="purge-row" onsubmit={(e) => { e.preventDefault(); purgeChatByName(); }}>
+			<Text bind:value={purgeName} placeholder="Name to purge (e.g. Troublemaker)" css="vr-input" />
+			<Button css="vr-cta ghost" onclick={purgeChatByName}>Purge by name</Button>
+		</form>
+		{#if !chatLoaded}
+			<p class="muted">Loading recent messages…</p>
+		{:else if chatMessages.length === 0}
+			<p class="muted">No messages yet.</p>
+		{:else}
+			<div class="admin-table chat-list">
+				{#each chatMessages as m (m.id)}
+					<div class="admin-row">
+						<div class="user-main">
+							<span class="chat-line">
+								<strong>{m.name}</strong> <em class="chat-time">{fmtChatTime(m.ts)}</em>
+								{#if m.userId}
+									<em class="chat-time">· {emailById.get(m.userId) ?? 'account'}</em>
+								{/if}
+							</span>
+							<span class="chat-content">{m.content}</span>
+						</div>
+						<div class="chat-actions">
+							{#if m.userId}
+								<button
+									class="mini-btn danger"
+									onclick={() => purgeChatByUser(m.userId!)}
+								>
+									Purge user
+								</button>
+							{/if}
+							<button class="mini-btn danger" onclick={() => deleteMessage(m.id)}>Delete</button>
+						</div>
+					</div>
+				{/each}
+			</div>
+		{/if}
+	</section>
+{/if}
+
 <style>
 	.page-title {
 		font-size: 1.6rem;
@@ -196,6 +370,12 @@
 		gap: 0.75rem;
 	}
 
+	@media (max-width: 640px) {
+		.row {
+			grid-template-columns: 1fr;
+		}
+	}
+
 	.notice {
 		margin: 0.5rem 0 1rem;
 		padding: 0.6rem 0.85rem;
@@ -213,5 +393,117 @@
 		background: rgba(255, 77, 109, 0.12);
 		border: 1px solid rgba(255, 77, 109, 0.4);
 		color: #ffb3c1;
+	}
+
+	.muted {
+		color: var(--vr-muted);
+	}
+
+	.admin-table {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.admin-row {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		padding: 0.7rem 0;
+		border-bottom: 1px solid var(--vr-border);
+		justify-content: space-between;
+	}
+
+	.admin-row:last-child {
+		border-bottom: none;
+	}
+
+	.user-main {
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+	}
+
+	.role-label {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+		margin-right: auto;
+	}
+
+	.role-label select {
+		background: var(--vr-surface);
+		color: var(--vr-text);
+		border: 1px solid var(--vr-border);
+		border-radius: 8px;
+		padding: 0.25rem 0.4rem;
+	}
+
+	.mini-btn {
+		border: 1px solid var(--vr-border);
+		background: var(--vr-surface);
+		color: var(--vr-accent-strong);
+		border-radius: 8px;
+		padding: 0.3rem 0.7rem;
+		font-size: 0.8rem;
+		cursor: pointer;
+		white-space: nowrap;
+	}
+
+	.mini-btn.off {
+		color: var(--vr-live);
+	}
+
+	.mini-btn.danger {
+		color: #ff8098;
+	}
+
+	.chat-line {
+		display: inline-flex;
+		align-items: baseline;
+		gap: 0.5rem;
+	}
+
+	.chat-time {
+		color: var(--vr-muted);
+		font-style: normal;
+		font-size: 0.75rem;
+	}
+
+	.chat-content {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		max-width: 32rem;
+		color: var(--vr-text);
+		font-size: 0.9rem;
+	}
+
+	.chat-actions {
+		display: flex;
+		gap: 0.5rem;
+		align-items: center;
+	}
+
+	.purge-row {
+		display: flex;
+		gap: 0.75rem;
+		margin-bottom: 1rem;
+		flex-wrap: wrap;
+	}
+
+	@media (max-width: 640px) {
+		.admin-row {
+			flex-wrap: wrap;
+		}
+
+		.role-label {
+			margin-right: 0;
+			width: 100%;
+		}
+
+		.chat-content {
+			max-width: 100%;
+		}
 	}
 </style>

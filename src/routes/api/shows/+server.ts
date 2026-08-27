@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { createShow, getShowsForDj } from '$lib/server/shows';
+import { createShow, getAllShows, getShowsForDj } from '$lib/server/shows';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals, platform }) => {
@@ -7,7 +7,10 @@ export const GET: RequestHandler = async ({ locals, platform }) => {
 	if (!user || (user.role !== 'dj' && user.role !== 'admin')) {
 		return json({ error: 'Forbidden' }, { status: 403 });
 	}
-	const shows = await getShowsForDj(platform!.env.DB, user.id);
+	const shows =
+		user.role === 'admin'
+			? await getAllShows(platform!.env.DB)
+			: await getShowsForDj(platform!.env.DB, user.id);
 	return json(shows);
 };
 

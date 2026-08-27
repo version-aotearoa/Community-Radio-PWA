@@ -23,6 +23,15 @@
 	let error = $state('');
 	let notice = $state('');
 	let tracks = $state<TrackRow[]>(untrack(() => initialTracks));
+	// Live mirror of the grid contents. The grid's internal store is controlled
+	// by the `data` prop (resets on reinit), so the mirror is the save source.
+	// NOTE: positions in the mirror/grid are 1-based (display numbers); the DB
+	// stores 0-based (converted at the boundaries below).
+	let editable = $state<TrackRow[]>(untrack(() => toDisplayPos(initialTracks)));
+
+	function toDisplayPos(rows: TrackRow[]): TrackRow[] {
+		return rows.map((t) => ({ ...t, position: t.position + 1 }));
+	}
 
 	let replayInput = $state(untrack(() => broadcast.replay_url ?? ''));
 	let replaySaving = $state(false);
@@ -30,26 +39,56 @@
 	let replayNotice = $state('');
 	let fileInput: HTMLInputElement | undefined = $state();
 
+	const GRID_EVENTS = [
+		'update-cell',
+		'update-row',
+		'add-row',
+		'delete-row',
+		'move-item',
+		'copy-row',
+		'undo',
+		'redo'
+	] as const;
+
 	let gridData = $derived(
-		tracks.map((t) => ({
+		editable.map((t) => ({
 			id: t.id,
-			position: t.position + 1,
+			position: t.position,
 			title: t.title,
 			artist: t.artist,
-			album: t.album
+			album: t.album,
+			url: t.url ?? ''
 		}))
 	);
+
+	function resyncFromGrid() {
+		const rows = gridApi?.getState().data ?? [];
+		editable = rows.map((r: any) => ({
+			id: r.id,
+			position: Number(r.position ?? 0),
+			title: String(r.title ?? ''),
+			artist: String(r.artist ?? ''),
+			album: String(r.album ?? ''),
+			url: String(r.url ?? '')
+		}));
+	}
 
 	const columns = [
 		{ id: 'position', header: '#', width: 54 },
 		{ id: 'title', header: 'Title', width: 280, editor: 'text' },
 		{ id: 'artist', header: 'Artist', width: 240, editor: 'text' },
-		{ id: 'album', header: 'Album', width: 240, editor: 'text' }
+		{ id: 'album', header: 'Album', width: 240, editor: 'text' },
+		{ id: 'url', header: 'Link', width: 260, editor: 'text' }
 	];
 
 	function handleInit(api: any) {
 		gridApi = api;
-		api.on('move-item', () => renumber());
+		for (const ev of GRID_EVENTS) {
+			api.on(ev, () => {
+				resyncFromGrid();
+				if (ev === 'move-item') setTimeout(renumber, 0);
+			});
+		}
 	}
 
 	function renumber() {
@@ -88,7 +127,8 @@
 				position: rows.length + 1,
 				title: '',
 				artist: '',
-				album: ''
+				album: '',
+				url: ''
 			},
 			after: rows.at(-1)?.id,
 			select: true
@@ -104,6 +144,16 @@
 		renumber();
 	}
 
+	function onGridKeydown(e: KeyboardEvent) {
+		// The library's text editor treats Enter as cancel — intercept it in the
+		// capture phase and commit the pending cell value instead.
+		if (e.key !== 'Enter') return;
+		if (!gridApi?.getState().editor) return;
+		e.preventDefault();
+		e.stopPropagation();
+		gridApi.exec('close-editor', {}).catch(() => {});
+	}
+
 	async function onCsvPicked(el: HTMLInputElement) {
 		error = '';
 		const file = el.files?.[0];
@@ -115,14 +165,23 @@
 			let position = rows.length;
 			for (const t of parsed) {
 				await gridApi.exec('add-row', {
-					row: { id: crypto.randomUUID(), position: ++position, title: t.title, artist: t.artist, album: t.album },
+					row: {
+						id: crypto.randomUUID(),
+						position: ++position,
+						title: t.title,
+						artist: t.artist,
+						album: t.album,
+						url: t.url ?? ''
+					},
 					after: rows.at(-1)?.id
 				});
 			}
 			renumber();
+			const withLinks = parsed.filter((t) => t.url).length;
+			const linkNote = withLinks ? ` — ${withLinks} with link${withLinks === 1 ? '' : 's'}` : '';
 			notice = header
-				? `Imported ${parsed.length} tracks from CSV.`
-				: `Imported ${parsed.length} tracks (no header row; columns read as title, artist, album).`;
+				? `Imported ${parsed.length} tracks from CSV${linkNote}.`
+				: `Imported ${parsed.length} tracks (no header row; columns read as title, artist, album${withLinks ? `, link` : ''})${linkNote}.`;
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Could not read that file.';
 		} finally {
@@ -170,10 +229,12 @@
 		error = '';
 		notice = '';
 		saving = true;
-		const rows = gridApi?.getState().data ?? [];
-		const payload = rows
-			.map((r: any) => ({ title: r.title ?? '', artist: r.artist ?? '', album: r.album ?? '' }))
-			.filter((t: { title: string }) => t.title.trim() !== '');
+		// Commit any still-open cell editor so its pending value reaches row data.
+		if (gridApi) gridApi.exec('close-editor', {}).catch(() => {});
+		resyncFromGrid();
+		const payload = editable
+			.map((t) => ({ title: t.title, artist: t.artist, album: t.album, url: t.url ?? '' }))
+			.filter((t) => t.title.trim() !== '' || t.url.trim() !== '');
 
 		const res = await fetch(`/api/shows/${show.id}/broadcasts/${broadcast.id}/tracklist`, {
 			method: 'PUT',
@@ -187,8 +248,10 @@
 		}
 		const saved = (await res.json()) as TrackRow[];
 		tracks = saved;
+		editable = toDisplayPos(saved);
 		saveVersion += 1;
-		notice = `Tracklist saved (${saved.length} tracks).`;
+		const embedded = saved.filter((t) => t.embed_id).length;
+		notice = `Tracklist saved (${saved.length} tracks)${embedded ? ` — embedded ${embedded} Bandcamp player${embedded === 1 ? '' : 's'}` : '.'}`;
 	}
 </script>
 
@@ -247,7 +310,7 @@
 	<div class="notice ok">{notice}</div>
 {/if}
 
-<div class="grid-wrap">
+<div class="grid-wrap" onkeydowncapture={onGridKeydown}>
 	{#key saveVersion}
 		<WillowDark>
 			<Grid

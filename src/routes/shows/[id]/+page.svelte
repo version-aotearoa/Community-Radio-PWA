@@ -9,7 +9,6 @@
 	const show = $derived(data.show);
 	const upcoming = $derived(data.upcoming);
 	const past = $derived(data.past);
-	const tracks = $derived(data.tracks);
 
 	const backHref = $derived(
 		page.url.searchParams.get('from') === 'schedule' ? '/schedule' : '/shows'
@@ -95,20 +94,6 @@
 							<a class="edit-mini" href={`/shows/${show.id}/broadcasts/${b.id}/tracklist`}>Edit</a>
 						{/if}
 					</header>
-					{#if tracks[b.id]?.length}
-						<ol class="tracklist">
-							{#each tracks[b.id] as t (t.id)}
-								<li>
-									<span class="num">{t.position + 1}</span>
-									<span class="track-title">{t.title}</span>
-									{#if t.artist}<span class="artist">{t.artist}</span>{/if}
-									{#if t.album}<span class="album">{t.album}</span>{/if}
-								</li>
-							{/each}
-						</ol>
-					{:else}
-						<p class="hint">Tracklist will be added after the show.</p>
-					{/if}
 					{#if b.replay_url}
 						<div class="replay">
 							{#if replayArtFromUrl(b.replay_url)}
@@ -121,8 +106,11 @@
 									loading="lazy"
 								/>
 							{/if}
-							<button class="replay-btn" onclick={() => playReplay(b)}>▶ Replay</button>
-							<span class="replay-note">Recording of this broadcast</span>
+							<button class="replay-btn" onclick={() => playReplay(b)}>
+								<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z" fill="currentColor" /></svg>
+								Replay
+							</button>
+							<a class="view-show" href={`/shows/${show.id}/broadcasts/${b.id}`}>View show →</a>
 						</div>
 					{/if}
 				</li>
@@ -144,20 +132,6 @@
 							<a class="edit-mini" href={`/shows/${show.id}/broadcasts/${b.id}/tracklist`}>Edit</a>
 						{/if}
 					</header>
-					{#if tracks[b.id]?.length}
-						<ol class="tracklist">
-							{#each tracks[b.id] as t (t.id)}
-								<li>
-									<span class="num">{t.position + 1}</span>
-									<span class="track-title">{t.title}</span>
-									{#if t.artist}<span class="artist">{t.artist}</span>{/if}
-									{#if t.album}<span class="album">{t.album}</span>{/if}
-								</li>
-							{/each}
-						</ol>
-					{:else}
-						<p class="hint">No tracklist for this broadcast.</p>
-					{/if}
 					{#if b.replay_url}
 						<div class="replay">
 							{#if replayArtFromUrl(b.replay_url)}
@@ -170,8 +144,11 @@
 									loading="lazy"
 								/>
 							{/if}
-							<button class="replay-btn" onclick={() => playReplay(b)}>▶ Replay</button>
-							<span class="replay-note">Recording of this broadcast</span>
+							<button class="replay-btn" onclick={() => playReplay(b)}>
+								<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z" fill="currentColor" /></svg>
+								Replay
+							</button>
+							<a class="view-show" href={`/shows/${show.id}/broadcasts/${b.id}`}>View show →</a>
 						</div>
 					{/if}
 				</li>
@@ -300,41 +277,6 @@
 		margin: 0;
 	}
 
-	.tracklist {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.35rem;
-	}
-
-	.tracklist li {
-		display: flex;
-		gap: 0.6rem;
-		align-items: baseline;
-	}
-
-	.num {
-		color: var(--vr-muted);
-		font-variant-numeric: tabular-nums;
-		width: 1.4rem;
-		flex-shrink: 0;
-	}
-
-	.track-title {
-		font-weight: 600;
-	}
-
-	.artist {
-		color: var(--vr-muted);
-	}
-
-	.album {
-		color: var(--vr-muted);
-		font-size: 0.85rem;
-	}
-
 	.replay {
 		display: flex;
 		align-items: center;
@@ -353,6 +295,9 @@
 	}
 
 	.replay-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
 		border: 1px solid var(--vr-accent);
 		background: none;
 		color: var(--vr-accent-strong);
@@ -362,12 +307,27 @@
 		cursor: pointer;
 	}
 
+	.replay-btn svg {
+		width: 13px;
+		height: 13px;
+		display: block;
+		margin-top: 1px;
+		flex-shrink: 0;
+	}
+
 	.replay-btn:hover {
 		background: color-mix(in srgb, var(--vr-accent) 12%, transparent);
 	}
 
-	.replay-note {
-		color: var(--vr-muted);
-		font-size: 0.8rem;
+	.view-show {
+		color: var(--vr-accent-strong);
+		font-size: 0.85rem;
+		text-decoration: none;
+		margin-left: auto;
+		white-space: nowrap;
+	}
+
+	.view-show:hover {
+		text-decoration: underline;
 	}
 </style>

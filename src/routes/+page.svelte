@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { Button } from '@svar-ui/svelte-core';
 	import { onMount } from 'svelte';
-	import { requestPlay } from '$lib/stores/player';
+	import { requestPlay, requestTogglePlay, streamPlaying } from '$lib/stores/player';
 	import { live, startLivePolling } from '$lib/stores/live';
 
 	const livePayload = $derived($live);
+	const isPlaying = $derived($streamPlaying);
 
 	function fmtTime(mins: number) {
 		const h = Math.floor(mins / 60);
@@ -43,7 +44,9 @@
 			{:else if livePayload?.onAir?.djImage}
 				<img src={livePayload.onAir.djImage} alt="" width="96" height="96" loading="lazy" />
 			{:else}
-				<div class="art-fallback">▶</div>
+				<div class="art-fallback">
+					<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z" fill="currentColor" /></svg>
+				</div>
 			{/if}
 		</div>
 		<div class="listen-copy">
@@ -75,7 +78,17 @@
 				</span>
 			{/if}
 		</div>
-		<button class="big-play" onclick={requestPlay} aria-label="Play live stream">▶</button>
+		<button class="big-play" onclick={requestTogglePlay} aria-label={isPlaying ? 'Pause live stream' : 'Play live stream'}>
+			{#if isPlaying}
+				<svg viewBox="0 0 24 24" aria-hidden="true">
+					<path d="M7 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0zM15 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0z" fill="currentColor" />
+				</svg>
+			{:else}
+				<svg viewBox="0 0 24 24" aria-hidden="true">
+					<path d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z" fill="currentColor" />
+				</svg>
+			{/if}
+		</button>
 	</div>
 </section>
 
@@ -233,7 +246,12 @@
 		display: grid;
 		place-items: center;
 		color: var(--vr-muted);
-		font-size: 1.4rem;
+	}
+
+	.art-fallback svg {
+		width: 28px;
+		height: 28px;
+		margin-left: 2px;
 	}
 
 	.listen-copy {
@@ -248,9 +266,15 @@
 		border-radius: 50%;
 		border: none;
 		background: var(--vr-accent);
-		color: #0b0b11;
-		font-size: 1.4rem;
+		color: #fff;
 		cursor: pointer;
+	}
+
+	.big-play svg {
+		width: 26px;
+		height: 26px;
+		display: block;
+		margin-left: 2px;
 	}
 
 	.big-play:hover {

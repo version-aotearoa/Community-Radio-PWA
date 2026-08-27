@@ -1,42 +1,48 @@
-# Handover — 2026-08-26
+# Handover — 2026-08-27
 
 ## Session outcome
 
-Implemented **replay links** for show recordings (AzuraCast on-demand), **CSV tracklist import**, a **dual-engine player**, and prepared a **staging (dev) environment**. All changes build clean (`npm run check` 0 errors, `npm run build` passes).
+Two working days of player work, admin moderation, auth/email wiring, chat identity, and prod/dev repairs. All builds pass (`npm run check` 0 errors; chat worker `tsc --noEmit` clean). Multiple prod deploys live at `https://version-radio.pages.dev` (+ `radio.version.nz`).
 
-### D1 migrations (applied both environments)
-- `0004_replay.sql` — adds `broadcast.replay_url`.
-- **Local:** applied (`--local`) ✅ · **Prod/dev Pages DB:** applied (`--remote`) ✅.
-- Staging DB (`version-radio-db-staging`): **not created yet** (needs `wrangler d1 create`, then migrations).
+## Player (StreamPlayer.svelte, live in prod)
+- Mini bar: art, track, "On air" link, ▴ maximise toggle (far-left, stays bottom-left), play (SVG icons — triangle/pause, white on accent), Back-to-live.
+- Max sheet: full-height slide-up below the header, square-cropped art (`object-fit: cover`, aspect 1), badges, on-air link, Up next, autoplay toggle, share + heart icons (no-ops, wiring deferred), big play. Grid layout pins controls to the **bottom row** (▾ collapse bottom-left, controls bottom-right) — safe-area aware.
+- CSS-transition choreography: mini bar slides down (900ms) → sheet rises after 200ms; on close sheet sinks 800ms → bar rises 650ms. Auto-collapses on navigation (`page.url.pathname` effect in component). Esc closes.
+- `streamPlaying` store syncs player state to the home card big-play (play/pause icon + toggle). Autoplay store (`vr-autoplay`) persisted; badge moved into the sheet.
 
-### Features shipped (code complete, uncommitted)
-- Replay link per broadcast: DJ pastes a 24-hex track id or on-demand download URL in the tracklist editor (`TracklistEditor.svelte` → "Replay link" row). Server (`api/shows/[id]/broadcasts/[broadcastId]/replay/+server.ts`) validates and canonicalizes to `https://stream.version.nz/api/station/1/ondemand/download/{id}`; art auto-derived via `…/api/station/version_radio/art/{id}`.
-- Show page shows ▶ Replay rows with recording art for broadcasts that have a link.
-- Player is dual-mode: recordings play in the bottom bar (`playback` store, `StreamPlayer.svelte`); "Back to live" restores HLS; quality selector only for live.
-- CSV import in tracklist editor (`src/lib/csv.ts`): quoted fields, header mapping (title/artist/album) or positional, tab-delimited; appends to grid, saves via existing PUT.
-- Staging: `pages:deploy:dev` script; README documents envs (local / dev / prod) + full staging setup.
+## Auth & email (prod live)
+- Admin seeded in `version-radio-db`: `admin@version.nz` (role `admin`), signed in via magic link — session verified in D1.
+- Google OAuth (DJs) live: `GOOGLE_ID`/`GOOGLE_SECRET` set, button on `/login`.
+- Magic links via **Resend**: `email.ts` fallback chain = CF Email binding → Resend (`RESEND_API_KEY`, `RESEND_FROM=Version Radio <noreply@radio.version.nz>`) → console. Domain `radio.version.nz` verified. `BETTER_AUTH_URL` + `AUTH_SECRET` set.
+- `.dev.vars.example` updated (resend/chat secrets documented).
 
-### Verified against live AzuraCast
-- `GET /api/station/1/ondemand` → recordings (8 items; playlist/`length` null; art absolute).
-- Download URL serves `audio/x-m4a`, supports Range/206 (seeking works).
+## Admin moderation (studio, admin-only section)
+- Admin sees all shows (scope plan: `getAllShows` for admin) — `studio/+page.server.ts`, `api/shows` GET.
+- Migration `0005_user_active.sql` (applied local + remote): `user.active` flag. Deactivated users: `sendMagicLink` silently declines; hooks sign out any live session (`auth.api.signOut`).
+- Studio admin panel: user list (role select, activate/deactivate), chat moderation (history, delete msg, purge by name or account), chat-proxied through `/api/admin/*` with `CHAT_ADMIN_TOKEN` (shared with chat worker).
 
-## Tomorrow / next steps
-1. **Manual staging setup** (README → "Staging (dev) deployment", steps 1–5): create `version-radio-staging` Pages project, `version-radio-db-staging` D1, `CNAME dev → version-radio-staging.pages.dev` at registrar DNS (associate custom domain in dashboard FIRST), staging secrets (fresh `AUTH_SECRET`, Turnstile hostname `dev.radio.version.nz`, `BETTER_AUTH_URL=https://dev.radio.version.nz/api/auth` or `AUTH_TRUST_HOST=true`), OAuth callbacks.
-2. **Deploy prod** when happy: `npx wrangler d1 migrations apply version-radio-db --remote` (already applied) → chat worker → `npm run pages:deploy`.
-3. **Optional polish (discussed, not implemented):**
-   - Gate the ▶ Replay row on the show page to past broadcasts only (`b.date < today`) — currently the row appears on future broadcasts if a DJ attaches a link early.
-   - Staging chat worker duplicate (currently staging shares prod chat rooms).
+## Chat (workers/chat-worker, deployed)
+- `CHAT_ADMIN_TOKEN`-gated endpoints: `DELETE /api/messages/:id`, `POST /api/messages/purge {name|userId}` → broadcast `deleted`/`purged` frames (client applies them).
+- **Authenticated chat identity** (was roadmap item — now done): app issues HMAC-SHA256 tokens (`/api/chat/identity`, 10-min TTL, `CHAT_IDENTITY_SECRET` shared with worker); verified on WS upgrade; messages stamped `user_id` (DO migration v2).
+- **Sequential anonymous handles**: `Listener N` per room via `chat_meta` counter (DO migration v3), delivered to client as `{type:'name'}` frame.
+- Chat page: signed-out users get an editable handle (persisted only when set — `vr-chat-handle`), anonymous==fresh `Listener N` each visit; signed-in uses account name.
 
-## Known caveats
-- On-demand recordings are inherently downloadable (AzuraCast issue #7958) — no DRM; accepted by design.
-- Replay save errors now surface server text/status (fixed generic message).
-- Working tree has uncommitted pre-existing changes (shows/schedule/home/layout pages, `src/lib/api/`, chat-adjacent files) — commit or review before tomorrow's work.
+## Local dev gotcha (fixed this session)
+- `window` usage in the client component's `onDestroy` throws on SSR → **all routes 500** + HMR WS "bad response". Guarded with `typeof window !== 'undefined'`. Don't reintroduce browser globals in teardown callbacks.
+- `platformProxy` is NOT valid in this Kit version — do not add to `vite.config.ts`; README line about it is stale (still to correct).
+
+## Remaining roadmap / next steps
+1. **Turnstile prod keys** (widget for `version-radio.pages.dev,radio.version.nz` + `TURNSTILE_SECRET`/`TURNSTILE_HOSTNAMES`/`PUBLIC_TURNSTILE_SITE_KEY` on Pages AND chat worker; currently test keys only).
+2. **Staging** (`dev.radio.version.nz`): Pages project + `version-radio-db-staging` + migrations + secrets (repeat Google/Resend/chat secrets + `BETTER_AUTH_URL`) — not created yet.
+3. **Share & heart** icons: wire (Web Share/clipboard; favourites localStorage).
+4. **Email Service migration**: code already supports CF Email binding (`EMAIL`/`EMAIL_FROM`) ahead of Resend.
+5. **Chat spoof resistance**: names remain client-set for anonymous users (by design); considers rate-limit by uid later.
+6. README platformProxy note correction; commit the working tree (ever-growing uncommitted changeset).
 
 ## Commands
 ```sh
-npm run check          # svelte-check
-npm run pages:deploy   # prod deploy
-npm run pages:deploy:dev  # staging deploy
-npx wrangler d1 migrations apply version-radio-db --remote            # prod migrations
-npx wrangler d1 migrations apply version-radio-db-staging --remote   # staging (once created)
+npm run check                  # svelte-check
+npm run pages:deploy           # prod
+cd workers/chat-worker && npx wrangler deploy   # chat worker
+npx wrangler d1 migrations apply version-radio-db --remote
 ```

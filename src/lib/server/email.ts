@@ -1,7 +1,10 @@
 /**
- * Send a transactional email. Uses the Cloudflare Email Service binding when a
- * sending address is configured; otherwise logs the message (dev fallback so
- * magic-link flows work without a sending domain).
+ * Send a transactional email.
+ *
+ * Priority:
+ *  1. Cloudflare Email Service binding (EMAIL + EMAIL_FROM configured)
+ *  2. Resend API (RESEND_API_KEY + RESEND_FROM configured)
+ *  3. console.log (dev fallback so magic-link flows work without a sending provider)
  */
 export async function sendEmail(
 	env: CloudflareBindings,
@@ -18,5 +21,28 @@ export async function sendEmail(
 		});
 		return;
 	}
+
+	if (env.RESEND_API_KEY && env.RESEND_FROM) {
+		const res = await fetch('https://api.resend.com/emails', {
+			method: 'POST',
+			headers: {
+				authorization: `Bearer ${env.RESEND_API_KEY}`,
+				'content-type': 'application/json'
+			},
+			body: JSON.stringify({
+				from: env.RESEND_FROM,
+				to: [to],
+				subject: mail.subject,
+				html: mail.html,
+				text: mail.text
+			})
+		});
+		if (!res.ok) {
+			console.error(`[resend] ${res.status} ${await res.text().catch(() => '')}`);
+			throw new Error(`Resend failed with status ${res.status}`);
+		}
+		return;
+	}
+
 	console.log(`[dev-email] To: ${to} | ${mail.subject}\n${mail.text}`);
 }

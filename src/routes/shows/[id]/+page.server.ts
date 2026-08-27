@@ -28,7 +28,7 @@ export const load: PageServerLoad = async ({ params, locals, platform }) => {
 		tracks,
 		canEdit,
 		today,
-		upcoming: broadcasts.filter((b) => b.date >= today),
+		upcoming: broadcasts.filter((b) => b.date >= today).slice(0, 1),
 		past: broadcasts.filter((b) => b.date < today).reverse()
 	};
 };

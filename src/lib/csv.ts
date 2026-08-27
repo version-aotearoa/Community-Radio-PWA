@@ -2,6 +2,7 @@ export interface CsvTrack {
 	title: string;
 	artist: string;
 	album: string;
+	url?: string;
 }
 
 export interface TrackCsvResult {
@@ -12,8 +13,11 @@ export interface TrackCsvResult {
 const HEADER_ALIASES = {
 	title: ['title', 'track', 'track title', 'name', 'song'],
 	artist: ['artist', 'performer', 'band', 'act'],
-	album: ['album', 'record', 'lp', 'release']
+	album: ['album', 'record', 'lp', 'release'],
+	url: ['url', 'link', 'track url', 'bandcamp url', 'bandcamp']
 } as const;
+
+const URL_RE = /^https?:\/\/\S+$/i;
 
 function normalizeCell(s: string): string {
 	return s.trim().toLowerCase().replace(/\s+/g, ' ');
@@ -102,7 +106,8 @@ function detectHeader(record: string[]): boolean {
 			[
 				...HEADER_ALIASES.title,
 				...HEADER_ALIASES.artist,
-				...HEADER_ALIASES.album
+				...HEADER_ALIASES.album,
+				...HEADER_ALIASES.url
 			] as string[]
 		).includes(c)
 	);
@@ -115,9 +120,22 @@ function mapColumn(record: string[], alias: readonly string[]): number | null {
 	return null;
 }
 
+/** Link column: exact alias match first, then any header cell containing url/link/bandcamp. */
+function mapUrlColumn(record: string[]): number | null {
+	const exact = mapColumn(record, HEADER_ALIASES.url);
+	if (exact !== null) return exact;
+	for (let i = 0; i < record.length; i += 1) {
+		const cell = normalizeCell(record[i]);
+		if (['url', 'link', 'bandcamp'].some((word) => cell.includes(word))) return i;
+	}
+	return null;
+}
+
 /**
- * Parse a CSV/TSV tracklist export into { title, artist, album } rows.
- * Header row optional; when absent, columns are read positionally.
+ * Parse a CSV/TSV tracklist export into { title, artist, album, url? } rows.
+ * Header row optional; when absent, columns are read positionally. A
+ * URL-shaped column (e.g. Bandcamp links) is detected anywhere; link-only
+ * imports (a single URL column) are valid — titles are derived at save time.
  */
 export function parseTracksCsv(
 	text: string,
@@ -128,24 +146,39 @@ export function parseTracksCsv(
 
 	const header = detectHeader(records[0]);
 	let start = 0;
-	let titleIdx = 0;
-	let artistIdx = 1;
-	let albumIdx = 2;
+	let titleIdx: number | null = 0;
+	let artistIdx: number | null = 1;
+	let albumIdx: number | null = 2;
+	let urlIdx: number | null = null;
 	if (header) {
 		start = 1;
-		titleIdx = mapColumn(records[0], HEADER_ALIASES.title) ?? 0;
-		artistIdx = mapColumn(records[0], HEADER_ALIASES.artist) ?? 1;
-		albumIdx = mapColumn(records[0], HEADER_ALIASES.album) ?? 2;
+		titleIdx = mapColumn(records[0], HEADER_ALIASES.title);
+		artistIdx = mapColumn(records[0], HEADER_ALIASES.artist);
+		albumIdx = mapColumn(records[0], HEADER_ALIASES.album);
+		urlIdx = mapUrlColumn(records[0]);
+	} else {
+		// No header: any URL-shaped cell becomes the link column; the remaining
+		// cells fill title, artist, album positionally. Link-only columns are
+		// supported (title stays empty, derived at save time).
+		const isUrl = (cell: string | undefined) => URL_RE.test((cell ?? '').trim());
+		const cells = records[0] ?? [];
+		urlIdx = cells.findIndex((c) => isUrl(c));
+		const nonUrl = cells.map((_, i) => i).filter((i) => i !== urlIdx);
+		titleIdx = nonUrl[0] ?? null;
+		artistIdx = nonUrl[1] ?? null;
+		albumIdx = nonUrl[2] ?? null;
 	}
 
 	const tracks: CsvTrack[] = [];
 	for (const record of records.slice(start)) {
-		const title = (record[titleIdx] ?? '').trim();
-		if (title === '') continue;
+		const url = (urlIdx !== null ? (record[urlIdx] ?? '') : '').trim();
+		const title = (titleIdx !== null ? (record[titleIdx] ?? '') : '').trim();
+		if (title === '' && url === '') continue;
 		tracks.push({
 			title: title.slice(0, 300),
-			artist: (record[artistIdx] ?? '').trim().slice(0, 200),
-			album: (record[albumIdx] ?? '').trim().slice(0, 200)
+			artist: (artistIdx !== null ? (record[artistIdx] ?? '') : '').trim().slice(0, 200),
+			album: (albumIdx !== null ? (record[albumIdx] ?? '') : '').trim().slice(0, 200),
+			...(url ? { url: url.slice(0, 500) } : {})
 		});
 	}
 	return { tracks, header };

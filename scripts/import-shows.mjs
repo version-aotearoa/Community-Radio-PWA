@@ -129,7 +129,7 @@ async function main() {
 
 	for (const [slug, show] of shows) {
 		const showId = `scrape-${slug}`;
-		lines.push(`INSERT OR IGNORE INTO show (id, dj_id, title, description, day_of_week, start_minutes, duration_minutes, interval_weeks, anchor_date, active, created_at, updated_at) VALUES ('${showId}', 'dj-station', '${esc(show.title)}', 'Imported from version.nz (${esc(slug)})', ${weekdayOf(show.anchor)}, ${show.startMinutes}, ${show.durationMinutes}, ${show.intervalWeeks}, '${show.anchor}', 1, ${NOW}, ${NOW});`);
+		lines.push(`INSERT OR IGNORE INTO show (id, dj_id, title, description, day_of_week, start_minutes, duration_minutes, interval_weeks, anchor_date, active, created_at, updated_at) VALUES ('${showId}', 'dj-station', '${esc(show.title)}', NULL, ${weekdayOf(show.anchor)}, ${show.startMinutes}, ${show.durationMinutes}, ${show.intervalWeeks}, '${show.anchor}', 1, ${NOW}, ${NOW});`);
 
 		// Materialise broadcasts for the next 12 weeks.
 		const horizon = addDays(todayStr(), 12 * 7);

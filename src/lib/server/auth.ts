@@ -25,6 +25,12 @@ export function createAuth(env: CloudflareBindings) {
 					required: false,
 					defaultValue: 'listener',
 					input: false
+				},
+				active: {
+					type: 'boolean',
+					required: false,
+					defaultValue: true,
+					input: false
 				}
 			}
 		},
@@ -33,6 +39,14 @@ export function createAuth(env: CloudflareBindings) {
 			magicLink({
 				expiresIn: 600,
 				sendMagicLink: async ({ email, url }) => {
+					// Deactivated accounts are not allowed to sign in.
+					const row = await env.DB.prepare('SELECT active FROM user WHERE email = ?')
+						.bind(email)
+						.first<{ active: number }>();
+					if (row && row.active === 0) {
+						console.log(`[auth] blocked magic link for deactivated account: ${email}`);
+						return;
+					}
 					await sendEmail(env, email, {
 						subject: 'Your sign-in link for Version Radio',
 						text: `Sign in to Version Radio with this link (valid for 10 minutes):\n\n${url}`,

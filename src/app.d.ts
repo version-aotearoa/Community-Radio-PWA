@@ -18,6 +18,7 @@ declare global {
 			emailVerified: boolean;
 			image?: string | null;
 			role: 'listener' | 'dj' | 'admin';
+			active: boolean;
 			createdAt: Date;
 			updatedAt: Date;
 		}
@@ -44,12 +45,16 @@ declare global {
 	// Secrets / vars not derived from wrangler bindings.
 	interface CloudflareBindings {
 		AUTH_SECRET: string;
+		CHAT_ADMIN_TOKEN?: string;
+		CHAT_IDENTITY_SECRET?: string;
 		GITHUB_ID?: string;
 		GITHUB_SECRET?: string;
 		GOOGLE_ID?: string;
 		GOOGLE_SECRET?: string;
 		EMAIL_FROM?: string;
 		EMAIL?: SendEmail;
+		RESEND_API_KEY?: string;
+		RESEND_FROM?: string;
 		PUBLIC_CHAT_URL?: string;
 		TURNSTILE_SECRET?: string;
 		TURNSTILE_HOSTNAMES?: string;

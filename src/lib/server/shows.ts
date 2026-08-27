@@ -3,6 +3,7 @@ export interface ShowRow {
 	dj_id: string;
 	title: string;
 	description: string;
+	image: string | null;
 	day_of_week: number;
 	start_minutes: number;
 	duration_minutes: number;
@@ -35,6 +36,9 @@ export interface TrackRow {
 	title: string;
 	artist: string;
 	album: string;
+	url: string | null;
+	embed_id: string | null;
+	album_id: string | null;
 	duration_seconds: number | null;
 	created_at: number;
 	updated_at: number;
@@ -44,6 +48,9 @@ export interface TrackInput {
 	title: string;
 	artist?: string;
 	album?: string;
+	url?: string | null;
+	embedId?: string | null;
+	albumId?: string | null;
 }
 
 const now = () => Math.floor(Date.now() / 1000);
@@ -60,8 +67,8 @@ export function toDateStr(d: Date): string {
 	return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
 }
 
-export function todayStr(): string {
-	return toDateStr(new Date());
+export function todayStr(timeZone = 'Pacific/Auckland'): string {
+	return zonedNow(timeZone).date;
 }
 
 export function addDays(dateStr: string, days: number): string {
@@ -222,12 +229,13 @@ export async function getAllShows(db: D1Database): Promise<ShowRow[]> {
 
 export interface ScheduleShow extends ShowRow {
 	dj_name: string | null;
+	dj_image: string | null;
 }
 
 export async function getSchedule(db: D1Database): Promise<ScheduleShow[]> {
 	const { results } = await db
 		.prepare(
-			`SELECT s.*, u.name AS dj_name
+			`SELECT s.*, u.name AS dj_name, u.image AS dj_image
 			 FROM show s
 			 LEFT JOIN user u ON u.id = s.dj_id
 			 WHERE s.active = 1
@@ -426,8 +434,8 @@ export async function replaceTracklist(
 		...tracks.map((track, i) =>
 			db
 				.prepare(
-					`INSERT INTO track (id, show_id, broadcast_id, position, title, artist, album, duration_seconds, created_at, updated_at)
-					 VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`
+					`INSERT INTO track (id, show_id, broadcast_id, position, title, artist, album, url, embed_id, album_id, duration_seconds, created_at, updated_at)
+					 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`
 				)
 				.bind(
 					crypto.randomUUID(),
@@ -437,6 +445,9 @@ export async function replaceTracklist(
 					track.title.trim().slice(0, 300),
 					track.artist?.trim().slice(0, 200) ?? '',
 					track.album?.trim().slice(0, 200) ?? '',
+					track.url?.trim().slice(0, 500) ?? null,
+					track.embedId ?? null,
+					track.albumId ?? null,
 					t,
 					t
 				)

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { Text } from '@svar-ui/svelte-core';
+	import { Button, Text } from '@svar-ui/svelte-core';
 	import Turnstile from '$lib/components/Turnstile.svelte';
 
 	let { data } = $props();
@@ -20,9 +20,18 @@
 	let closed = $state(false);
 	let turnstileToken = $state('');
 	let scrollEl: HTMLDivElement | undefined = $state();
-
+	let identity = $state<{ token: string; name: string } | null>(null);
+	// Session-level cache: skip the identity fetch on reconnects within 4min.
+	let identityCache:
+		| { token: string; name: string; exp: number }
+		| null = null;
+	// Custom handle chosen by an anonymous user (only persisted when they set it).
+	let handle = $state(typeof localStorage !== 'undefined' ? (localStorage.getItem('vr-chat-handle') ?? '') : '');
+	let handleInput = $state('');
+	// Name assigned by the worker for this session (Listener N or account name).
+	let assignedName = $state('');
 	const user = $derived(data.user);
-	const displayName = $derived(user ? user.name || user.email || 'Listener' : 'Listener');
+	const displayName = $derived(user ? user.name || user.email || 'Listener' : assignedName || handle || 'Listener');
 
 	$effect(() => {
 		if (scrollEl && messages.length) {
@@ -47,9 +56,43 @@
 		ws?.close();
 	}
 
-	function connect() {
+	async function connect() {
+		let name = '';
+		if (user) {
+			const cached = identityCache;
+			if (cached && cached.exp * 1000 - Date.now() > 240_000) {
+				identity = { token: cached.token, name: cached.name };
+			} else {
+				try {
+					const res = await fetch('/api/chat/identity');
+					if (res.ok) {
+						const fresh = (await res.json()) as { token: string; name: string };
+						identity = fresh;
+						const payload = fresh.token.split('.')[0];
+						const exp = Number(JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/'))).exp);
+						identityCache = { token: fresh.token, name: fresh.name, exp: Number.isFinite(exp) ? exp : 0 };
+					}
+				} catch {
+					identity = null;
+				}
+			}
+		}
+		const params = new URLSearchParams({
+			room: 'main',
+			turnstile: turnstileToken
+		});
+		if (identity || user) {
+			params.set('name', displayName);
+		} else if (handle) {
+			params.set('name', handle);
+		} else if (assignedName) {
+			params.set('name', assignedName);
+		} else {
+			params.set('anonymous', '1');
+		}
+		if (identity) params.set('token', identity.token);
 		const base = data.chatUrl.replace(/^http/, 'ws');
-		const url = `${base}/api/chat/ws?room=main&name=${encodeURIComponent(displayName)}&turnstile=${encodeURIComponent(turnstileToken)}`;
+		const url = `${base}/api/chat/ws?${params.toString()}`;
 		const socket = new WebSocket(url);
 
 		socket.onopen = () => {
@@ -63,7 +106,14 @@
 		};
 		socket.onerror = () => socket.close();
 		socket.onmessage = (e: MessageEvent) => {
-			let frame: { type?: string; messages?: ChatMessage[]; message?: ChatMessage | string };
+			let frame: {
+				type?: string;
+				messages?: ChatMessage[];
+				message?: ChatMessage | string;
+				id?: string;
+				name?: string;
+				userId?: string | null;
+			};
 			try {
 				frame = JSON.parse(String(e.data));
 			} catch {
@@ -71,8 +121,15 @@
 			}
 			if (frame.type === 'history' && frame.messages) {
 				messages = frame.messages;
+			} else if (frame.type === 'name' && frame.name) {
+				assignedName = frame.name;
+				if (!handle) handleInput = frame.name;
 			} else if (frame.type === 'message' && frame.message) {
 				messages = [...messages, frame.message as ChatMessage].slice(-300);
+			} else if (frame.type === 'deleted' && frame.id) {
+				messages = messages.filter((m) => m.id !== frame.id);
+			} else if (frame.type === 'purged' && frame.name) {
+				messages = messages.filter((m) => m.name !== frame.name);
 			} else if (frame.type === 'error') {
 				error = String(frame.message ?? '');
 			}
@@ -99,21 +156,40 @@
 		ws.send(JSON.stringify({ type: 'message', content }));
 		input = '';
 	}
+
+	function saveHandle() {
+		const value = handleInput.trim().slice(0, 40);
+		if (!value) return;
+		handle = value;
+		assignedName = '';
+		try {
+			localStorage.setItem('vr-chat-handle', value);
+		} catch {
+			// storage unavailable; handle still applies for this session
+		}
+		ws?.close();
+	}
 </script>
 
 <svelte:head>
 	<title>Chat — Version Radio</title>
 </svelte:head>
 
-<h1 class="page-title">Community Chat</h1>
 <p class="subtitle">
 	You're chatting as <strong>{displayName}</strong>
 	{#if user}
 		(signed in)
-	{:else}
-		— <a href="/login">sign in</a> to use your name
+	{:else if !handle}
+		· <a href="/login">sign in</a>
 	{/if}
 </p>
+
+{#if !user}
+	<form class="handle-row" onsubmit={(e) => { e.preventDefault(); saveHandle(); }}>
+		<Text bind:value={handleInput} placeholder="Pick a handle (optional)" css="vr-input" />
+		<Button css="vr-cta ghost" onclick={saveHandle}>update</Button>
+	</form>
+{/if}
 
 {#if !data.chatUrl}
 	<div class="notice bad">Chat isn't configured yet (missing PUBLIC_CHAT_URL).</div>
@@ -175,6 +251,25 @@
 
 	.subtitle a {
 		color: var(--vr-accent-strong);
+	}
+
+	.handle-row {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin: 0.75rem 0 1.25rem;
+	}
+
+	.handle-row :global(button) {
+		overflow: visible;
+		text-overflow: clip;
+		white-space: nowrap;
+		flex-shrink: 0;
+	}
+
+	.handle-row :global(input) {
+		min-width: 0;
+		flex: 1 1 10rem;
 	}
 
 	.chat-card {

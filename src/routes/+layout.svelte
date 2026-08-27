@@ -188,7 +188,7 @@
 		top: 57px;
 		left: 0;
 		right: 0;
-		z-index: 25;
+		z-index: 40;
 		background: var(--vr-surface-raised);
 		border-bottom: 1px solid var(--vr-border);
 		padding: 0.5rem 1rem 0.75rem;

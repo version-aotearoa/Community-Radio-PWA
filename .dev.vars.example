@@ -5,6 +5,11 @@
 AUTH_SECRET=
 AUTH_TRUST_HOST=true
 
+# Resend (transactional email for magic links). With the key present in
+# .dev.vars, local dev sends real links; without it, links log to the console.
+RESEND_API_KEY=
+RESEND_FROM=Version Radio <noreply@radio.version.nz>
+
 # OAuth providers (optional until configured)
 GITHUB_ID=
 GITHUB_SECRET=
@@ -18,3 +23,7 @@ PUBLIC_CHAT_URL=http://localhost:8790
 TURNSTILE_SECRET=1x0000000000000000000000000000000AA
 TURNSTILE_HOSTNAMES=localhost,127.0.0.1,example.com
 PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA
+
+CHAT_IDENTITY_SECRET=
+
+CHAT_ADMIN_TOKEN=
