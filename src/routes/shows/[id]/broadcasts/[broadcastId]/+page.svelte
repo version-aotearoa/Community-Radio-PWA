@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { playMedia } from '$lib/stores/player';
+	import { playback, playMedia, requestTogglePlay, streamPlaying } from '$lib/stores/player';
 	import { replayArtFromUrl } from '$lib/azuracast';
 
 	let { data } = $props();
@@ -40,14 +40,25 @@
 		return `https://bandcamp.com/EmbeddedPlayer/track=${t.embed_id}/size=large/tracklist=false/artwork=small/transparent=true/`;
 	}
 
-	function playReplay() {
+	function toggleReplay() {
 		if (!broadcast.replay_url) return;
+		if (replayActive()) {
+			requestTogglePlay();
+			return;
+		}
 		playMedia({
 			url: broadcast.replay_url,
 			title: `${show.title} — ${fmtDate(broadcast.date)}`,
 			artist: show.dj_name ?? null,
 			art: replayArtFromUrl(broadcast.replay_url)
 		});
+	}
+
+	function replayActive(): boolean {
+		const url = broadcast.replay_url;
+		if (!url) return false;
+		const current = $playback;
+		return current.kind === 'media' && current.url === url && $streamPlaying;
 	}
 </script>
 
@@ -79,9 +90,14 @@
 					loading="lazy"
 				/>
 			{/if}
-			<button class="replay-btn" onclick={playReplay}>
-				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z" fill="currentColor" /></svg>
-				Replay
+			<button class="replay-btn" class:playing={replayActive()} onclick={toggleReplay}>
+				{#if replayActive()}
+					<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0zM15 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0z" fill="currentColor" /></svg>
+					Pause
+				{:else}
+					<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z" fill="currentColor" /></svg>
+					Replay
+				{/if}
 			</button>
 		</div>
 	{/if}
@@ -257,5 +273,11 @@
 
 	.replay-btn:hover {
 		background: color-mix(in srgb, var(--vr-accent) 12%, transparent);
+	}
+
+	.replay-btn.playing {
+		background: var(--vr-accent);
+		color: #0b0b11;
+		font-weight: 600;
 	}
 </style>

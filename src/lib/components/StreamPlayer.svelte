@@ -20,6 +20,8 @@
 	let nativeHls = $state(false);
 	let playing = $derived($streamPlaying);
 	let expanded = $state(false);
+	let currentTime = $state(0);
+	let duration = $state(NaN);
 
 	let prevKind: 'live' | 'media' = 'live';
 
@@ -60,6 +62,8 @@
 		const p = $playback;
 		if (p.kind === prevKind) return;
 		prevKind = p.kind;
+		currentTime = 0;
+		duration = NaN;
 		if (!audioEl) return;
 		if (p.kind === 'media') {
 			stopLive();
@@ -162,6 +166,9 @@
 		if (audioEl) {
 			audioEl.addEventListener('play', () => streamPlaying.set(true));
 			audioEl.addEventListener('pause', () => streamPlaying.set(false));
+			audioEl.addEventListener('timeupdate', () => (currentTime = audioEl?.currentTime ?? 0));
+			audioEl.addEventListener('loadedmetadata', () => (duration = audioEl?.duration ?? NaN));
+			audioEl.addEventListener('durationchange', () => (duration = audioEl?.duration ?? NaN));
 		}
 		window.addEventListener('keydown', onKey);
 		if ($autoplay && !mediaMode) togglePlay();
@@ -186,6 +193,16 @@
 			month: 'short',
 			timeZone: 'UTC'
 		}).format(new Date(`${dateStr}T00:00:00Z`));
+	}
+
+	function fmtClock(secs: number) {
+		if (!Number.isFinite(secs) || secs < 0) return '--:--';
+		const s = Math.floor(secs);
+		const h = Math.floor(s / 3600);
+		const m = Math.floor((s % 3600) / 60);
+		const r = s % 60;
+		if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
+		return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
 	}
 
 	function trackText() {
@@ -222,14 +239,17 @@
 			<div class="sheet-body">
 				<div class="sheet-info">
 					<span class="station">
-						Version Radio
 						{#if mediaMode}
+							<span class="track playtime">{fmtClock(currentTime)} / {Number.isFinite(duration) ? fmtClock(duration) : '--:--'}</span>
 							<em class="badge replay">Recording</em>
-						{:else if livePayload}
-							{#if isLive}
-								<em class="badge live" title={livePayload.live.streamerName ?? 'Live'}>● LIVE{livePayload.live.streamerName ? ` · ${livePayload.live.streamerName}` : ''}</em>
-							{:else}
-								<em class="badge replay">Replay</em>
+						{:else}
+							Version Radio
+							{#if livePayload}
+								{#if isLive}
+									<em class="badge live" title={livePayload.live.streamerName ?? 'Live'}>● LIVE{livePayload.live.streamerName ? ` · ${livePayload.live.streamerName}` : ''}</em>
+								{:else}
+									<em class="badge replay">Replay</em>
+								{/if}
 							{/if}
 						{/if}
 					</span>
@@ -256,15 +276,17 @@
 						▾
 					</button>
 					<div class="sheet-controls-right">
-					<button
-						class="badge autoplay"
-						class:off={!autoplayOn}
-						onclick={() => ($autoplay = !$autoplay)}
-						title="Autoplay: {autoplayOn ? 'on — starts the stream when you open the site' : 'off — press play to listen'}"
-						aria-pressed={autoplayOn}
-					>
-						Autoplay{#if !autoplayOn} off{/if}
-					</button>
+					{#if !mediaMode}
+						<button
+							class="badge autoplay"
+							class:off={!autoplayOn}
+							onclick={() => ($autoplay = !$autoplay)}
+							title="Autoplay: {autoplayOn ? 'on — starts the stream when you open the site' : 'off — press play to listen'}"
+							aria-pressed={autoplayOn}
+						>
+							Autoplay{#if !autoplayOn} off{/if}
+						</button>
+					{/if}
 					<button class="icon-btn" onclick={toggleFavourite} title="Favourite (coming soon)" aria-label="Favourite">
 						<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
 							<path
@@ -502,6 +524,10 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 0.4rem;
+	}
+
+	.playtime {
+		font-variant-numeric: tabular-nums;
 	}
 
 	.badge {

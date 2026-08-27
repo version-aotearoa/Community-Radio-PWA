@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Button } from '@svar-ui/svelte-core';
 	import { page } from '$app/state';
-	import { playMedia } from '$lib/stores/player';
+	import { playback, playMedia, requestTogglePlay, streamPlaying } from '$lib/stores/player';
 	import { replayArtFromUrl } from '$lib/azuracast';
 
 	let { data } = $props();
@@ -45,14 +45,24 @@
 		return `Every ${show.interval_weeks} weeks`;
 	}
 
-	function playReplay(b: { replay_url: string | null; date: string }) {
+	function toggleReplay(b: { replay_url: string | null; date: string }) {
 		if (!b.replay_url) return;
+		if (replayActive(b.replay_url)) {
+			requestTogglePlay();
+			return;
+		}
 		playMedia({
 			url: b.replay_url,
 			title: `${show.title} — ${fmtDate(b.date)}`,
 			artist: show.dj_name ?? null,
 			art: replayArtFromUrl(b.replay_url)
 		});
+	}
+
+	function replayActive(url: string | null): boolean {
+		if (!url) return false;
+		const current = $playback;
+		return current.kind === 'media' && current.url === url && $streamPlaying;
 	}
 </script>
 
@@ -106,9 +116,14 @@
 									loading="lazy"
 								/>
 							{/if}
-							<button class="replay-btn" onclick={() => playReplay(b)}>
-								<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z" fill="currentColor" /></svg>
-								Replay
+							<button class="replay-btn" class:playing={replayActive(b.replay_url)} onclick={() => toggleReplay(b)}>
+								{#if replayActive(b.replay_url)}
+									<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0zM15 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0z" fill="currentColor" /></svg>
+									Pause
+								{:else}
+									<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z" fill="currentColor" /></svg>
+									Replay
+								{/if}
 							</button>
 							<a class="view-show" href={`/shows/${show.id}/broadcasts/${b.id}`}>View show →</a>
 						</div>
@@ -144,9 +159,14 @@
 									loading="lazy"
 								/>
 							{/if}
-							<button class="replay-btn" onclick={() => playReplay(b)}>
-								<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z" fill="currentColor" /></svg>
-								Replay
+							<button class="replay-btn" class:playing={replayActive(b.replay_url)} onclick={() => toggleReplay(b)}>
+								{#if replayActive(b.replay_url)}
+									<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0zM15 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0z" fill="currentColor" /></svg>
+									Pause
+								{:else}
+									<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z" fill="currentColor" /></svg>
+									Replay
+								{/if}
 							</button>
 							<a class="view-show" href={`/shows/${show.id}/broadcasts/${b.id}`}>View show →</a>
 						</div>
@@ -317,6 +337,12 @@
 
 	.replay-btn:hover {
 		background: color-mix(in srgb, var(--vr-accent) 12%, transparent);
+	}
+
+	.replay-btn.playing {
+		background: var(--vr-accent);
+		color: #0b0b11;
+		font-weight: 600;
 	}
 
 	.view-show {

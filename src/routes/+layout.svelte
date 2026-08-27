@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { WillowDark } from '@svar-ui/svelte-core';
+	import { onMount } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
+	import InstallPrompt from '$lib/components/InstallPrompt.svelte';
+	import { initBannerDismissed, initPwa, registerServiceWorker } from '$lib/pwa';
 	import { authClient } from '$lib/client';
 	import '../app.css';
 
@@ -20,6 +23,12 @@
 		await invalidateAll();
 		closeMenu();
 	}
+
+	onMount(() => {
+		initPwa();
+		initBannerDismissed();
+		registerServiceWorker();
+	});
 </script>
 
 <svelte:head>
@@ -64,6 +73,7 @@
 				<a href="/shows">Shows</a>
 				<a href="/schedule">Schedule</a>
 				<a href="/chat">Chat</a>
+				<InstallPrompt variant="menu" />
 			</nav>
 			{#if user}
 				<div class="account">
@@ -84,6 +94,7 @@
 					<a href="/shows" onclick={closeMenu}>Shows</a>
 					<a href="/schedule" onclick={closeMenu}>Schedule</a>
 					<a href="/chat" onclick={closeMenu}>Chat</a>
+					<InstallPrompt variant="menu" label="Install web app" onclose={closeMenu} />
 					{#if user}
 						{#if user.role === 'dj' || user.role === 'admin'}
 							<a href="/studio" onclick={closeMenu}>DJ Studio</a>
@@ -95,6 +106,8 @@
 				</nav>
 			</div>
 		{/if}
+
+		<InstallPrompt variant="banner" />
 
 		<main class="site-main">
 			{@render children()}

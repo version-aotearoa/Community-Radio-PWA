@@ -10,6 +10,43 @@
 		ts: number;
 		name: string;
 		content: string;
+		userId?: string | null;
+		reactions?: Record<string, number>;
+		my?: string[];
+	}
+
+	function getPid(): string {
+		try {
+			let pid = localStorage.getItem('vr-chat-pid');
+			if (!pid) {
+				pid = crypto.randomUUID();
+				localStorage.setItem('vr-chat-pid', pid);
+			}
+			return pid;
+		} catch {
+			return 'anon';
+		}
+	}
+
+	const myHearts = new Set<string>();
+
+	function heartCount(msg: ChatMessage): number {
+		return msg.reactions?.heart ?? 0;
+	}
+
+	function heartActive(msg: ChatMessage): boolean {
+		return myHearts.has(msg.id);
+	}
+
+	function toggleHeart(msg: ChatMessage) {
+		if (!ws || ws.readyState !== WebSocket.OPEN) return;
+		if (myHearts.has(msg.id)) {
+			myHearts.delete(msg.id);
+		} else {
+			myHearts.add(msg.id);
+		}
+		msg.reactions = { ...(msg.reactions ?? {}), heart: Math.max(0, heartCount(msg) + (heartActive(msg) ? 1 : -1)) };
+		ws.send(JSON.stringify({ type: 'react', id: msg.id, emoji: 'heart' }));
 	}
 
 	let ws = $state<WebSocket | null>(null);
@@ -79,7 +116,8 @@
 		}
 		const params = new URLSearchParams({
 			room: 'main',
-			turnstile: turnstileToken
+			turnstile: turnstileToken,
+			pid: getPid()
 		});
 		if (identity || user) {
 			params.set('name', displayName);
@@ -113,6 +151,8 @@
 				id?: string;
 				name?: string;
 				userId?: string | null;
+				emoji?: string;
+				count?: number;
 			};
 			try {
 				frame = JSON.parse(String(e.data));
@@ -121,6 +161,15 @@
 			}
 			if (frame.type === 'history' && frame.messages) {
 				messages = frame.messages;
+				myHearts.clear();
+				for (const m of frame.messages) {
+					if (m.my?.includes('heart')) myHearts.add(m.id);
+				}
+			} else if (frame.type === 'reacted' && frame.id) {
+				const msg = messages.find((m) => m.id === frame.id);
+				if (msg) {
+					msg.reactions = { ...(msg.reactions ?? {}), heart: frame.count ?? 0 };
+				}
 			} else if (frame.type === 'name' && frame.name) {
 				assignedName = frame.name;
 				if (!handle) handleInput = frame.name;
@@ -218,6 +267,25 @@
 				<div class="msg" class:mine={msg.name === displayName}>
 					<span class="msg-name">{msg.name}</span>
 					<span class="msg-body">{msg.content}</span>
+					<button
+						class="heart-btn"
+						class:active={heartActive(msg)}
+						onclick={() => toggleHeart(msg)}
+						title={heartActive(msg) ? 'Remove heart' : 'Heart this'}
+						aria-label={heartActive(msg) ? 'Remove heart' : 'Heart this'}
+					>
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path
+								d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"
+								fill={heartActive(msg) ? 'currentColor' : 'none'}
+								stroke="currentColor"
+								stroke-width="1.8"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							/>
+						</svg>
+						{#if heartCount(msg) > 0}<span>{heartCount(msg)}</span>{/if}
+					</button>
 					<span class="msg-time">{new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
 				</div>
 			{/each}
@@ -340,6 +408,33 @@
 
 	.msg-body {
 		word-break: break-word;
+	}
+
+	.heart-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		background: none;
+		border: none;
+		color: var(--vr-muted);
+		font-size: 0.72rem;
+		cursor: pointer;
+		padding: 0.1rem 0.15rem;
+		line-height: 1;
+	}
+
+	.heart-btn svg {
+		width: 14px;
+		height: 14px;
+	}
+
+	.heart-btn span {
+		font-variant-numeric: tabular-nums;
+	}
+
+	.heart-btn:hover,
+	.heart-btn.active {
+		color: #ff8098;
 	}
 
 	.msg-time {

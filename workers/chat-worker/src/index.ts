@@ -15,11 +15,14 @@ export interface ChatMessage {
 	name: string;
 	content: string;
 	userId: string | null;
+	reactions?: Record<string, number>;
+	my?: string[];
 }
 
 interface ConnectionMeta {
 	name: string;
 	uid: string | null;
+	pid: string | null;
 	lastTs: number;
 }
 
@@ -90,6 +93,19 @@ export class ChatRoom extends DurableObject<Env> {
 				INSERT INTO _sql_schema_migrations (id) VALUES (3);
 			`);
 		}
+		if (version < 4) {
+			this.ctx.storage.sql.exec(`
+				CREATE TABLE IF NOT EXISTS reactions (
+					message_id TEXT NOT NULL,
+					user_key TEXT NOT NULL,
+					emoji TEXT NOT NULL DEFAULT 'heart',
+					created_at INTEGER NOT NULL,
+					PRIMARY KEY (message_id, user_key, emoji)
+				);
+				CREATE INDEX IF NOT EXISTS idx_reactions_msg ON reactions (message_id);
+				INSERT INTO _sql_schema_migrations (id) VALUES (4);
+			`);
+		}
 	}
 
 	/** Allocate the next anonymous handle: `Listener N` (per room, sequential). */
@@ -133,10 +149,11 @@ export class ChatRoom extends DurableObject<Env> {
 				name = this.nextListenerName();
 			}
 			if (!name) name = 'Listener';
+			const pid = (url.searchParams.get('pid') || '').slice(0, 64) || null;
 			const pair = new WebSocketPair();
-			pair[1].serializeAttachment({ name, uid, lastTs: 0 } satisfies ConnectionMeta);
+			pair[1].serializeAttachment({ name, uid, pid, lastTs: 0 } satisfies ConnectionMeta);
 			this.ctx.acceptWebSocket(pair[1]);
-			pair[1].send(JSON.stringify({ type: 'history', messages: this.recent(HISTORY_LIMIT) }));
+			pair[1].send(JSON.stringify({ type: 'history', messages: this.recent(HISTORY_LIMIT, uid ?? pid) }));
 			pair[1].send(JSON.stringify({ type: 'name', name }));
 			return new Response(null, { status: 101, webSocket: pair[0] });
 		}
@@ -146,7 +163,7 @@ export class ChatRoom extends DurableObject<Env> {
 			return Response.json({ ok: true });
 		}
 		if (url.pathname === '/api/history') {
-			return Response.json({ messages: this.recent(HISTORY_LIMIT) });
+			return Response.json({ messages: this.recent(HISTORY_LIMIT, null) });
 		}
 
 		// Admin moderation (bearer token shared with the app).
@@ -158,6 +175,7 @@ export class ChatRoom extends DurableObject<Env> {
 		const del = url.pathname.match(/^\/api\/messages\/([A-Za-z0-9-]+)$/);
 		if (request.method === 'DELETE' && del) {
 			const id = decodeURIComponent(del[1]);
+			this.ctx.storage.sql.exec('DELETE FROM reactions WHERE message_id = ?', id);
 			const cursor = this.ctx.storage.sql.exec('DELETE FROM messages WHERE id = ?', id);
 			cursor.toArray();
 			const deleted = cursor.rowsWritten;
@@ -176,11 +194,19 @@ export class ChatRoom extends DurableObject<Env> {
 				// ignore malformed bodies
 			}
 			if (userId) {
+				this.ctx.storage.sql.exec(
+					'DELETE FROM reactions WHERE message_id IN (SELECT id FROM messages WHERE user_id = ?)',
+					userId
+				);
 				this.ctx.storage.sql.exec('DELETE FROM messages WHERE user_id = ?', userId);
 				this.broadcast({ type: 'purged', userId });
 				return Response.json({ ok: true, deleted: 1 });
 			}
 			if (!name) return Response.json({ ok: false, deleted: 0 }, { status: 400 });
+			this.ctx.storage.sql.exec(
+				'DELETE FROM reactions WHERE message_id IN (SELECT id FROM messages WHERE name = ?)',
+				name
+			);
 			this.ctx.storage.sql.exec('DELETE FROM messages WHERE name = ?', name);
 			this.broadcast({ type: 'purged', name });
 			return Response.json({ ok: true, deleted: 1 });
@@ -190,10 +216,18 @@ export class ChatRoom extends DurableObject<Env> {
 	}
 
 	async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer) {
-		let data: { type?: string; content?: unknown };
+		let data: { type?: string; content?: unknown; id?: unknown; emoji?: unknown };
 		try {
 			data = JSON.parse(String(message));
 		} catch {
+			return;
+		}
+
+		const meta =
+			(ws.deserializeAttachment() as ConnectionMeta | null) ?? { name: 'Listener', uid: null, pid: null, lastTs: 0 };
+
+		if (data.type === 'react') {
+			this.handleReaction(ws, meta, data);
 			return;
 		}
 		if (data.type !== 'message') return;
@@ -202,8 +236,6 @@ export class ChatRoom extends DurableObject<Env> {
 			.trim()
 			.slice(0, MAX_CONTENT_LENGTH);
 		if (!content) return;
-
-		const meta = (ws.deserializeAttachment() as ConnectionMeta | null) ?? { name: 'Listener', uid: null, lastTs: 0 };
 		const now = Date.now();
 		if (now - meta.lastTs < RATE_LIMIT_MS) {
 			ws.send(JSON.stringify({ type: 'error', message: 'Slow down a little.' }));
@@ -217,6 +249,41 @@ export class ChatRoom extends DurableObject<Env> {
 
 	async webSocketClose(_ws: WebSocket) {
 		// Hibernation API: the connection is removed automatically on close.
+	}
+
+	/** Toggle a reaction (heart) on a message; broadcasts the new count. */
+	private handleReaction(ws: WebSocket, meta: ConnectionMeta, data: { id?: unknown; emoji?: unknown }) {
+		const id = String(data.id ?? '').slice(0, 64);
+		const emoji = String(data.emoji ?? 'heart').slice(0, 16);
+		if (!id || !/^[\w-]{1,64}$/.test(id)) return;
+		const key = meta.uid ?? meta.pid;
+		if (!key) return;
+
+		const existing = this.ctx.storage.sql
+			.exec('SELECT 1 FROM reactions WHERE message_id = ? AND user_key = ? AND emoji = ?', id, key, emoji)
+			.toArray();
+		if (existing.length > 0) {
+			this.ctx.storage.sql.exec(
+				'DELETE FROM reactions WHERE message_id = ? AND user_key = ? AND emoji = ?',
+				id,
+				key,
+				emoji
+			);
+		} else {
+			this.ctx.storage.sql.exec(
+				'INSERT INTO reactions (message_id, user_key, emoji, created_at) VALUES (?, ?, ?, ?)',
+				id,
+				key,
+				emoji,
+				Date.now()
+			);
+		}
+		const count = Number(
+			this.ctx.storage.sql
+				.exec('SELECT count(*) AS c FROM reactions WHERE message_id = ? AND emoji = ?', id, emoji)
+				.one().c
+		);
+		this.broadcast({ type: 'reacted', id, emoji, count });
 	}
 
 	private insert(name: string, content: string, userId: string | null): ChatMessage {
@@ -239,8 +306,8 @@ export class ChatRoom extends DurableObject<Env> {
 		return msg;
 	}
 
-	private recent(limit: number): ChatMessage[] {
-		return this.ctx.storage.sql
+	private recent(limit: number, userKey: string | null): ChatMessage[] {
+		const messages = this.ctx.storage.sql
 			.exec<Record<string, string | number>>(
 				'SELECT id, ts, name, content, user_id FROM messages ORDER BY ts DESC LIMIT ?',
 				limit
@@ -254,6 +321,35 @@ export class ChatRoom extends DurableObject<Env> {
 				userId: row.user_id === undefined || row.user_id === null ? null : String(row.user_id)
 			}))
 			.reverse();
+
+		const ids = messages.map((m) => m.id);
+		const counts: Record<string, Record<string, number>> = {};
+		const mine: Record<string, string[]> = {};
+		if (ids.length > 0) {
+			const placeholders = ids.map(() => '?').join(',');
+			const rows = this.ctx.storage.sql
+				.exec<Record<string, number | string | null>>(
+					`SELECT message_id, emoji, count(*) AS c,
+					        SUM(CASE WHEN user_key = ? THEN 1 ELSE 0 END) AS m
+					 FROM reactions
+					 WHERE message_id IN (${placeholders})
+					 GROUP BY message_id, emoji`,
+					userKey,
+					...ids
+				)
+				.toArray();
+			for (const row of rows) {
+				const mid = String(row.message_id);
+				const emoji = String(row.emoji);
+				(counts[mid] ??= {})[emoji] = Number(row.c);
+				if (Number(row.m) > 0) (mine[mid] ??= []).push(emoji);
+			}
+		}
+		return messages.map((m) => ({
+			...m,
+			reactions: counts[m.id] ?? {},
+			...(mine[m.id] ? { my: mine[m.id] } : {})
+		}));
 	}
 
 	/**
