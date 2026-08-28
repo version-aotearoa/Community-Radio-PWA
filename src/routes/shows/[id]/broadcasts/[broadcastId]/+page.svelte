@@ -32,12 +32,12 @@
 		}
 	}
 
-	/** Smallest v2 Bandcamp bar: square artwork, play, title, track link — no buy/share/tracklist. */
+	/** Compact Bandcamp bar: album-scoped track embed (no buy/share/tracklist). */
 	function bandcampEmbed(t: { embed_id: string | null; album_id?: string | null }) {
 		if (t.album_id) {
-			return `https://bandcamp.com/EmbeddedPlayer/v=2/album=${t.album_id}/size=small/bgcol=141313/linkcol=ffffff/track=${t.embed_id}/transparent=true/`;
+			return `https://bandcamp.com/EmbeddedPlayer/album=${t.album_id}/size=small/bgcol=333333/linkcol=0f91ff/track=${t.embed_id}/transparent=true/`;
 		}
-		return `https://bandcamp.com/EmbeddedPlayer/v=2/track=${t.embed_id}/size=small/bgcol=141313/linkcol=ffffff/transparent=true/`;
+		return `https://bandcamp.com/EmbeddedPlayer/track=${t.embed_id}/size=large/tracklist=false/artwork=small/transparent=true/`;
 	}
 
 	function toggleReplay() {
@@ -112,7 +112,7 @@
 							class="bc-embed"
 							src={bandcampEmbed(t)}
 							title={`Play ${t.title} on Bandcamp`}
-							height="100"
+							height="42"
 							loading="lazy"
 						></iframe>
 					</li>
@@ -226,7 +226,7 @@
 	.bc-embed {
 		width: 100%;
 		max-width: 700px;
-		height: 100px;
+		height: 42px;
 		border: 0;
 		display: block;
 		margin-top: 0;
