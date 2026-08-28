@@ -32,12 +32,12 @@
 		}
 	}
 
-	/** WordPress/Bandcamp compact bar — v1, size=small both branches (reference match). */
+	/** Compact v1 Bandcamp bar — size=small (legacy player), committed 333333/0f91ff skin. */
 	function bandcampEmbed(t: { embed_id: string | null; album_id?: string | null }) {
 		if (t.album_id) {
-			return `https://bandcamp.com/EmbeddedPlayer/album=${t.album_id}/size=small/bgcol=ffffff/linkcol=0687f5/track=${t.embed_id}/transparent=true/`;
+			return `https://bandcamp.com/EmbeddedPlayer/album=${t.album_id}/size=small/bgcol=333333/linkcol=0f91ff/track=${t.embed_id}/transparent=true/`;
 		}
-		return `https://bandcamp.com/EmbeddedPlayer/track=${t.embed_id}/size=small/bgcol=ffffff/linkcol=0687f5/transparent=true/`;
+		return `https://bandcamp.com/EmbeddedPlayer/track=${t.embed_id}/size=small/bgcol=333333/linkcol=0f91ff/transparent=true/`;
 	}
 
 	function toggleReplay() {
