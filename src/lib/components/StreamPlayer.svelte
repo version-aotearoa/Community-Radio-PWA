@@ -725,7 +725,6 @@
 		max-width: min(100%, 64vh);
 		max-height: 100%;
 		object-fit: cover;
-		filter: grayscale(1);
 		display: block;
 		border: 1px solid var(--vr-line);
 	}

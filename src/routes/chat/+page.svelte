@@ -225,22 +225,6 @@
 </svelte:head>
 
 <div class="page">
-	<p class="subtitle mono">
-		You're chatting as <strong>{displayName}</strong>
-		{#if user}
-			(signed in)
-		{:else if !handle}
-			· <a href="/login">sign in</a>
-		{/if}
-	</p>
-
-	{#if !user}
-		<form class="handle-row" onsubmit={(e) => { e.preventDefault(); saveHandle(); }}>
-			<Text bind:value={handleInput} placeholder="Pick a handle (optional)" css="vr-input" />
-			<Button css="vr-cta ghost" onclick={saveHandle}>update</Button>
-		</form>
-	{/if}
-
 	{#if !data.chatUrl}
 		<div class="notice bad">Chat isn't configured yet (missing PUBLIC_CHAT_URL).</div>
 	{:else}
@@ -308,6 +292,22 @@
 			{/if}
 		</div>
 	{/if}
+
+	<p class="subtitle mono">
+		You're chatting as <strong>{displayName}</strong>
+		{#if user}
+			(signed in)
+		{:else if !handle}
+			· <a href="/login">sign in</a>
+		{/if}
+	</p>
+
+	{#if !user}
+		<form class="handle-row" onsubmit={(e) => { e.preventDefault(); saveHandle(); }}>
+			<Text bind:value={handleInput} placeholder="Pick a handle (optional)" css="vr-input" />
+			<Button css="vr-cta ghost" onclick={saveHandle}>update</Button>
+		</form>
+	{/if}
 </div>
 
 <style>
@@ -318,7 +318,7 @@
 
 	.subtitle {
 		color: var(--vr-muted);
-		margin: 0 0 1.25rem;
+		margin: 1.5rem 0 0;
 	}
 
 	.subtitle strong {
@@ -334,7 +334,7 @@
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		margin: 0 0 1.25rem;
+		margin: 0.75rem 0 0;
 	}
 
 	.handle-row :global(button) {

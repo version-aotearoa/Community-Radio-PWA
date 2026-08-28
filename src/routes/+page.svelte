@@ -179,7 +179,6 @@
 		inset: 0;
 		background-size: cover;
 		background-position: center;
-		filter: grayscale(1);
 	}
 
 	.hero-mark {
@@ -326,12 +325,6 @@
 		height: 100%;
 		object-fit: cover;
 		display: block;
-		filter: grayscale(1);
-		transition: filter 150ms;
-	}
-
-	.showcard:hover .showcard-art img {
-		filter: grayscale(0);
 	}
 
 	.art-sticker {

@@ -130,12 +130,6 @@
 		height: 100%;
 		object-fit: cover;
 		display: block;
-		filter: grayscale(1);
-		transition: filter 150ms;
-	}
-
-	.card:hover .card-img img {
-		filter: grayscale(0);
 	}
 
 	.card-img.empty {
