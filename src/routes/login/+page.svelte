@@ -80,7 +80,7 @@
 			<p class="muted">
 				You're signed in as <strong>{user.name || user.email}</strong>.
 			</p>
-			<Button css="vr-ghost" type="primary" onclick={signOut}>Sign out</Button>
+			<Button css="vr-cta ghost" type="primary" onclick={signOut}>Sign out</Button>
 		{:else}
 			<h1>Sign in to Version Radio</h1>
 			<p class="muted">Get a magic link by email, or use one of your accounts.</p>
@@ -117,10 +117,10 @@
 					<div class="divider"><span>or continue with</span></div>
 					<div class="socials">
 						{#if github}
-							<Button css="vr-ghost" onclick={() => signInWith('github')}>GitHub</Button>
+							<Button css="vr-cta ghost" onclick={() => signInWith('github')}>GitHub</Button>
 						{/if}
 						{#if google}
-							<Button css="vr-ghost" onclick={() => signInWith('google')}>Google</Button>
+							<Button css="vr-cta ghost" onclick={() => signInWith('google')}>Google</Button>
 						{/if}
 					</div>
 				{/if}
@@ -133,18 +133,23 @@
 	.login-wrap {
 		max-width: 26rem;
 		margin: 2rem auto;
+		padding: 0 1rem;
 	}
 
 	.card {
-		border: 1px solid var(--vr-border);
-		border-radius: 14px;
+		border: 1px solid var(--vr-line);
 		background: var(--vr-surface);
 		padding: 1.75rem 2rem;
 	}
 
 	h1 {
 		margin: 0 0 0.5rem;
-		font-size: 1.5rem;
+		font-family: var(--vr-font-headline);
+		font-size: 1.9rem;
+		font-weight: 400;
+		line-height: 1;
+		text-transform: uppercase;
+		letter-spacing: 0.01em;
 	}
 
 	.muted {
@@ -159,6 +164,9 @@
 		margin: 1.25rem 0;
 		color: var(--vr-muted);
 		font-size: 0.85rem;
+		font-family: var(--vr-font-mono);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
 	}
 
 	.divider::before,
@@ -166,7 +174,7 @@
 		content: '';
 		flex: 1;
 		height: 1px;
-		background: var(--vr-border);
+		background: var(--vr-line-muted);
 	}
 
 	.socials {
@@ -177,19 +185,15 @@
 	.notice {
 		margin: 0.5rem 0 1rem;
 		padding: 0.6rem 0.85rem;
-		border-radius: 8px;
+		border: 1px solid var(--vr-line);
 		font-size: 0.9rem;
 	}
 
 	.notice.ok {
-		background: rgba(16, 185, 129, 0.12);
-		border: 1px solid rgba(16, 185, 129, 0.4);
-		color: #6ee7b7;
+		color: var(--vr-muted);
 	}
 
 	.notice.bad {
-		background: rgba(255, 77, 109, 0.12);
-		border: 1px solid rgba(255, 77, 109, 0.4);
-		color: #ffb3c1;
+		color: var(--vr-text);
 	}
 </style>

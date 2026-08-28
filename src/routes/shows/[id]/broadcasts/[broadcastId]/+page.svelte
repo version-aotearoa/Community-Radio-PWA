@@ -32,12 +32,12 @@
 		}
 	}
 
-	/** Compact Bandcamp bar: album-scoped track embed (no buy/share/tracklist). */
+	/** Compact v2 Bandcamp bar (new player chrome, dark/white skin, no buy/share/tracklist). */
 	function bandcampEmbed(t: { embed_id: string | null; album_id?: string | null }) {
 		if (t.album_id) {
-			return `https://bandcamp.com/EmbeddedPlayer/album=${t.album_id}/size=small/bgcol=333333/linkcol=0f91ff/track=${t.embed_id}/transparent=true/`;
+			return `https://bandcamp.com/EmbeddedPlayer/v=2/album=${t.album_id}/size=small/bgcol=141313/linkcol=ffffff/track=${t.embed_id}/transparent=true/`;
 		}
-		return `https://bandcamp.com/EmbeddedPlayer/track=${t.embed_id}/size=large/tracklist=false/artwork=small/transparent=true/`;
+		return `https://bandcamp.com/EmbeddedPlayer/v=2/track=${t.embed_id}/size=large/tracklist=false/artwork=small/bgcol=141313/linkcol=ffffff/transparent=true/`;
 	}
 
 	function toggleReplay() {
@@ -66,10 +66,11 @@
 	<title>{show.title} — {fmtDate(broadcast.date)} — Version Radio</title>
 </svelte:head>
 
-<a class="back" href={`/shows/${show.id}`}>← {show.title}</a>
+<div class="page">
+<a class="back mono" href={`/shows/${show.id}`}>← {show.title}</a>
 
-<h1 class="page-title">{show.title}</h1>
-<p class="meta">
+<h1 class="h-lg">{show.title}</h1>
+<p class="meta mono">
 	<strong>{fmtDate(broadcast.date)}</strong>
 	· {fmtTime(broadcast.start_minutes)}–{fmtTime(
 		broadcast.start_minutes + broadcast.duration_minutes
@@ -135,41 +136,47 @@
 		<p class="hint">No tracklist for this broadcast.</p>
 	{/if}
 </section>
+</div>
 
 <style>
+	.page {
+		padding: 2rem;
+		max-width: 56rem;
+	}
+
 	.back {
 		display: inline-block;
-		color: var(--vr-accent-strong);
+		color: var(--vr-muted);
 		text-decoration: none;
-		font-size: 0.9rem;
-		margin-bottom: 0.75rem;
+		font-size: 0.82rem;
+		margin-bottom: 1rem;
 	}
 
 	.back:hover {
+		color: var(--vr-text);
 		text-decoration: underline;
-	}
-
-	.page-title {
-		font-size: 1.6rem;
-		margin: 0 0 0.35rem;
 	}
 
 	.meta {
 		color: var(--vr-muted);
-		margin: 0 0 1.5rem;
-		font-size: 0.95rem;
+		margin: 0.75rem 0 1.75rem;
 	}
 
 	.card {
-		border: 1px solid var(--vr-border);
-		border-radius: 14px;
+		border: 1px solid var(--vr-line);
 		background: var(--vr-surface);
 		padding: 1.25rem 1.5rem;
 	}
 
 	.card h2 {
-		font-size: 1.1rem;
-		margin: 1.25rem 0 1rem;
+		font-family: var(--vr-font-mono);
+		font-size: 0.82rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		margin: 0 0 1rem;
+		border-bottom: 1px solid var(--vr-line);
+		padding-bottom: 0.6rem;
 	}
 
 	.tracklist {
@@ -183,7 +190,7 @@
 		align-items: baseline;
 		gap: 0.6rem;
 		padding: 0.45rem 0;
-		border-bottom: 1px solid var(--vr-border);
+		border-bottom: 1px solid var(--vr-line-muted);
 		font-size: 0.95rem;
 	}
 
@@ -192,8 +199,9 @@
 	}
 
 	.num {
-		color: var(--vr-muted);
-		font-size: 0.8rem;
+		color: var(--vr-faint);
+		font-family: var(--vr-font-mono);
+		font-size: 0.78rem;
 		width: 1.5rem;
 		flex-shrink: 0;
 		font-variant-numeric: tabular-nums;
@@ -206,13 +214,9 @@
 	}
 
 	.url-fallback {
-		color: var(--vr-accent-strong);
-		text-decoration: none;
-		font-size: 0.9rem;
-	}
-
-	.url-fallback:hover {
+		color: var(--vr-text);
 		text-decoration: underline;
+		font-size: 0.9rem;
 	}
 
 	.embed-row {
@@ -224,7 +228,6 @@
 		max-width: 700px;
 		height: 42px;
 		border: 0;
-		border-radius: 6px;
 		display: block;
 		margin-top: 0;
 	}
@@ -237,29 +240,28 @@
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		margin-top: 0;
-		padding-top: 0;
-		border-top: none;
+		margin-bottom: 0.25rem;
 	}
 
 	.replay-art {
 		width: 40px;
 		height: 40px;
-		border-radius: 8px;
 		object-fit: cover;
-		border: 1px solid var(--vr-border);
+		border: 1px solid var(--vr-line-muted);
 	}
 
 	.replay-btn {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.4rem;
-		border: 1px solid var(--vr-accent);
-		background: none;
-		color: var(--vr-accent-strong);
-		border-radius: 999px;
+		border: 1px solid var(--vr-line);
+		background: transparent;
+		color: var(--vr-text);
+		font-family: var(--vr-font-mono);
+		font-size: 0.75rem;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
 		padding: 0.35rem 0.9rem;
-		font-size: 0.85rem;
 		cursor: pointer;
 	}
 
@@ -272,12 +274,12 @@
 	}
 
 	.replay-btn:hover {
-		background: color-mix(in srgb, var(--vr-accent) 12%, transparent);
+		background: var(--vr-text);
+		color: var(--vr-black);
 	}
 
 	.replay-btn.playing {
-		background: var(--vr-accent);
-		color: #0b0b11;
-		font-weight: 600;
+		background: var(--vr-text);
+		color: var(--vr-black);
 	}
 </style>

@@ -166,7 +166,8 @@
 	<title>DJ Studio — Version Radio</title>
 </svelte:head>
 
-<h1 class="page-title">DJ Studio</h1>
+<div class="page">
+<h1 class="h-lg">DJ Studio</h1>
 
 <section class="card">
 	<h2>Your shows</h2>
@@ -178,7 +179,7 @@
 				<li>
 					<a href={`/shows/${show.id}/tracklist`}>
 						<strong>{show.title}</strong>
-						<span class="meta">
+						<span class="meta mono">
 							{DAYS[show.day_of_week]} · {fmtStart(show.start_minutes)}
 						</span>
 					</a>
@@ -312,24 +313,34 @@
 		{/if}
 	</section>
 {/if}
+</div>
 
 <style>
-	.page-title {
-		font-size: 1.6rem;
-		margin: 0 0 1.25rem;
+	.page {
+		padding: 2rem;
+		max-width: 60rem;
+	}
+
+	.page > h1 {
+		margin: 0 0 1.5rem;
 	}
 
 	.card {
-		border: 1px solid var(--vr-border);
-		border-radius: 14px;
+		border: 1px solid var(--vr-line);
 		background: var(--vr-surface);
 		padding: 1.25rem 1.5rem;
 		margin-bottom: 1.5rem;
 	}
 
 	.card h2 {
-		font-size: 1.1rem;
+		font-family: var(--vr-font-mono);
+		font-size: 0.82rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
 		margin: 0 0 1rem;
+		border-bottom: 1px solid var(--vr-line);
+		padding-bottom: 0.6rem;
 	}
 
 	.show-list {
@@ -339,7 +350,7 @@
 	}
 
 	.show-list li {
-		border-bottom: 1px solid var(--vr-border);
+		border-bottom: 1px solid var(--vr-line-muted);
 	}
 
 	.show-list li:last-child {
@@ -356,7 +367,7 @@
 	}
 
 	.show-list a:hover strong {
-		color: var(--vr-accent-strong);
+		color: var(--vr-green);
 	}
 
 	.meta {
@@ -379,20 +390,16 @@
 	.notice {
 		margin: 0.5rem 0 1rem;
 		padding: 0.6rem 0.85rem;
-		border-radius: 8px;
+		border: 1px solid var(--vr-line);
 		font-size: 0.9rem;
 	}
 
 	.notice.ok {
-		background: rgba(16, 185, 129, 0.12);
-		border: 1px solid rgba(16, 185, 129, 0.4);
-		color: #6ee7b7;
+		color: var(--vr-muted);
 	}
 
 	.notice.bad {
-		background: rgba(255, 77, 109, 0.12);
-		border: 1px solid rgba(255, 77, 109, 0.4);
-		color: #ffb3c1;
+		color: var(--vr-text);
 	}
 
 	.muted {
@@ -409,7 +416,7 @@
 		align-items: center;
 		gap: 1rem;
 		padding: 0.7rem 0;
-		border-bottom: 1px solid var(--vr-border);
+		border-bottom: 1px solid var(--vr-line-muted);
 		justify-content: space-between;
 	}
 
@@ -432,30 +439,43 @@
 	}
 
 	.role-label select {
-		background: var(--vr-surface);
+		background: var(--vr-surface-low);
 		color: var(--vr-text);
-		border: 1px solid var(--vr-border);
-		border-radius: 8px;
+		border: 1px solid var(--vr-line);
 		padding: 0.25rem 0.4rem;
 	}
 
 	.mini-btn {
-		border: 1px solid var(--vr-border);
-		background: var(--vr-surface);
-		color: var(--vr-accent-strong);
-		border-radius: 8px;
-		padding: 0.3rem 0.7rem;
-		font-size: 0.8rem;
+		border: 1px solid var(--vr-line-muted);
+		background: transparent;
+		color: var(--vr-text);
+		font-family: var(--vr-font-mono);
+		font-size: 0.72rem;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		padding: 0.35rem 0.7rem;
 		cursor: pointer;
 		white-space: nowrap;
 	}
 
+	.mini-btn:hover {
+		background: var(--vr-text);
+		color: var(--vr-black);
+		border-color: var(--vr-line);
+	}
+
 	.mini-btn.off {
-		color: var(--vr-live);
+		color: var(--vr-faint);
 	}
 
 	.mini-btn.danger {
-		color: #ff8098;
+		color: var(--vr-red);
+	}
+
+	.mini-btn.danger:hover {
+		background: var(--vr-red);
+		color: #000;
+		border-color: var(--vr-red);
 	}
 
 	.chat-line {

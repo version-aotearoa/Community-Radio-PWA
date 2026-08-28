@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { Button } from '@svar-ui/svelte-core';
 	import { page } from '$app/state';
 	import { playback, playMedia, requestTogglePlay, streamPlaying } from '$lib/stores/player';
 	import { replayArtFromUrl } from '$lib/azuracast';
@@ -70,176 +69,179 @@
 	<title>{show.title} — Version Radio</title>
 </svelte:head>
 
-<div class="head">
-	<div>
-		<p class="eyebrow"><a href={backHref}>← {backLabel}</a></p>
-		<h1>{show.title}</h1>
-		<p class="subtitle">
-			{#if show.dj_image}
-				<img class="dj-avatar" src={show.dj_image} alt="" width="24" height="24" loading="lazy" />
+<div class="page">
+	<header class="head">
+		<div>
+			<p class="mono back"><a href={backHref}>← {backLabel}</a></p>
+			<h1 class="h-lg">{show.title}</h1>
+			<p class="subtitle mono">
+				{DAY_NAMES[show.day_of_week]}s · {fmtTime(show.start_minutes)}–{fmtTime(
+					show.start_minutes + show.duration_minutes
+				)} · {cycleLabel(show)}
+			</p>
+			{#if show.dj_name}
+				<p class="dj mono">with {show.dj_name}</p>
 			{/if}
-			{DAY_NAMES[show.day_of_week]}s · {fmtTime(show.start_minutes)}–{fmtTime(
-				show.start_minutes + show.duration_minutes
-			)} · {cycleLabel(show)} · {show.dj_name || 'Version Radio'}
-		</p>
-		{#if show.description}
-			<p class="desc">{show.description}</p>
+			{#if show.description}
+				<p class="desc">{show.description}</p>
+			{/if}
+		</div>
+		{#if data.canEdit}
+			<a href={`/shows/${show.id}/tracklist`} class="btn-outline">Edit tracklist</a>
 		{/if}
-	</div>
-	{#if data.canEdit}
-		<a href={`/shows/${show.id}/tracklist`} class="edit-link">Edit tracklist</a>
+	</header>
+
+	{#if upcoming.length > 0}
+		<section class="block">
+			<h2 class="h-md">Upcoming</h2>
+			<ul class="broadcasts">
+				{#each upcoming as b (b.id)}
+					<li class="broadcast" class:today={b.date === data.today}>
+						<header>
+							<strong>{fmtDate(b.date)}</strong>
+							<span class="mono">
+								{fmtTime(b.start_minutes)}–{fmtTime(b.start_minutes + b.duration_minutes)}
+							</span>
+							{#if data.canEdit}
+								<a class="edit-mini" href={`/shows/${show.id}/broadcasts/${b.id}/tracklist`}>Edit</a>
+							{/if}
+						</header>
+						{#if b.replay_url}
+							<div class="replay">
+								{#if replayArtFromUrl(b.replay_url)}
+									<img
+										class="replay-art"
+										src={replayArtFromUrl(b.replay_url) ?? ''}
+										alt=""
+										width="40"
+										height="40"
+										loading="lazy"
+									/>
+								{/if}
+								<button class="replay-btn" class:playing={replayActive(b.replay_url)} onclick={() => toggleReplay(b)}>
+									{#if replayActive(b.replay_url)}
+										<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0zM15 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0z" fill="currentColor" /></svg>
+										Pause
+									{:else}
+										<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z" fill="currentColor" /></svg>
+										Replay
+									{/if}
+								</button>
+								<a class="view-show mono" href={`/shows/${show.id}/broadcasts/${b.id}`}>View show →</a>
+							</div>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
+
+	{#if past.length > 0}
+		<section class="block">
+			<h2 class="h-md">Past broadcasts</h2>
+			<ul class="broadcasts">
+				{#each past as b (b.id)}
+					<li class="broadcast">
+						<header>
+							<strong>{fmtDate(b.date)}</strong>
+							<span class="mono">
+								{fmtTime(b.start_minutes)}–{fmtTime(b.start_minutes + b.duration_minutes)}
+							</span>
+							{#if data.canEdit}
+								<a class="edit-mini" href={`/shows/${show.id}/broadcasts/${b.id}/tracklist`}>Edit</a>
+							{/if}
+						</header>
+						{#if b.replay_url}
+							<div class="replay">
+								{#if replayArtFromUrl(b.replay_url)}
+									<img
+										class="replay-art"
+										src={replayArtFromUrl(b.replay_url) ?? ''}
+										alt=""
+										width="40"
+										height="40"
+										loading="lazy"
+									/>
+								{/if}
+								<button class="replay-btn" class:playing={replayActive(b.replay_url)} onclick={() => toggleReplay(b)}>
+									{#if replayActive(b.replay_url)}
+										<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0zM15 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0z" fill="currentColor" /></svg>
+										Pause
+									{:else}
+										<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z" fill="currentColor" /></svg>
+										Replay
+									{/if}
+								</button>
+								<a class="view-show mono" href={`/shows/${show.id}/broadcasts/${b.id}`}>View show →</a>
+							</div>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
+
+	{#if upcoming.length === 0 && past.length === 0}
+		<p class="hint mono">No scheduled broadcasts yet.</p>
 	{/if}
 </div>
 
-{#if upcoming.length > 0}
-	<section>
-		<h2>Upcoming</h2>
-		<ul class="broadcasts">
-			{#each upcoming as b (b.id)}
-				<li class="broadcast" class:today={b.date === data.today}>
-					<header>
-						<strong>{fmtDate(b.date)}</strong>
-						<span>{fmtTime(b.start_minutes)}–{fmtTime(b.start_minutes + b.duration_minutes)}</span>
-						{#if data.canEdit}
-							<a class="edit-mini" href={`/shows/${show.id}/broadcasts/${b.id}/tracklist`}>Edit</a>
-						{/if}
-					</header>
-					{#if b.replay_url}
-						<div class="replay">
-							{#if replayArtFromUrl(b.replay_url)}
-								<img
-									class="replay-art"
-									src={replayArtFromUrl(b.replay_url) ?? ''}
-									alt=""
-									width="40"
-									height="40"
-									loading="lazy"
-								/>
-							{/if}
-							<button class="replay-btn" class:playing={replayActive(b.replay_url)} onclick={() => toggleReplay(b)}>
-								{#if replayActive(b.replay_url)}
-									<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0zM15 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0z" fill="currentColor" /></svg>
-									Pause
-								{:else}
-									<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z" fill="currentColor" /></svg>
-									Replay
-								{/if}
-							</button>
-							<a class="view-show" href={`/shows/${show.id}/broadcasts/${b.id}`}>View show →</a>
-						</div>
-					{/if}
-				</li>
-			{/each}
-		</ul>
-	</section>
-{/if}
-
-{#if past.length > 0}
-	<section>
-		<h2>Past broadcasts</h2>
-		<ul class="broadcasts">
-			{#each past as b (b.id)}
-				<li class="broadcast">
-					<header>
-						<strong>{fmtDate(b.date)}</strong>
-						<span>{fmtTime(b.start_minutes)}–{fmtTime(b.start_minutes + b.duration_minutes)}</span>
-						{#if data.canEdit}
-							<a class="edit-mini" href={`/shows/${show.id}/broadcasts/${b.id}/tracklist`}>Edit</a>
-						{/if}
-					</header>
-					{#if b.replay_url}
-						<div class="replay">
-							{#if replayArtFromUrl(b.replay_url)}
-								<img
-									class="replay-art"
-									src={replayArtFromUrl(b.replay_url) ?? ''}
-									alt=""
-									width="40"
-									height="40"
-									loading="lazy"
-								/>
-							{/if}
-							<button class="replay-btn" class:playing={replayActive(b.replay_url)} onclick={() => toggleReplay(b)}>
-								{#if replayActive(b.replay_url)}
-									<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0zM15 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0z" fill="currentColor" /></svg>
-									Pause
-								{:else}
-									<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z" fill="currentColor" /></svg>
-									Replay
-								{/if}
-							</button>
-							<a class="view-show" href={`/shows/${show.id}/broadcasts/${b.id}`}>View show →</a>
-						</div>
-					{/if}
-				</li>
-			{/each}
-		</ul>
-	</section>
-{/if}
-
-{#if upcoming.length === 0 && past.length === 0}
-	<p class="hint">No scheduled broadcasts yet.</p>
-{/if}
-
 <style>
+	.page {
+		padding: 2rem;
+	}
+
 	.head {
 		display: flex;
 		justify-content: space-between;
 		align-items: flex-start;
 		gap: 1rem;
-		margin-bottom: 1.5rem;
+		margin-bottom: 1.75rem;
 	}
 
-	.eyebrow {
-		margin: 0 0 0.25rem;
-		font-size: 0.85rem;
+	.back {
+		margin: 0 0 0.5rem;
 	}
 
-	.eyebrow a {
-		color: var(--vr-accent-strong);
+	.back a {
+		color: var(--vr-muted);
 		text-decoration: none;
 	}
 
-	h1 {
+	.back a:hover {
+		color: var(--vr-text);
+		text-decoration: underline;
+	}
+
+	.head h1 {
 		margin: 0;
-		font-size: 1.8rem;
 	}
 
 	.subtitle {
-		margin: 0.4rem 0 0;
+		margin: 0.75rem 0 0;
 		color: var(--vr-muted);
-		display: flex;
-		align-items: center;
-		gap: 0.45rem;
-		flex-wrap: wrap;
+		font-variant-numeric: tabular-nums;
 	}
 
-	.dj-avatar {
-		width: 24px;
-		height: 24px;
-		border-radius: 50%;
-		object-fit: cover;
-		border: 1px solid var(--vr-border);
+	.dj {
+		margin: 0.4rem 0 0;
+		color: var(--vr-faint);
 	}
 
 	.desc {
-		margin: 0.75rem 0 0;
+		margin: 0.85rem 0 0;
 		color: var(--vr-muted);
+		max-width: 44rem;
 	}
 
-	.edit-link {
-		border: 1px solid var(--vr-border);
-		border-radius: 8px;
-		padding: 0.4rem 0.85rem;
-		color: var(--vr-live);
-		text-decoration: none;
-		font-size: 0.9rem;
-		white-space: nowrap;
+	.block {
+		margin-top: 1.5rem;
 	}
 
-	h2 {
-		font-size: 1.1rem;
-		margin: 1.25rem 0 0.75rem;
+	.block h2 {
+		margin: 0 0 0.75rem;
+		border-bottom: 1px solid var(--vr-line);
+		padding-bottom: 0.5rem;
 	}
 
 	.broadcasts {
@@ -248,19 +250,22 @@
 		padding: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 0.75rem;
 	}
 
 	.broadcast {
-		border: 1px solid var(--vr-border);
-		border-radius: 14px;
-		background: var(--vr-surface);
-		padding: 1rem 1.25rem;
+		border: 1px solid var(--vr-line-muted);
+		border-bottom: none;
+		background: var(--vr-surface-low);
+		padding: 1rem 1.25rem 1.1rem;
+	}
+
+	.broadcast:last-child {
+		border-bottom: 1px solid var(--vr-line-muted);
 	}
 
 	.broadcast.today {
-		border-color: var(--vr-accent);
-		box-shadow: 0 0 0 1px var(--vr-accent);
+		border-color: var(--vr-line);
+		background: var(--vr-surface-high);
 	}
 
 	.broadcast header {
@@ -268,27 +273,39 @@
 		justify-content: space-between;
 		align-items: baseline;
 		gap: 1rem;
-		margin-bottom: 0.5rem;
+	}
+
+	.broadcast header strong {
+		font-family: var(--vr-font-body);
+		font-weight: 600;
 	}
 
 	.broadcast header span {
-		color: var(--vr-accent-strong);
+		color: var(--vr-green);
 		font-variant-numeric: tabular-nums;
+	}
+
+	.broadcast:not(.today) header span {
+		color: var(--vr-muted);
 	}
 
 	.edit-mini {
 		margin-left: auto;
-		color: var(--vr-live);
-		border: 1px solid var(--vr-border);
-		border-radius: 8px;
+		color: var(--vr-muted);
+		border: 1px solid var(--vr-line-muted);
 		padding: 0.15rem 0.6rem;
-		font-size: 0.8rem;
+		font-size: 0.72rem;
+		font-family: var(--vr-font-mono);
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
 		text-decoration: none;
 		white-space: nowrap;
 	}
 
 	.edit-mini:hover {
-		border-color: var(--vr-live);
+		background: var(--vr-text);
+		color: var(--vr-black);
+		border-color: var(--vr-line);
 	}
 
 	.hint {
@@ -303,27 +320,28 @@
 		gap: 0.75rem;
 		margin-top: 0.85rem;
 		padding-top: 0.75rem;
-		border-top: 1px dashed var(--vr-border);
+		border-top: 1px solid var(--vr-line-muted);
 	}
 
 	.replay-art {
 		width: 40px;
 		height: 40px;
-		border-radius: 8px;
 		object-fit: cover;
-		border: 1px solid var(--vr-border);
+		border: 1px solid var(--vr-line-muted);
 	}
 
 	.replay-btn {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.4rem;
-		border: 1px solid var(--vr-accent);
-		background: none;
-		color: var(--vr-accent-strong);
-		border-radius: 999px;
-		padding: 0.35rem 0.9rem;
-		font-size: 0.85rem;
+		border: 1px solid var(--vr-line);
+		background: transparent;
+		color: var(--vr-text);
+		padding: 0.4rem 0.9rem;
+		font-size: 0.75rem;
+		font-family: var(--vr-font-mono);
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
 		cursor: pointer;
 	}
 
@@ -336,18 +354,18 @@
 	}
 
 	.replay-btn:hover {
-		background: color-mix(in srgb, var(--vr-accent) 12%, transparent);
+		background: var(--vr-text);
+		color: var(--vr-black);
 	}
 
 	.replay-btn.playing {
-		background: var(--vr-accent);
-		color: #0b0b11;
-		font-weight: 600;
+		background: var(--vr-text);
+		color: var(--vr-black);
 	}
 
 	.view-show {
-		color: var(--vr-accent-strong);
-		font-size: 0.85rem;
+		color: var(--vr-green);
+		font-size: 0.8rem;
 		text-decoration: none;
 		margin-left: auto;
 		white-space: nowrap;

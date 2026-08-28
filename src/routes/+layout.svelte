@@ -7,6 +7,10 @@
 	import InstallPrompt from '$lib/components/InstallPrompt.svelte';
 	import { initBannerDismissed, initPwa, registerServiceWorker } from '$lib/pwa';
 	import { authClient } from '$lib/client';
+	import '@fontsource/anton/latin.css';
+	import '@fontsource/hanken-grotesk/latin-400.css';
+	import '@fontsource/hanken-grotesk/latin-600.css';
+	import '@fontsource/jetbrains-mono/latin-500.css';
 	import '../app.css';
 
 	let { children } = $props();
@@ -33,7 +37,7 @@
 
 <svelte:head>
 	<title>Version Radio</title>
-	<meta name="theme-color" content="#0b0b11" />
+	<meta name="theme-color" content="#141313" />
 </svelte:head>
 
 <WillowDark fonts={false}>
@@ -41,13 +45,10 @@
 		<header class="site-header">
 			<a class="brand" href="/" aria-label="Version Radio home">
 				<span class="brand-mark" aria-hidden="true">
-					<svg viewBox="0 0 32 32" width="24" height="24">
+					<svg viewBox="0 0 80 70" width="22" height="19" fill="currentColor">
 						<path
-							d="M4 18v-4M10 22V10M16 26V6M22 20v-8M28 16v0"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="3"
-							stroke-linecap="round"
+							fill-rule="evenodd"
+							d="M0 0H40V40H50V0H80V45H70V60H55V70H25V60H10V45H0V5ZM10 5H5V40H15V55H30V65H50V55H65V40H75V5H55V45H35V5H15Z"
 						/>
 					</svg>
 				</span>
@@ -73,14 +74,14 @@
 				<a href="/shows">Shows</a>
 				<a href="/schedule">Schedule</a>
 				<a href="/chat">Chat</a>
+				{#if user && (user.role === 'dj' || user.role === 'admin')}
+					<a href="/studio">Studio</a>
+				{/if}
 				<InstallPrompt variant="menu" />
 			</nav>
 			{#if user}
 				<div class="account">
-					{#if user.role === 'dj' || user.role === 'admin'}
-						<a class="dj-link" href="/studio">DJ Studio</a>
-					{/if}
-					<span class="account-name" title={user.email}>{user.name || 'You'}</span>
+					<span class="account-name mono" title={user.email}>{user.name || 'You'}</span>
 					<button class="account-signout" onclick={signOut}>Sign out</button>
 				</div>
 			{:else}
@@ -114,7 +115,16 @@
 		</main>
 
 		<footer class="site-footer">
-			<span>Version Radio</span>
+			<span class="brand-mark" aria-hidden="true">
+				<svg viewBox="0 0 80 70" width="16" height="14" fill="currentColor">
+					<path
+						fill-rule="evenodd"
+						d="M0 0H40V40H50V0H80V45H70V60H55V70H25V60H10V45H0V5ZM10 5H5V40H15V55H30V65H50V55H65V40H75V5H55V45H35V5H15Z"
+					/>
+				</svg>
+			</span>
+			<span class="footer-name">Version Radio</span>
+			<span class="footer-note mono">Independent radio · Auckland, NZ · 24/7</span>
 		</footer>
 
 		<StreamPlayer />
@@ -138,16 +148,15 @@
 		display: flex;
 		align-items: center;
 		gap: 1.5rem;
-		padding: 0.75rem 1.25rem;
-		background: color-mix(in srgb, var(--vr-bg) 82%, transparent);
-		backdrop-filter: blur(10px);
-		border-bottom: 1px solid var(--vr-border);
+		padding: 0.75rem 2rem;
+		background: var(--vr-surface);
+		border-bottom: 1px solid var(--vr-line);
 	}
 
 	.brand {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.5rem;
+		gap: 0.6rem;
 		text-decoration: none;
 		color: var(--vr-text);
 	}
@@ -155,44 +164,49 @@
 	.brand-mark {
 		display: grid;
 		place-items: center;
-		width: 32px;
-		height: 32px;
-		border-radius: 8px;
-		background: var(--vr-accent);
-		color: #0b0b11;
+		color: var(--vr-text);
 	}
 
 	.brand-name {
-		font-weight: 700;
+		font-family: var(--vr-font-headline);
+		font-size: 1.5rem;
+		line-height: 1;
+		text-transform: uppercase;
 		letter-spacing: 0.01em;
 	}
 
 	.site-nav {
 		display: flex;
-		gap: 0.25rem;
+		align-items: center;
+		gap: 1rem;
 		margin-left: auto;
 	}
 
 	.site-nav a {
-		color: var(--vr-muted);
+		font-family: var(--vr-font-headline);
+		font-size: 1.125rem;
+		line-height: 1.2;
+		text-transform: uppercase;
+		letter-spacing: 0.02em;
+		color: var(--vr-faint);
 		text-decoration: none;
-		font-size: 0.95rem;
-		padding: 0.4rem 0.75rem;
-		border-radius: 8px;
+		padding: 0.2rem 0.1rem;
+		border-bottom: 2px solid transparent;
+		transition: color 150ms, background-color 150ms;
 	}
 
 	.site-nav a:hover {
-		color: var(--vr-text);
-		background: var(--vr-surface);
+		color: var(--vr-black);
+		background: var(--vr-text);
 	}
 
 	.menu-toggle {
 		display: none;
 		margin-left: auto;
 		background: none;
-		border: none;
+		border: 1px solid var(--vr-line);
 		color: var(--vr-text);
-		padding: 0.4rem;
+		padding: 0.5rem;
 		cursor: pointer;
 	}
 
@@ -202,35 +216,35 @@
 		left: 0;
 		right: 0;
 		z-index: 40;
-		background: var(--vr-surface-raised);
-		border-bottom: 1px solid var(--vr-border);
-		padding: 0.5rem 1rem 0.75rem;
-		box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
+		background: var(--vr-surface);
+		border-bottom: 1px solid var(--vr-line);
+		padding: 0;
 	}
 
 	.mobile-menu nav {
 		display: flex;
 		flex-direction: column;
-		gap: 0.25rem;
 	}
 
 	.mobile-menu a,
 	.mobile-menu button {
 		color: var(--vr-text);
 		text-decoration: none;
-		font-size: 1rem;
-		padding: 0.6rem 0.4rem;
-		border-radius: 8px;
-		background: none;
+		font-family: var(--vr-font-headline);
+		font-size: 1.25rem;
+		text-transform: uppercase;
+		padding: 0.85rem 2rem;
 		border: none;
+		border-bottom: 1px solid var(--vr-line-muted);
+		background: none;
 		text-align: left;
-		font: inherit;
 		cursor: pointer;
 	}
 
 	.mobile-menu a:hover,
 	.mobile-menu button:hover {
-		background: var(--vr-surface);
+		background: var(--vr-text);
+		color: var(--vr-black);
 	}
 
 	@media (max-width: 720px) {
@@ -239,67 +253,106 @@
 		}
 
 		.site-nav,
-		.account,
-		.signin {
+		.account {
 			display: none;
+		}
+
+		.signin {
+			margin-left: auto;
 		}
 	}
 
 	.site-main {
 		flex: 1;
 		width: 100%;
-		max-width: 72rem;
+		max-width: 100rem;
 		margin: 0 auto;
-		padding: 1.5rem 1.25rem 4rem;
+	}
+
+	.signin {
+		color: var(--vr-text);
+		text-decoration: none;
+		font-family: var(--vr-font-mono);
+		font-size: 0.82rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		border: 1px solid var(--vr-line);
+		padding: 0.45rem 1rem;
+		transition: color 150ms, background-color 150ms;
+	}
+
+	.signin:hover {
+		background: var(--vr-text);
+		color: var(--vr-black);
 	}
 
 	.account {
 		display: flex;
 		align-items: center;
-		gap: 0.6rem;
+		gap: 1rem;
 	}
 
 	.account-name {
-		color: var(--vr-text);
-		font-size: 0.9rem;
-	}
-
-	.account-signout,
-	.dj-link,
-	.signin {
-		color: var(--vr-accent-strong);
-		text-decoration: none;
-		font-size: 0.9rem;
+		color: var(--vr-muted);
+		max-width: 14rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.account-signout {
 		background: none;
-		border: none;
-		padding: 0;
+		border: 1px solid var(--vr-line-muted);
+		color: var(--vr-muted);
+		font-family: var(--vr-font-mono);
+		font-size: 0.82rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		padding: 0.45rem 0.9rem;
 		cursor: pointer;
-		font: inherit;
 	}
 
-	.dj-link {
-		color: var(--vr-live);
-		border: 1px solid var(--vr-border);
-		border-radius: 8px;
-		padding: 0.3rem 0.7rem;
-	}
-
-	.account-signout:hover,
-	.dj-link:hover,
-	.signin:hover {
-		text-decoration: underline;
+	.account-signout:hover {
+		background: var(--vr-text);
+		border-color: var(--vr-line);
+		color: var(--vr-black);
 	}
 
 	.site-footer {
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		padding: 1rem 1.25rem;
-		border-top: 1px solid var(--vr-border);
+		padding: 1rem 2rem;
+		border-top: 1px solid var(--vr-line);
 		color: var(--vr-muted);
-		font-size: 0.85rem;
+	}
+
+	.footer-name {
+		font-family: var(--vr-font-headline);
+		font-size: 1rem;
+		line-height: 1;
+		text-transform: uppercase;
+		color: var(--vr-text);
+	}
+
+	.footer-note {
+		color: var(--vr-faint);
+		margin-left: auto;
+	}
+
+	@media (max-width: 720px) {
+		.site-header {
+			padding: 0.75rem 1rem;
+		}
+
+		.footer-note {
+			display: none;
+		}
+
+		.site-footer {
+			padding-left: 1rem;
+		}
 	}
 </style>

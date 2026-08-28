@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-28T02:37:54Z",
+  "title": "Design System: Version Radio",
+  "extensions": {
+    "colorMeta": {},
+    "typographyMeta": {
+      "body": { "displayName": "Body", "purpose": "All copy, system stack." },
+      "label": { "displayName": "Micro-Label", "purpose": "Uppercase metadata: eyebrows, timestamps, chips." }
+    },
+    "shadows": [
+      { "name": "menu-lift", "value": "0 12px 24px rgba(0, 0, 0, 0.4)", "purpose": "The single accepted shadow: floating menu layers." }
+    ],
+    "motion": [
+      { "name": "pulse", "value": "opacity 2s ease-in-out infinite", "purpose": "LIVE / online status pulse; never colour." },
+      { "name": "eq", "value": "0.9s ease-in-out infinite height scale", "purpose": "Player equaliser bars." }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "< 640px", "purpose": "Single column throughout; sidebar/player stacks." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Micro-Label",
+      "kind": "label",
+      "refersTo": "label",
+      "description": "Uppercase metadata eyebrow used in place of colour for attention.",
+      "html": "<span class=\"ds-micro\">ON AIR</span>",
+      "css": ".ds-micro { font-family: system-ui, sans-serif; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #eceaf6; }"
+    },
+    {
+      "name": "Primary Pill Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "CTA pill: white fill, near-black text.",
+      "html": "<button class=\"ds-btn\">LISTEN LIVE</button>",
+      "css": ".ds-btn { background: #eceaf6; color: #0b0b11; border: none; border-radius: 999px; padding: 0.35rem 0.9rem; font-size: 0.85rem; font-weight: 600; cursor: pointer; } .ds-btn:hover { background: #fff; } .ds-btn:focus-visible { outline: none; box-shadow: 0 0 0 1px #0b0b11, 0 0 0 2px #eceaf6; }"
+    },
+    {
+      "name": "Mega-Play Circle",
+      "kind": "button",
+      "refersTo": "button-primary-circle",
+      "description": "64px hero play button; white circle, dark glyph.",
+      "html": "<button class=\"ds-bigplay\" aria-label=\"Play\"><svg viewBox=\"0 0 24 24\" width=\"26\" height=\"26\"><path d=\"M6 5l14 7-14 7z\" fill=\"#0b0b11\"/></svg></button>",
+      "css": ".ds-bigplay { width: 64px; height: 64px; border-radius: 50%; border: none; background: #eceaf6; display: grid; place-items: center; cursor: pointer; } .ds-bigplay:hover { background: #fff; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Flat panel: 1px border, surface tone, no shadow.",
+      "html": "<div class=\"ds-card\"><h2 class=\"ds-card-title\">Get involved</h2><p class=\"ds-card-body\">Join the community chat, see what's on, or sign in for DJ tools.</p></div>",
+      "css": ".ds-card { background: #14141d; border: 1px solid #26263a; border-radius: 14px; padding: 1.25rem 1.5rem; } .ds-card-title { margin: 0 0 0.4rem; font-size: 1.1rem; font-weight: 700; color: #eceaf6; } .ds-card-body { margin: 0; color: #9a98b3; font-size: 0.95rem; }"
+    },
+    {
+      "name": "LIVE Badge",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Live status: white border on raised surface, pulsing opacity.",
+      "html": "<span class=\"ds-live\">LIVE</span>",
+      "css": ".ds-live { display: inline-block; background: #1b1b28; border: 1px solid #eceaf6; border-radius: 4px; color: #eceaf6; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.15rem 0.5rem; animation: ds-pulse 2s ease-in-out infinite; } @keyframes ds-pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Surface field with 1px border; focus is a white ring.",
+      "html": "<input class=\"ds-input\" placeholder=\"Say something\">",
+      "css": ".ds-input { background: #1b1b28; border: 1px solid #26263a; border-radius: 8px; color: #eceaf6; padding: 0.5rem 0.75rem; font-size: 0.95rem; font-family: inherit; } .ds-input::placeholder { color: #9a98b3; } .ds-input:focus { outline: none; border-color: #eceaf6; box-shadow: 0 0 0 1px #eceaf6; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Static After Dark",
+    "overview": "This is the broadcast after the lights go out: a night-zine baked into a stream. Black and white on purpose — no colour rescued, not even for live states. Personality comes from contrast, the stepped-V mark, and tiny moments of noise that suggest a signal barely on the edge of signal. Austere: hard rules, micro labels in uppercase, no decorative padding, no gloss, no gradient pairings beyond white levels that stay legible on the dark surface.\n\nSlightly textured is the licence, not the requirement. Where texture appears (scanlines, noise, static flicker on LIVE indicators) it is monochrome, subtle, and reads as broadcast machinery — not skitter. The moment a surface looks like a SaaS dashboard, the system has failed.",
+    "keyCharacteristics": [
+      "Monochrome at every level: the LIVE indicator is a white pulse, never red",
+      "Stepped-V glyph is the only ornament the system uses",
+      "Uppercase micro-labels with generous letter-spacing as the primary eye-guide",
+      "Flat surfaces; separation via 1px borders and tonal steps, not shadows",
+      "Slightly textured means noise/scanlines are legal in monochrome — and only in monochrome",
+      "Anti-commercial: nothing reads like a graded product; the station owns the frame"
+    ],
+    "rules": [
+      { "name": "The One Colour Rule", "body": "The design is greyscale by definition. If a token carries hue it was an accident: --vr-accent, --vr-accent-strong, and --vr-live converge on the white levels. LIVE states pulse via opacity/scale, never via red. Status differentiation is structural — white borders/white text for errors, muted grey for success — never green vs red.", "section": "colors" },
+      { "name": "The Border-Not-Shadow Rule", "body": "Detail comes from 1px borders and tonal steps. If a component needs depth, raise the surface tone, don't drop a shadow. (The single menu dropdown shadow is the exception and stays.)", "section": "colors" },
+      { "name": "The Uppercase Micro-Label Rule", "body": "Any time a unit of metadata needs to lead the eye, use the uppercase label style: 0.8rem, 600, 0.14em. It is the system's primary attention tool, used in place of colour.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "Surfaces are flat at rest. Shadows appear only for floating layers (Menu Lift). Focus states use 1px border + ring, not glow.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use #eceaf6-family whites for text, links, and fills; #0b0b11 inside white fills.",
+      "Do give metadata uppercase micro-labels (0.8rem, 0.14em) instead of colour.",
+      "Do border 1px #26263a instead of adding shadows; raise tones for depth.",
+      "Do use the stepped-V mark for brand; squarish, stepped, unrounded.",
+      "Do allow monochrome texture (grain, scanlines) — but never in colour, never more than a whisper.",
+      "Do keep focus states as ring-only (1px border + 1px ring)."
+    ],
+    "donts": [
+      "Don't let any hue re-enter the palette, including for LIVE/online/status states: white pulse replaces red, and notice colors are structural (error = bright border/text, success = muted grey).",
+      "Don't use purple gradients, glowing shadows, glassmorphism, or frosted layers as accents.",
+      "Don't produce SaaS-looking pills-everywhere / cards-in-cards compositions; the station owns the frame.",
+      "Don't round the stepped-V or swap interpuncts; it is a rectilinear mark.",
+      "Don't webfont the system; system stacks only."
+    ]
+  }
+}

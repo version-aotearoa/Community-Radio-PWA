@@ -25,60 +25,67 @@
 	<title>Shows — Version Radio</title>
 </svelte:head>
 
-<div class="head">
-	<h1>Shows</h1>
-	<p class="subtitle">Browse the Version Radio lineup — each show has its own page and tracklists.</p>
+<div class="page">
+	<header class="head">
+		<h1 class="h-lg">Shows</h1>
+		<p class="subtitle mono">Browse the Version Radio lineup — each show has its own page and tracklists.</p>
+	</header>
+
+	{#if shows.length === 0}
+		<p class="empty mono">No shows yet.</p>
+	{:else}
+		<ul class="grid">
+			{#each shows as show (show.id)}
+				<li>
+					<a class="card" href={`/shows/${show.id}`}>
+						<div class="card-img" class:empty={!show.image && !show.dj_image}>
+							{#if show.image}
+								<img src={show.image} alt="" loading="lazy" />
+							{:else if show.dj_image}
+								<img src={show.dj_image} alt="" loading="lazy" />
+							{:else}
+								<span>{initial(show.title)}</span>
+							{/if}
+						</div>
+						<div class="card-body">
+							<p class="mono card-meta">
+								{DAY_NAMES[show.day_of_week]}s · {fmtTime(show.start_minutes)}–{fmtTime(
+									show.start_minutes + show.duration_minutes
+								)} · {cycleLabel(show)}
+							</p>
+							<h2 class="h-md">{show.title}</h2>
+							{#if show.dj_name}
+								<p class="dj mono">{show.dj_name}</p>
+							{/if}
+							{#if show.description}
+								<p class="desc">{show.description}</p>
+							{/if}
+						</div>
+					</a>
+				</li>
+			{/each}
+		</ul>
+	{/if}
 </div>
 
-{#if shows.length === 0}
-	<p class="empty">No shows yet.</p>
-{:else}
-	<ul class="grid">
-		{#each shows as show (show.id)}
-			<li>
-				<a class="card" href={`/shows/${show.id}`}>
-					<div class="card-img" class:empty={!show.image && !show.dj_image}>
-						{#if show.image}
-							<img src={show.image} alt="" loading="lazy" />
-						{:else if show.dj_image}
-							<img src={show.dj_image} alt="" loading="lazy" />
-						{:else}
-							<span>{initial(show.title)}</span>
-						{/if}
-					</div>
-					<div class="card-body">
-						<h2>{show.title}</h2>
-						<p class="meta">
-							{DAY_NAMES[show.day_of_week]}s · {fmtTime(show.start_minutes)}–{fmtTime(
-								show.start_minutes + show.duration_minutes
-							)} · {cycleLabel(show)}
-						</p>
-						{#if show.description}
-							<p class="desc">{show.description}</p>
-						{/if}
-						{#if show.dj_name}
-							<p class="dj">{show.dj_name}</p>
-						{/if}
-					</div>
-				</a>
-			</li>
-		{/each}
-	</ul>
-{/if}
-
 <style>
-	.head {
-		margin-bottom: 1.25rem;
+	.page {
+		padding: 2rem;
 	}
 
-	h1 {
+	.head {
+		margin: 0 0 1.5rem;
+		border-bottom: 1px solid var(--vr-line);
+		padding-bottom: 1rem;
+	}
+
+	.head h1 {
 		margin: 0;
-		font-size: 1.6rem;
 	}
 
 	.subtitle {
+		margin: 0.5rem 0 0;
 		color: var(--vr-muted);
-		margin: 0.35rem 0 0;
 	}
 
 	.empty {
@@ -90,30 +97,30 @@
 		margin: 0;
 		padding: 0;
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-		gap: 1rem;
+		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+		border: 1px solid var(--vr-line);
 	}
 
 	.card {
-		display: grid;
-		grid-template-columns: 96px 1fr;
-		align-items: stretch;
-		border: 1px solid var(--vr-border);
-		border-radius: 14px;
+		display: flex;
+		flex-direction: column;
+		border: 1px solid var(--vr-line);
+		margin: -1px 0 0 -1px;
 		background: var(--vr-surface);
-		overflow: hidden;
 		text-decoration: none;
 		color: var(--vr-text);
-		height: 100%;
+		transition: color 150ms, background-color 150ms;
 	}
 
 	.card:hover {
-		border-color: var(--vr-accent);
+		background: #fff;
+		color: #000;
 	}
 
 	.card-img {
+		aspect-ratio: 1.6;
 		position: relative;
-		min-height: 100%;
+		background: var(--vr-surface-highest);
 	}
 
 	.card-img img {
@@ -123,35 +130,47 @@
 		height: 100%;
 		object-fit: cover;
 		display: block;
+		filter: grayscale(1);
+		transition: filter 150ms;
+	}
+
+	.card:hover .card-img img {
+		filter: grayscale(0);
 	}
 
 	.card-img.empty {
 		display: grid;
 		place-items: center;
-		background: linear-gradient(140deg, var(--vr-accent), var(--vr-live));
+		color: var(--vr-faint);
 	}
 
 	.card-img.empty span {
 		font-size: 2rem;
 		font-weight: 700;
-		color: #0b0b11;
 	}
 
 	.card-body {
-		padding: 1rem 1.1rem;
+		padding: 1rem 1.1rem 1.2rem;
 		min-width: 0;
+	}
+
+	.card-meta {
+		margin: 0 0 0.5rem;
+		color: var(--vr-muted);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.card:hover .card-meta {
+		color: rgba(0, 0, 0, 0.75);
 	}
 
 	.card-body h2 {
 		margin: 0;
-		font-size: 1.1rem;
 	}
 
-	.meta {
-		margin: 0.5rem 0 0;
-		color: var(--vr-accent-strong);
-		font-size: 0.85rem;
-		font-variant-numeric: tabular-nums;
+	.dj {
+		margin: 0.6rem 0 0;
+		color: var(--vr-muted);
 	}
 
 	.desc {
@@ -160,9 +179,7 @@
 		font-size: 0.9rem;
 	}
 
-	.dj {
-		margin: 0.75rem 0 0;
-		font-size: 0.85rem;
-		color: var(--vr-live);
+	.card:hover .desc {
+		color: rgba(0, 0, 0, 0.8);
 	}
 </style>

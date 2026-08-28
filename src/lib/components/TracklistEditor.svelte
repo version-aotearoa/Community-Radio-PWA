@@ -255,18 +255,19 @@
 	}
 </script>
 
+<div class="page">
 <div class="editor-head">
 	<div>
-		<p class="eyebrow"><a href={breadcrumbHref}>DJ Studio</a> / Show</p>
+		<p class="eyebrow mono"><a href={breadcrumbHref}>DJ Studio</a> / Show</p>
 		<h1>{show.title}</h1>
-		<p class="airdate">
+		<p class="airdate mono">
 			Broadcast: <strong>{broadcast.date}</strong> · {fmtTime(broadcast.start_minutes)}
 		</p>
 	</div>
 	<div class="actions">
-		<Button css="vr-ghost" onclick={() => fileInput?.click()}>Import CSV</Button>
-		<Button css="vr-ghost" onclick={addTrack}>+ Add track</Button>
-		<Button css="vr-ghost" onclick={deleteSelected}>Delete selected</Button>
+		<Button css="vr-cta ghost" onclick={() => fileInput?.click()}>Import CSV</Button>
+		<Button css="vr-cta ghost" onclick={addTrack}>+ Add track</Button>
+		<Button css="vr-cta ghost" onclick={deleteSelected}>Delete selected</Button>
 		<Button css="vr-cta" type="primary" disabled={saving} onclick={save}>
 			{saving ? 'Saving…' : 'Save tracklist'}
 		</Button>
@@ -290,10 +291,10 @@
 		bind:value={replayInput}
 		onkeydown={(e) => e.key === 'Enter' && saveReplay()}
 	/>
-	<Button css="vr-ghost" disabled={replaySaving} onclick={saveReplay}>
+	<Button css="vr-cta ghost" disabled={replaySaving} onclick={saveReplay}>
 		{replaySaving ? 'Saving…' : 'Save'}
 	</Button>
-	<Button css="vr-ghost" disabled={replaySaving} onclick={clearReplay}>Clear</Button>
+	<Button css="vr-cta ghost" disabled={replaySaving} onclick={clearReplay}>Clear</Button>
 	<p class="hint">Copy the recording's link from the AzuraCast on-demand player. Accepts a 24-char track id or a full download link.</p>
 	{#if replayError}
 		<p class="replay-msg bad">{replayError}</p>
@@ -326,8 +327,14 @@
 </div>
 
 <p class="hint">Click a cell to edit it. Drag rows to reorder. Use Ctrl+Z / Ctrl+Y to undo and redo.</p>
+</div>
 
 <style>
+	.page {
+		padding: 2rem;
+		max-width: 76rem;
+	}
+
 	.editor-head {
 		display: flex;
 		justify-content: space-between;
@@ -339,22 +346,27 @@
 
 	.eyebrow {
 		margin: 0;
-		font-size: 0.85rem;
+		font-size: 0.82rem;
 		color: var(--vr-muted);
 	}
 
 	.eyebrow a {
-		color: var(--vr-accent-strong);
-		text-decoration: none;
+		color: var(--vr-text);
+		text-decoration: underline;
 	}
 
 	h1 {
-		margin: 0.2rem 0 0;
-		font-size: 1.5rem;
+		margin: 0.4rem 0 0;
+		font-family: var(--vr-font-headline);
+		font-size: 2.25rem;
+		font-weight: 400;
+		line-height: 1;
+		text-transform: uppercase;
+		letter-spacing: 0.01em;
 	}
 
 	.airdate {
-		margin: 0.3rem 0 0;
+		margin: 0.5rem 0 0;
 		color: var(--vr-muted);
 	}
 
@@ -365,8 +377,7 @@
 	}
 
 	.grid-wrap {
-		border: 1px solid var(--vr-border);
-		border-radius: 14px;
+		border: 1px solid var(--vr-line);
 		background: var(--vr-surface);
 		padding: 0.75rem;
 		height: 440px;
@@ -390,25 +401,33 @@
 		flex-wrap: wrap;
 		margin: 0.5rem 0 1rem;
 		padding: 0.75rem 0.85rem;
-		border: 1px solid var(--vr-border);
-		border-radius: 12px;
+		border: 1px solid var(--vr-line);
 		background: var(--vr-surface);
 	}
 
 	.replay-row label {
-		font-size: 0.9rem;
+		font-size: 0.85rem;
 		color: var(--vr-muted);
+		font-family: var(--vr-font-mono);
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
 	}
 
 	.replay-row input {
 		flex: 1;
 		min-width: 200px;
-		background: var(--vr-surface-raised);
+		background: transparent;
 		color: var(--vr-text);
-		border: 1px solid var(--vr-border);
-		border-radius: 8px;
+		border: 1px solid var(--vr-line-muted);
 		padding: 0.4rem 0.6rem;
 		font-size: 0.85rem;
+		font-family: var(--vr-font-body);
+	}
+
+	.replay-row input:focus {
+		outline: none;
+		border-color: #fff;
+		box-shadow: 0 0 0 2px #fff, inset 0 0 0 1px #fff;
 	}
 
 	.replay-row .hint {
@@ -424,29 +443,25 @@
 	}
 
 	.replay-msg.ok {
-		color: #6ee7b7;
+		color: var(--vr-muted);
 	}
 
 	.replay-msg.bad {
-		color: #ffb3c1;
+		color: var(--vr-text);
 	}
 
 	.notice {
 		margin: 0 0 0.75rem;
 		padding: 0.6rem 0.85rem;
-		border-radius: 8px;
+		border: 1px solid var(--vr-line);
 		font-size: 0.9rem;
 	}
 
 	.notice.ok {
-		background: rgba(16, 185, 129, 0.12);
-		border: 1px solid rgba(16, 185, 129, 0.4);
-		color: #6ee7b7;
+		color: var(--vr-muted);
 	}
 
 	.notice.bad {
-		background: rgba(255, 77, 109, 0.12);
-		border: 1px solid rgba(255, 77, 109, 0.4);
-		color: #ffb3c1;
+		color: var(--vr-text);
 	}
 </style>

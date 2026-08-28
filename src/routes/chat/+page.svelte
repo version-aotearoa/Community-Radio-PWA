@@ -224,92 +224,96 @@
 	<title>Chat — Version Radio</title>
 </svelte:head>
 
-<p class="subtitle">
-	You're chatting as <strong>{displayName}</strong>
-	{#if user}
-		(signed in)
-	{:else if !handle}
-		· <a href="/login">sign in</a>
-	{/if}
-</p>
-
-{#if !user}
-	<form class="handle-row" onsubmit={(e) => { e.preventDefault(); saveHandle(); }}>
-		<Text bind:value={handleInput} placeholder="Pick a handle (optional)" css="vr-input" />
-		<Button css="vr-cta ghost" onclick={saveHandle}>update</Button>
-	</form>
-{/if}
-
-{#if !data.chatUrl}
-	<div class="notice bad">Chat isn't configured yet (missing PUBLIC_CHAT_URL).</div>
-{:else}
-	{#if data.siteKey && !connected}
-		<div class="verify-box">
-			<p class="verify-text">Verify you're human to join the chat.</p>
-			<Turnstile
-				siteKey={data.siteKey}
-				action="chat"
-				onToken={onTurnstileToken}
-				onExpire={onTurnstileExpire}
-			/>
-		</div>
-	{/if}
-	<div class="chat-card">
-		<div class="chat-head">
-			<span class="status" class:online={connected}></span>
-			<span>{connected ? 'Connected' : 'Reconnecting…'}</span>
-		</div>
-		<div class="messages" bind:this={scrollEl}>
-			{#if messages.length === 0}
-				<p class="empty">No messages yet. Say hello!</p>
-			{/if}
-			{#each messages as msg (msg.id)}
-				<div class="msg" class:mine={msg.name === displayName}>
-					<span class="msg-name">{msg.name}</span>
-					<span class="msg-body">{msg.content}</span>
-					<button
-						class="heart-btn"
-						class:active={heartActive(msg)}
-						onclick={() => toggleHeart(msg)}
-						title={heartActive(msg) ? 'Remove heart' : 'Heart this'}
-						aria-label={heartActive(msg) ? 'Remove heart' : 'Heart this'}
-					>
-						<svg viewBox="0 0 24 24" aria-hidden="true">
-							<path
-								d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"
-								fill={heartActive(msg) ? 'currentColor' : 'none'}
-								stroke="currentColor"
-								stroke-width="1.8"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-							/>
-						</svg>
-						{#if heartCount(msg) > 0}<span>{heartCount(msg)}</span>{/if}
-					</button>
-					<span class="msg-time">{new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-				</div>
-			{/each}
-		</div>
-		<form
-			class="composer"
-			onsubmit={(e) => {
-				e.preventDefault();
-				send();
-			}}
-		>
-			<Text bind:value={input} placeholder="Say something…" css="vr-input chat-input" />
-			<button class="send" type="submit" disabled={!connected}>Send</button>
-		</form>
-		{#if error}
-			<div class="notice bad">{error}</div>
+<div class="page">
+	<p class="subtitle mono">
+		You're chatting as <strong>{displayName}</strong>
+		{#if user}
+			(signed in)
+		{:else if !handle}
+			· <a href="/login">sign in</a>
 		{/if}
-	</div>
-{/if}
+	</p>
+
+	{#if !user}
+		<form class="handle-row" onsubmit={(e) => { e.preventDefault(); saveHandle(); }}>
+			<Text bind:value={handleInput} placeholder="Pick a handle (optional)" css="vr-input" />
+			<Button css="vr-cta ghost" onclick={saveHandle}>update</Button>
+		</form>
+	{/if}
+
+	{#if !data.chatUrl}
+		<div class="notice bad">Chat isn't configured yet (missing PUBLIC_CHAT_URL).</div>
+	{:else}
+		{#if data.siteKey && !connected}
+			<div class="verify-box">
+				<p class="verify-text">Verify you're human to join the chat.</p>
+				<Turnstile
+					siteKey={data.siteKey}
+					action="chat"
+					onToken={onTurnstileToken}
+					onExpire={onTurnstileExpire}
+				/>
+			</div>
+		{/if}
+		<div class="chat-card">
+			<div class="chat-head mono">
+				<span class="status" class:online={connected}></span>
+				<span>{connected ? 'Connected' : 'Reconnecting…'}</span>
+			</div>
+			<div class="messages" bind:this={scrollEl}>
+				{#if messages.length === 0}
+					<p class="empty">No messages yet. Say hello!</p>
+				{/if}
+				{#each messages as msg (msg.id)}
+					<div class="msg" class:mine={msg.name === displayName}>
+						<div class="msg-meta">
+							<span class="msg-name">{msg.name}</span>
+							<span class="msg-time">{new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+							<button
+								class="heart-btn"
+								class:active={heartActive(msg)}
+								onclick={() => toggleHeart(msg)}
+								title={heartActive(msg) ? 'Remove heart' : 'Heart this'}
+								aria-label={heartActive(msg) ? 'Remove heart' : 'Heart this'}
+							>
+								<svg viewBox="0 0 24 24" aria-hidden="true">
+									<path
+										d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"
+										fill={heartActive(msg) ? 'currentColor' : 'none'}
+										stroke="currentColor"
+										stroke-width="1.8"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									/>
+								</svg>
+								{#if heartCount(msg) > 0}<span>{heartCount(msg)}</span>{/if}
+							</button>
+						</div>
+						<p class="msg-body">{msg.content}</p>
+					</div>
+				{/each}
+			</div>
+			<form
+				class="composer"
+				onsubmit={(e) => {
+					e.preventDefault();
+					send();
+				}}
+			>
+				<Text bind:value={input} placeholder="Say something…" css="vr-input chat-input" />
+				<button class="send" type="submit" disabled={!connected}>Send</button>
+			</form>
+			{#if error}
+				<div class="notice bad">{error}</div>
+			{/if}
+		</div>
+	{/if}
+</div>
 
 <style>
-	.page-title {
-		font-size: 1.6rem;
-		margin: 0 0 0.25rem;
+	.page {
+		padding: 2rem;
+		max-width: 50rem;
 	}
 
 	.subtitle {
@@ -317,15 +321,20 @@
 		margin: 0 0 1.25rem;
 	}
 
+	.subtitle strong {
+		color: var(--vr-text);
+	}
+
 	.subtitle a {
-		color: var(--vr-accent-strong);
+		color: var(--vr-text);
+		text-decoration: underline;
 	}
 
 	.handle-row {
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		margin: 0.75rem 0 1.25rem;
+		margin: 0 0 1.25rem;
 	}
 
 	.handle-row :global(button) {
@@ -341,10 +350,8 @@
 	}
 
 	.chat-card {
-		border: 1px solid var(--vr-border);
-		border-radius: 14px;
+		border: 1px solid var(--vr-line);
 		background: var(--vr-surface);
-		overflow: hidden;
 	}
 
 	.chat-head {
@@ -352,20 +359,29 @@
 		align-items: center;
 		gap: 0.5rem;
 		padding: 0.6rem 1rem;
-		border-bottom: 1px solid var(--vr-border);
-		font-size: 0.85rem;
+		border-bottom: 1px solid var(--vr-line);
 		color: var(--vr-muted);
 	}
 
 	.status {
 		width: 8px;
 		height: 8px;
-		border-radius: 50%;
-		background: var(--vr-live);
+		background: var(--vr-line-muted);
 	}
 
 	.status.online {
-		background: #22c55e;
+		background: var(--vr-green);
+		animation: status-pulse 1.6s ease-in-out infinite;
+	}
+
+	@keyframes status-pulse {
+		0%,
+		100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.35;
+		}
 	}
 
 	.messages {
@@ -385,29 +401,64 @@
 
 	.msg {
 		display: flex;
-		align-items: baseline;
-		gap: 0.5rem;
-		background: var(--vr-surface-raised);
-		border: 1px solid var(--vr-border);
-		border-radius: 10px;
-		padding: 0.45rem 0.7rem;
-		max-width: 82%;
+		flex-direction: column;
+		gap: 0.2rem;
+		background: var(--vr-surface-low);
+		border: 1px solid var(--vr-line-muted);
+		padding: 0.5rem 0.8rem;
+		max-width: 88%;
 	}
 
 	.msg.mine {
 		align-self: flex-end;
-		border-color: var(--vr-accent);
+		border-color: var(--vr-line);
+		background: var(--vr-surface-high);
+	}
+
+	.msg-meta {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
 	}
 
 	.msg-name {
-		color: var(--vr-accent-strong);
+		color: var(--vr-text);
 		font-weight: 600;
 		font-size: 0.85rem;
+		font-family: var(--vr-font-mono);
 		white-space: nowrap;
+		min-width: 0;
+		text-overflow: ellipsis;
+	}
+
+	.msg-time {
+		margin-left: auto;
+		color: var(--vr-faint);
+		font-size: 0.7rem;
+		white-space: nowrap;
+		flex-shrink: 0;
+	}
+
+	@media (max-width: 640px) {
+		.msg {
+			max-width: 100%;
+			padding: 0.45rem 0.65rem;
+			gap: 0.25rem;
+		}
+
+		.msg-name {
+			flex: 1 1 auto;
+			font-size: 0.8rem;
+		}
+
+		.msg-body {
+			font-size: 0.95rem;
+		}
 	}
 
 	.msg-body {
 		word-break: break-word;
+		margin: 0;
 	}
 
 	.heart-btn {
@@ -416,11 +467,12 @@
 		gap: 0.25rem;
 		background: none;
 		border: none;
-		color: var(--vr-muted);
+		color: var(--vr-faint);
 		font-size: 0.72rem;
 		cursor: pointer;
 		padding: 0.1rem 0.15rem;
 		line-height: 1;
+		flex-shrink: 0;
 	}
 
 	.heart-btn svg {
@@ -434,57 +486,54 @@
 
 	.heart-btn:hover,
 	.heart-btn.active {
-		color: #ff8098;
-	}
-
-	.msg-time {
-		margin-left: auto;
-		color: var(--vr-muted);
-		font-size: 0.7rem;
-		white-space: nowrap;
+		color: var(--vr-red);
 	}
 
 	.composer {
 		display: flex;
 		gap: 0.5rem;
 		padding: 0.75rem 1rem;
-		border-top: 1px solid var(--vr-border);
+		border-top: 1px solid var(--vr-line);
 	}
 
 	:global(.chat-input) {
 		flex: 1;
 	}
+
 	.send {
-		background: var(--vr-accent);
-		border: none;
-		color: #0b0b11;
-		font-weight: 600;
-		padding: 0 1rem;
-		border-radius: 8px;
+		background: #fff;
+		border: 1px solid #fff;
+		color: #000;
+		font-family: var(--vr-font-headline);
+		font-size: 1rem;
+		text-transform: uppercase;
+		padding: 0 1.25rem;
 		cursor: pointer;
 	}
 
+	.send:hover {
+		background: #000;
+		color: #fff;
+	}
+
 	.send:disabled {
-		opacity: 0.5;
+		opacity: 0.4;
 		cursor: not-allowed;
 	}
 
 	.notice {
-		margin: 0.75rem 1rem;
+		margin: 0.75rem 0;
 		padding: 0.6rem 0.85rem;
-		border-radius: 8px;
+		border: 1px solid var(--vr-line);
 		font-size: 0.9rem;
 	}
 
 	.notice.bad {
-		background: rgba(255, 77, 109, 0.12);
-		border: 1px solid rgba(255, 77, 109, 0.4);
-		color: #ffb3c1;
+		color: var(--vr-text);
 	}
 
 	.verify-box {
-		border: 1px solid var(--vr-border);
-		border-radius: 14px;
+		border: 1px solid var(--vr-line);
 		background: var(--vr-surface);
 		padding: 1rem;
 		margin-bottom: 1rem;

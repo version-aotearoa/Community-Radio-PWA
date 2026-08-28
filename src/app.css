@@ -1,15 +1,64 @@
+/* Version Radio — "Version Radio Underground" design system (Stitch).
+   Digital brutalism: zero radius, 1px pure-white borders, monochrome + functional
+   red/green status stickers. Anton headlines, Hanken Grotesk body, JetBrains Mono labels. */
+
 :root {
-	/* Version Radio design tokens (dark) */
-	--vr-bg: #0b0b11;
-	--vr-surface: #14141d;
-	--vr-surface-raised: #1b1b28;
-	--vr-border: #26263a;
-	--vr-text: #eceaf6;
-	--vr-muted: #9a98b3;
-	--vr-accent: #7c5cff;
-	--vr-accent-strong: #9a84ff;
-	--vr-live: #ff4d6d;
+	/* Surfaces (tonal ramp) */
+	--vr-bg: #141313;
+	--vr-bg-deep: #0e0e0e;
+	--vr-surface: #141313;
+	--vr-surface-low: #1c1b1b;
+	--vr-surface-med: #201f1f;
+	--vr-surface-high: #2a2a2a;
+	--vr-surface-highest: #353434;
+
+	/* Ink */
+	--vr-text: #e5e2e1;
+	--vr-muted: #c4c7c8;
+	--vr-faint: #8e9192;
+
+	/* Lines */
+	--vr-line: #ffffff;
+	--vr-line-muted: #333333;
+
+	/* Status (functional stickers only) */
+	--vr-black: #000000;
+	--vr-red: #ff0000;
+	--vr-green: #00ff00;
+
+	/* Type */
+	--vr-font-headline: 'Anton', 'Arial Narrow', 'Impact', sans-serif;
+	--vr-font-body: 'Hanken Grotesk', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+	--vr-font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+	/* Kept for legacy component references */
+	--vr-accent: #ffffff;
+	--vr-accent-strong: #ffffff;
+	--vr-live: #ffffff;
+	--vr-border: #333333;
+	--vr-surface-raised: #201f1f;
+
 	color-scheme: dark;
+}
+
+/* WillowDark (svar-ui) palette overrides — monomochrome, not the library's purple */
+.wx-theme.wx-willow-dark-theme {
+	--wx-color-primary: #ffffff;
+	--wx-color-primary-selected: rgba(255, 255, 255, 0.3);
+	--wx-color-primary-font: #000000;
+	--wx-color-secondary-font: #e5e2e1;
+	--wx-color-secondary-font-hover: #000000;
+	--wx-color-secondary-border: #ffffff;
+	--wx-color-link: #ffffff;
+	--wx-color-info: #ffffff;
+	--wx-background-alt: #201f1f;
+}
+
+/* Zero-radius, sharp, brutalist — nothing in the system is rounded */
+*,
+*::before,
+*::after {
+	border-radius: 0 !important;
 }
 
 * {
@@ -25,24 +74,19 @@ body {
 	min-height: 100vh;
 	background: var(--vr-bg);
 	color: var(--vr-text);
-	font-family:
-		system-ui,
-		-apple-system,
-		'Segoe UI',
-		Roboto,
-		Helvetica,
-		Arial,
-		sans-serif;
+	font-family: var(--vr-font-body);
+	font-size: 1rem;
 	line-height: 1.5;
 	-webkit-font-smoothing: antialiased;
 }
 
 a {
-	color: var(--vr-accent-strong);
+	color: var(--vr-text);
 }
 
 button {
 	font: inherit;
+	color: inherit;
 }
 
 img {
@@ -50,5 +94,191 @@ img {
 }
 
 ::selection {
-	background: color-mix(in srgb, var(--vr-accent) 40%, transparent);
+	background: #fff;
+	color: #000;
+}
+
+/* ------------------------------------------------------------------ */
+/* Shared atoms                                                        */
+/* ------------------------------------------------------------------ */
+
+.bb {
+	border: 1px solid var(--vr-line);
+}
+
+/* Uppercase mono metadata — the system's primary eye-guide */
+.mono {
+	font-family: var(--vr-font-mono);
+	font-size: 0.82rem;
+	font-weight: 500;
+	line-height: 1.15;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+}
+
+/* Anton sizes */
+.h-xl {
+	font-family: var(--vr-font-headline);
+	font-weight: 400;
+	font-size: clamp(2.75rem, 7vw, 7.5rem);
+	line-height: 0.92;
+	letter-spacing: -0.01em;
+	text-transform: uppercase;
+}
+
+.h-lg {
+	font-family: var(--vr-font-headline);
+	font-weight: 400;
+	font-size: clamp(2rem, 4.5vw, 4rem);
+	line-height: 0.95;
+	letter-spacing: -0.005em;
+	text-transform: uppercase;
+}
+
+.h-md {
+	font-family: var(--vr-font-headline);
+	font-weight: 400;
+	font-size: 1.75rem;
+	line-height: 1;
+	text-transform: uppercase;
+}
+
+.h-sm {
+	font-family: var(--vr-font-headline);
+	font-weight: 400;
+	font-size: 1.25rem;
+	line-height: 1.05;
+	text-transform: uppercase;
+}
+
+/* Rectangular sticker blocks (LIVE, REPLAY, ON AIR) */
+.sticker {
+	display: inline-block;
+	font-family: var(--vr-font-headline);
+	font-size: 0.75rem;
+	font-weight: 400;
+	line-height: 1;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	padding: 0.4rem 0.55rem;
+	background: #fff;
+	color: #000;
+}
+
+.sticker.dark {
+	background: #000;
+	color: #fff;
+	border: 1px solid #fff;
+}
+
+.sticker.red {
+	background: var(--vr-red);
+	color: #fff;
+}
+
+.sticker.green {
+	background: var(--vr-green);
+	color: #000;
+}
+
+/* Actions: solid white block, inverts to black on hover */
+.btn-block {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.6rem;
+	border: 1px solid #fff;
+	background: #fff;
+	color: #000;
+	font-family: var(--vr-font-headline);
+	font-size: 1.25rem;
+	line-height: 1;
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+	padding: 0.8rem 1.4rem;
+	text-decoration: none;
+	cursor: pointer;
+}
+
+.btn-block:hover {
+	background: #000;
+	color: #fff;
+}
+
+/* Outline action: transparent, 1px white border, inverts on hover */
+.btn-outline {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	border: 1px solid #fff;
+	background: transparent;
+	color: #fff;
+	font-family: var(--vr-font-mono);
+	font-size: 0.82rem;
+	font-weight: 500;
+	line-height: 1;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	padding: 0.5rem 0.9rem;
+	text-decoration: none;
+	cursor: pointer;
+}
+
+.btn-outline:hover {
+	background: #fff;
+	color: #000;
+}
+
+/* ------------------------------------------------------------------ */
+/* svar-ui hook overrides (css="vr-cta" / css="vr-input")              */
+/* ------------------------------------------------------------------ */
+
+.vr-cta {
+	border: 1px solid #fff !important;
+	background: #fff !important;
+	color: #000 !important;
+	font-family: var(--vr-font-headline) !important;
+	font-size: 1rem !important;
+	text-transform: uppercase !important;
+	letter-spacing: 0.02em !important;
+	padding: 0.7rem 1.3rem !important;
+}
+
+.vr-cta:hover {
+	background: #000 !important;
+	color: #fff !important;
+}
+
+.vr-cta.ghost {
+	background: transparent !important;
+	color: #fff !important;
+}
+
+.vr-cta.ghost:hover {
+	background: #fff !important;
+	color: #000 !important;
+}
+
+.vr-input {
+	border: 1px solid #fff !important;
+	background: transparent !important;
+	color: #fff !important;
+	font-family: var(--vr-font-body) !important;
+	font-size: 1rem !important;
+	padding: 0.6rem 0.85rem !important;
+}
+
+.vr-input::placeholder {
+	color: var(--vr-faint) !important;
+	font-family: var(--vr-font-mono) !important;
+	font-size: 0.82rem !important;
+	text-transform: uppercase !important;
+	letter-spacing: 0.05em !important;
+}
+
+.vr-input:focus {
+	outline: none !important;
+	border-color: #fff !important;
+	box-shadow: 0 0 0 2px #fff, inset 0 0 0 1px #fff !important;
 }

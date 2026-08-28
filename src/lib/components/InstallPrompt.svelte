@@ -81,9 +81,9 @@
 		display: flex;
 		align-items: center;
 		gap: 0.85rem;
-		padding: 0.6rem 1.25rem;
-		background: color-mix(in srgb, var(--vr-accent) 14%, var(--vr-surface-raised));
-		border-bottom: 1px solid var(--vr-border);
+		padding: 0.6rem 2rem;
+		background: var(--vr-surface-low);
+		border-bottom: 1px solid var(--vr-line);
 		font-size: 0.9rem;
 		position: relative;
 		z-index: 15;
@@ -97,20 +97,33 @@
 		flex: 1;
 	}
 
+	.install-copy strong {
+		font-family: var(--vr-font-headline);
+		font-size: 1rem;
+		text-transform: uppercase;
+		letter-spacing: 0.02em;
+	}
+
 	.install-copy span {
 		color: var(--vr-muted);
+		font-size: 0.82rem;
 	}
 
 	.install-btn {
-		border: 1px solid var(--vr-accent);
-		background: var(--vr-accent);
-		color: #0b0b11;
-		border-radius: 999px;
-		padding: 0.35rem 0.9rem;
-		font-size: 0.85rem;
-		font-weight: 600;
+		border: 1px solid var(--vr-line);
+		background: #fff;
+		color: #000;
+		font-family: var(--vr-font-headline);
+		text-transform: uppercase;
+		padding: 0.45rem 0.9rem;
+		font-size: 0.95rem;
 		cursor: pointer;
 		white-space: nowrap;
+	}
+
+	.install-btn:hover {
+		background: #000;
+		color: #fff;
 	}
 
 	.install-close {
@@ -123,19 +136,27 @@
 		padding: 0.2rem 0.5rem;
 	}
 
+	.install-close:hover {
+		color: var(--vr-text);
+	}
+
 	.menu-install {
-		border: 1px solid var(--vr-border);
-		background: var(--vr-surface);
-		color: var(--vr-live);
-		border-radius: 8px;
-		padding: 0.3rem 0.7rem;
-		font-size: 0.85rem;
+		border: 1px solid var(--vr-line-muted);
+		background: transparent;
+		color: var(--vr-muted);
+		font-family: var(--vr-font-headline);
+		font-size: 1.1rem;
+		line-height: 1.2;
+		text-transform: uppercase;
+		letter-spacing: 0.02em;
+		padding: 0.2rem 0.6rem;
 		cursor: pointer;
 		white-space: nowrap;
 	}
 
 	.menu-install:hover {
-		border-color: var(--vr-accent);
+		background: var(--vr-text);
+		color: var(--vr-black);
 	}
 
 	.menu-hint {

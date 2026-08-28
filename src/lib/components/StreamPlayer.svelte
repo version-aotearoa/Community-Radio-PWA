@@ -34,6 +34,8 @@
 	const isLive = $derived(!mediaMode && livePayload?.live.isLive === true);
 	const showLink = $derived(livePayload?.trackShow ?? livePayload?.onAir ?? null);
 
+	const stationSticker = $derived(mediaMode ? 'Archive' : isLive ? 'Live now' : 'Replay');
+
 	$effect(() => {
 		// React to a requestPlay() signal from anywhere in the app (skip the passive n=0 mount run).
 		if ($playerRequest.n === 0) return;
@@ -228,57 +230,57 @@
 		aria-label="Player details"
 	>
 		<div class="strip">
-				{#if artSource}
-					<img class="strip-img" src={artSource} alt="" loading="lazy" />
-				{:else}
-					<span class="eq big" class:playing={playing} aria-hidden="true">
-						<i></i><i></i><i></i><i></i>
+			{#if artSource}
+				<img class="strip-img" src={artSource} alt="" loading="lazy" />
+			{:else}
+				<span class="eq big" class:playing={playing} aria-hidden="true">
+					<i></i><i></i><i></i><i></i>
+				</span>
+			{/if}
+		</div>
+		<div class="sheet-body">
+			<div class="sheet-info">
+				<div class="sheet-station mono">
+					<span class="sticker" class:green={isLive} class:dark={!isLive && !mediaMode}>
+						{#if isLive}
+							<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
+								<path d="M2 12h2.5M4.5 8a5.5 5.5 0 0 1 0 8M8 9a3.5 3.5 0 0 1 0 6M19.5 12H22M15 8a5.5 5.5 0 0 1 0 8M12 9a3.5 3.5 0 0 1 0 6" stroke="currentColor" stroke-width="1.6" fill="none"/>
+							</svg>
+						{/if}
+						{stationSticker}
 					</span>
+					<span class="station-name">
+						{#if mediaMode}
+							Recording · {fmtClock(currentTime)} / {Number.isFinite(duration) ? fmtClock(duration) : '--:--'}
+						{/if}
+					</span>
+				</div>
+				<span class="track big">{trackText()}</span>
+				{#if !mediaMode}
+					{#if showLink}
+						<a class="showlink" href={`/shows/${showLink.id}`}>On air: {showLink.title}</a>
+					{:else if livePayload?.next}
+						<span class="track muted">
+							Up next: {livePayload.next.title} · {fmtDt(livePayload.next.date)} {fmtTime(livePayload.next.startMinutes)}
+						</span>
+					{/if}
+				{:else}
+					<span class="track muted">From the show archive</span>
 				{/if}
 			</div>
-			<div class="sheet-body">
-				<div class="sheet-info">
-					<span class="station">
-						{#if mediaMode}
-							<span class="track playtime">{fmtClock(currentTime)} / {Number.isFinite(duration) ? fmtClock(duration) : '--:--'}</span>
-							<em class="badge replay">Recording</em>
-						{:else}
-							Version Radio
-							{#if livePayload}
-								{#if isLive}
-									<em class="badge live" title={livePayload.live.streamerName ?? 'Live'}>● LIVE{livePayload.live.streamerName ? ` · ${livePayload.live.streamerName}` : ''}</em>
-								{:else}
-									<em class="badge replay">Replay</em>
-								{/if}
-							{/if}
-						{/if}
-					</span>
-					<span class="track big">{trackText()}</span>
-					{#if !mediaMode}
-						{#if showLink}
-							<a class="showlink" href={`/shows/${showLink.id}`}>On air: {showLink.title}</a>
-						{:else if livePayload?.next}
-							<span class="track muted">
-								Up next: {livePayload.next.title} · {fmtDt(livePayload.next.date)} {fmtTime(livePayload.next.startMinutes)}
-							</span>
-						{/if}
-					{:else}
-						<span class="track muted">From the show archive</span>
-					{/if}
-				</div>
-				<div class="sheet-controls">
-					<button
-						class="chev"
-						onclick={() => (expanded = false)}
-						aria-label="Collapse player"
-						title="Minimise"
-					>
-						▾
-					</button>
-					<div class="sheet-controls-right">
+			<div class="sheet-controls">
+				<button
+					class="chev"
+					onclick={() => (expanded = false)}
+					aria-label="Collapse player"
+					title="Minimise"
+				>
+					▾
+				</button>
+				<div class="sheet-controls-right">
 					{#if !mediaMode}
 						<button
-							class="badge autoplay"
+							class="autoplay"
 							class:off={!autoplayOn}
 							onclick={() => ($autoplay = !$autoplay)}
 							title="Autoplay: {autoplayOn ? 'on — starts the stream when you open the site' : 'off — press play to listen'}"
@@ -321,10 +323,10 @@
 							<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z" fill="currentColor" /></svg>
 						{/if}
 					</button>
-					</div>
 				</div>
 			</div>
-		</section>
+		</div>
+	</section>
 
 	<div class="player-bar" class:out={expanded}>
 		<button
@@ -337,25 +339,29 @@
 		>
 			{expanded ? '▾' : '▴'}
 		</button>
-		<div class="brand">
-			{#if media?.art ?? livePayload?.nowPlaying?.art}
-				<img
-					class="art"
-					src={media?.art ?? livePayload?.nowPlaying?.art ?? ''}
-					alt=""
-					width="32"
-					height="32"
-					loading="lazy"
-				/>
+		<span class="bar-sticker mono" class:green={isLive} class:dark={!isLive && !mediaMode}>
+			{stationSticker}
+		</span>
+		<div class="bar-meta">
+			{#if artSource}
+				<img class="art" src={artSource} alt="" width="28" height="28" loading="lazy" />
 			{:else}
 				<span class="eq" class:playing={playing} aria-hidden="true">
 					<i></i><i></i><i></i><i></i>
 				</span>
 			{/if}
 			<div class="meta">
-				<span class="track" class:muted={!media && !livePayload?.nowPlaying?.title}>{trackText()}</span>
-				{#if !mediaMode && showLink}
-					<a class="showlink" href={`/shows/${showLink.id}`}>On air: {showLink.title}</a>
+				<span class="track mono" class:muted={!media && !livePayload?.nowPlaying?.title}>{trackText()}</span>
+				{#if !mediaMode}
+					{#if showLink}
+						<a class="showlink mono" href={`/shows/${showLink.id}`}>On air: {showLink.title}</a>
+					{:else if livePayload?.next}
+						<span class="showlink mono">Up next: {livePayload.next.title}</span>
+					{:else if livePayload?.live?.streamerName}
+						<span class="showlink mono">{livePayload.live.streamerName}</span>
+					{/if}
+				{:else}
+					<span class="showlink mono">Archive</span>
 				{/if}
 			</div>
 		</div>
@@ -386,14 +392,18 @@
 		display: flex;
 		flex-direction: column;
 		justify-content: flex-end;
-	}
-
-	.dock {
 		pointer-events: none;
 	}
 
 	.player-bar {
 		pointer-events: auto;
+		display: flex;
+		align-items: stretch;
+		justify-content: space-between;
+		gap: 0;
+		height: 64px;
+		background: var(--vr-surface);
+		border-top: 1px solid var(--vr-line);
 		transform: translateY(0);
 		transition: transform 900ms cubic-bezier(0.33, 1, 0.68, 1);
 		transition-delay: 400ms;
@@ -404,6 +414,283 @@
 		transition-delay: 0ms;
 	}
 
+	.bar-sticker {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0 1rem;
+		font-family: var(--vr-font-mono);
+		font-size: 0.82rem;
+		font-weight: 700;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		color: #000;
+		background: var(--vr-green);
+		white-space: nowrap;
+	}
+
+	.bar-sticker.dark {
+		background: #000;
+		color: #fff;
+		border-right: 1px solid #fff;
+	}
+
+	.bar-meta {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		min-width: 0;
+		flex: 1;
+		padding: 0 1rem;
+	}
+
+	.art {
+		width: 28px;
+		height: 28px;
+		object-fit: cover;
+		border: 1px solid var(--vr-line-muted);
+		flex-shrink: 0;
+	}
+
+	.meta {
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+		line-height: 1.2;
+		min-width: 0;
+	}
+
+	.track {
+		font-size: 0.72rem;
+		color: var(--vr-text);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		max-width: 36rem;
+	}
+
+	.track.big {
+		font-size: 1.35rem;
+		font-family: var(--vr-font-headline);
+		text-transform: uppercase;
+		line-height: 1.15;
+		font-weight: 400;
+		white-space: normal;
+		max-width: 44rem;
+	}
+
+	.track.muted {
+		color: var(--vr-muted);
+	}
+
+	.showlink {
+		font-size: 0.72rem;
+		color: var(--vr-green);
+		text-decoration: none;
+		max-width: 24rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.sheet .showlink {
+		color: var(--vr-muted);
+	}
+
+	.showlink:hover {
+		text-decoration: underline;
+	}
+
+	.eq {
+		display: inline-flex;
+		align-items: flex-end;
+		gap: 2px;
+		height: 16px;
+		width: 16px;
+	}
+
+	.eq i {
+		width: 3px;
+		background: var(--vr-muted);
+		height: 4px;
+	}
+
+	.eq.playing i {
+		background: var(--vr-green);
+		animation: eq 0.9s ease-in-out infinite;
+	}
+
+	.eq.playing i:nth-child(2) {
+		animation-delay: 0.15s;
+	}
+
+	.eq.playing i:nth-child(3) {
+		animation-delay: 0.3s;
+	}
+
+	.eq.playing i:nth-child(4) {
+		animation-delay: 0.45s;
+	}
+
+	@keyframes eq {
+		0%,
+		100% {
+			height: 4px;
+		}
+		50% {
+			height: 14px;
+		}
+	}
+
+	.eq.big {
+		width: 44px;
+		height: 44px;
+		gap: 4px;
+	}
+
+	.eq.big i {
+		width: 6px;
+		background: var(--vr-faint);
+	}
+
+	.eq.big.playing i {
+		background: var(--vr-green);
+	}
+
+	.controls {
+		display: flex;
+		align-items: stretch;
+		gap: 0;
+	}
+
+	.chev {
+		width: 38px;
+		border: none;
+		border-right: 1px solid var(--vr-line-muted);
+		background: transparent;
+		color: var(--vr-muted);
+		font-size: 0.9rem;
+		cursor: pointer;
+	}
+
+	.chev:hover {
+		background: var(--vr-text);
+		color: var(--vr-black);
+	}
+
+	.sheet .chev {
+		width: 40px;
+		height: 40px;
+		border: 1px solid var(--vr-line);
+		display: grid;
+		place-items: center;
+	}
+
+	.icon-btn {
+		display: grid;
+		place-items: center;
+		width: 40px;
+		height: 40px;
+		border: 1px solid var(--vr-line);
+		background: transparent;
+		color: var(--vr-muted);
+		cursor: pointer;
+	}
+
+	.icon-btn:hover {
+		background: var(--vr-text);
+		color: var(--vr-black);
+	}
+
+	.autoplay {
+		border: 1px solid var(--vr-line);
+		background: transparent;
+		color: var(--vr-text);
+		font-family: var(--vr-font-mono);
+		font-size: 0.72rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		padding: 0.45rem 0.7rem;
+		cursor: pointer;
+	}
+
+	.autoplay.off {
+		color: var(--vr-faint);
+		border-color: var(--vr-line-muted);
+	}
+
+	.autoplay:hover {
+		background: var(--vr-text);
+		color: var(--vr-black);
+	}
+
+	.autoplay.off:hover {
+		border-color: var(--vr-line);
+	}
+
+	.live-btn {
+		border: none;
+		border-left: 1px solid var(--vr-line-muted);
+		background: transparent;
+		color: var(--vr-muted);
+		font-family: var(--vr-font-mono);
+		font-size: 0.72rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		padding: 0 1rem;
+		cursor: pointer;
+		white-space: nowrap;
+	}
+
+	.live-btn:hover {
+		background: var(--vr-text);
+		color: var(--vr-black);
+	}
+
+	.play {
+		display: grid;
+		place-items: center;
+		width: 64px;
+		border: none;
+		border-left: 1px solid var(--vr-line);
+		background: transparent;
+		color: var(--vr-text);
+		cursor: pointer;
+		transition: background-color 150ms, color 150ms;
+	}
+
+	.play:hover {
+		background: var(--vr-text);
+		color: var(--vr-black);
+	}
+
+	.play svg {
+		width: 22px;
+		height: 22px;
+		display: block;
+		margin-left: 1px;
+	}
+
+	.play.big {
+		width: 52px;
+		height: 52px;
+		border: 1px solid #fff;
+		background: #fff;
+		color: #000;
+	}
+
+	.play.big:hover {
+		background: #000;
+		color: #fff;
+	}
+
+	.play.big svg {
+		width: 24px;
+		height: 24px;
+	}
+
 	.sheet {
 		position: absolute;
 		inset: 0;
@@ -411,8 +698,8 @@
 		display: grid;
 		grid-template-rows: minmax(0, 1fr) auto;
 		overflow: hidden;
-		background: var(--vr-surface);
-		border-top: 1px solid var(--vr-border);
+		background: var(--vr-bg);
+		border-top: 1px solid var(--vr-line);
 		pointer-events: none;
 		transform: translateY(100%);
 		transition: transform 800ms cubic-bezier(0.33, 1, 0.68, 1);
@@ -438,35 +725,54 @@
 		max-width: min(100%, 64vh);
 		max-height: 100%;
 		object-fit: cover;
-		border-radius: 8px;
+		filter: grayscale(1);
 		display: block;
-	}
-
-	.eq.big {
-		width: 40px;
-		height: 40px;
-	}
-
-	.eq.big i {
-		width: 5px;
+		border: 1px solid var(--vr-line);
 	}
 
 	.sheet-body {
-		background: var(--vr-surface-raised);
-		border-top: 1px solid var(--vr-border);
-		padding: 1rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom));
+		background: var(--vr-surface);
+		border-top: 1px solid var(--vr-line);
+		padding: 1.25rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom));
 		display: flex;
 		flex-direction: column;
 		align-items: stretch;
-		gap: 1rem;
+		gap: 1.25rem;
 	}
 
 	.sheet-info {
 		display: flex;
 		flex-direction: column;
-		gap: 0.3rem;
+		gap: 0.55rem;
 		min-width: 0;
 		flex: 1;
+	}
+
+	.sheet-station {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.sheet-station .sticker {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+	}
+
+	.sheet-station .sticker.green {
+		background: var(--vr-green);
+		color: #000;
+	}
+
+	.sheet-station .sticker.dark {
+		background: #000;
+		color: #fff;
+		border: 1px solid #fff;
+	}
+
+	.station-name {
+		color: var(--vr-faint);
 	}
 
 	.sheet-controls {
@@ -485,256 +791,22 @@
 		flex-wrap: wrap;
 	}
 
-	.player-bar {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 1rem;
-		padding: 0.6rem 1.25rem calc(0.6rem + env(safe-area-inset-bottom));
-		background: color-mix(in srgb, var(--vr-surface-raised) 92%, transparent);
-		backdrop-filter: blur(10px);
-		border-top: 1px solid var(--vr-border);
-	}
-
-	.brand {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		min-width: 0;
-	}
-
-	.art {
-		width: 32px;
-		height: 32px;
-		border-radius: 8px;
-		object-fit: cover;
-		border: 1px solid var(--vr-border);
-		flex-shrink: 0;
-	}
-
-	.meta {
-		display: flex;
-		flex-direction: column;
-		line-height: 1.25;
-		min-width: 0;
-	}
-
-	.station {
-		font-weight: 700;
-		display: inline-flex;
-		align-items: center;
-		gap: 0.4rem;
-	}
-
-	.playtime {
-		font-variant-numeric: tabular-nums;
-	}
-
-	.badge {
-		font-style: normal;
-		font-family: inherit;
-		font-size: 0.62rem;
-		letter-spacing: 0.08em;
-		padding: 0.1rem 0.45rem;
-		border-radius: 999px;
-		text-transform: uppercase;
-		white-space: nowrap;
-	}
-
-	.badge.live {
-		background: rgba(255, 77, 109, 0.15);
-		border: 1px solid rgba(255, 77, 109, 0.5);
-		color: #ff8098;
-		animation: pulse 2s ease-in-out infinite;
-	}
-
-	.badge.replay {
-		background: var(--vr-surface-raised);
-		border: 1px solid var(--vr-border);
-		color: var(--vr-muted);
-	}
-
-	.badge.autoplay {
-		background: rgba(16, 185, 129, 0.12);
-		border: 1px solid rgba(16, 185, 129, 0.45);
-		color: #6ee7b7;
-		cursor: pointer;
-	}
-
-	.badge.autoplay.off {
-		background: var(--vr-surface-raised);
-		border-color: var(--vr-border);
-		color: var(--vr-muted);
-	}
-
-	.badge.autoplay:hover {
-		border-color: currentColor;
-	}
-
-	@keyframes pulse {
-		0%,
-		100% {
-			opacity: 1;
+	@media (max-width: 720px) {
+		.bar-sticker {
+			padding: 0 0.7rem;
 		}
-		50% {
-			opacity: 0.55;
+
+		.bar-meta {
+			padding: 0 0.7rem;
+			overflow: hidden;
 		}
-	}
 
-	.track {
-		font-size: 0.85rem;
-		color: var(--vr-text);
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		max-width: 36rem;
-	}
-
-	.track.big {
-		font-size: 1.05rem;
-		font-weight: 600;
-		white-space: normal;
-		max-width: 44rem;
-	}
-
-	.track.muted {
-		color: var(--vr-muted);
-	}
-
-	.showlink {
-		font-size: 0.78rem;
-		color: var(--vr-accent-strong);
-		text-decoration: none;
-		max-width: 24rem;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.showlink:hover {
-		text-decoration: underline;
-	}
-
-	.eq {
-		display: inline-flex;
-		align-items: flex-end;
-		gap: 2px;
-		height: 18px;
-		width: 18px;
-	}
-
-	.eq i {
-		width: 3px;
-		border-radius: 2px;
-		background: var(--vr-muted);
-		height: 4px;
-	}
-
-	.eq.playing i {
-		background: var(--vr-accent-strong);
-		animation: eq 0.9s ease-in-out infinite;
-	}
-
-	.eq.playing i:nth-child(2) {
-		animation-delay: 0.15s;
-	}
-
-	.eq.playing i:nth-child(3) {
-		animation-delay: 0.3s;
-	}
-
-	.eq.playing i:nth-child(4) {
-		animation-delay: 0.45s;
-	}
-
-	@keyframes eq {
-		0%,
-		100% {
-			height: 4px;
+		.art {
+			display: none;
 		}
-		50% {
-			height: 16px;
+
+		.live-btn {
+			display: none;
 		}
-	}
-
-	.controls {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-	}
-
-	.chev {
-		display: grid;
-		place-items: center;
-		width: 34px;
-		height: 34px;
-		border-radius: 8px;
-		border: 1px solid var(--vr-border);
-		background: var(--vr-surface);
-		color: var(--vr-muted);
-		font-size: 0.9rem;
-		cursor: pointer;
-	}
-
-	.chev:hover {
-		color: var(--vr-text);
-		border-color: var(--vr-accent);
-	}
-
-	.icon-btn {
-		display: grid;
-		place-items: center;
-		width: 38px;
-		height: 38px;
-		border-radius: 50%;
-		border: 1px solid var(--vr-border);
-		background: var(--vr-surface);
-		color: var(--vr-muted);
-		cursor: pointer;
-	}
-
-	.icon-btn:hover {
-		color: var(--vr-text);
-		border-color: var(--vr-accent);
-	}
-
-	.live-btn {
-		border: 1px solid var(--vr-border);
-		background: var(--vr-surface);
-		color: var(--vr-accent-strong);
-		border-radius: 8px;
-		padding: 0.3rem 0.7rem;
-		font-size: 0.8rem;
-		cursor: pointer;
-		white-space: nowrap;
-	}
-
-	.play {
-		display: grid;
-		place-items: center;
-		width: 40px;
-		height: 40px;
-		border-radius: 50%;
-		border: none;
-		background: var(--vr-accent);
-		color: #fff;
-		cursor: pointer;
-	}
-
-	.play svg {
-		width: 18px;
-		height: 18px;
-		display: block;
-		margin-left: 1px;
-	}
-
-	.play.big {
-		width: 52px;
-		height: 52px;
-	}
-
-	.play.big svg {
-		width: 22px;
-		height: 22px;
 	}
 </style>
