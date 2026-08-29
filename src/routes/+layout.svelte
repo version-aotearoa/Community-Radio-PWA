@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { WillowDark } from '@svar-ui/svelte-core';
 	import { onMount } from 'svelte';
+	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
 	import InstallPrompt from '$lib/components/InstallPrompt.svelte';
 	import { initBannerDismissed, initPwa, registerServiceWorker } from '$lib/pwa';
+	import { authClient } from '$lib/client';
 	import '@fontsource/anton/latin.css';
 	import '@fontsource/hanken-grotesk/latin-400.css';
 	import '@fontsource/hanken-grotesk/latin-600.css';
@@ -18,6 +20,11 @@
 
 	function closeMenu() {
 		menuOpen = false;
+	}
+
+	async function signOut() {
+		await authClient.signOut();
+		await invalidateAll();
 	}
 
 	function initials(u: { name?: string | null; email?: string | null }): string {
@@ -121,6 +128,9 @@
 		<footer class="site-footer">
 			<img class="footer-logo" src="/version-logo.svg" alt="VERSION" />
 			<span class="footer-note mono">Independent radio · Aotearoa · 24/7</span>
+			{#if user}
+				<button class="footer-signout" onclick={signOut}>Sign out</button>
+			{/if}
 		</footer>
 
 		<StreamPlayer />
@@ -313,6 +323,25 @@
 	.footer-note {
 		color: var(--vr-faint);
 		margin-left: auto;
+	}
+
+	.footer-signout {
+		background: none;
+		border: 1px solid var(--vr-line-muted);
+		color: var(--vr-muted);
+		font-family: var(--vr-font-mono);
+		font-size: 0.72rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		padding: 0.35rem 0.7rem;
+		cursor: pointer;
+		margin-left: 1rem;
+	}
+
+	.footer-signout:hover {
+		border-color: var(--vr-line);
+		color: var(--vr-text);
 	}
 
 	@media (max-width: 720px) {

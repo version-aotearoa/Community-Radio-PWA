@@ -6,7 +6,10 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 	if (!user) redirect(302, '/login');
 
 	const db = platform!.env.DB;
-	const me = await db.prepare('SELECT created_at FROM user WHERE id = ?').bind(user.id).first();
+	const me = await db.prepare('SELECT createdAt FROM user WHERE id = ?').bind(user.id).first();
+	const raw = me?.createdAt;
+	const createdAt =
+		typeof raw === 'number' ? raw : raw ? Math.floor(Date.parse(String(raw)) / 1000) : null;
 
 	const following = await db
 		.prepare(
@@ -33,7 +36,7 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 
 	return {
 		user,
-		createdAt: (me?.created_at as number | undefined) ?? null,
+		createdAt,
 		following: following.results as {
 			id: string;
 			title: string;
