@@ -229,8 +229,9 @@
 	{/if}
 </section>
 
-<section class="card">
-	<h2>Create a show</h2>
+{#if isAdmin}
+	<section class="card">
+		<h2>Create a show</h2>
 	<form
 		onsubmit={(e) => {
 			e.preventDefault();
@@ -275,6 +276,7 @@
 		</Button>
 	</form>
 </section>
+{/if}
 
 {#if isAdmin}
 	<section class="card">

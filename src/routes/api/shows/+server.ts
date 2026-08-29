@@ -16,7 +16,7 @@ export const GET: RequestHandler = async ({ locals, platform }) => {
 
 export const POST: RequestHandler = async ({ request, locals, platform }) => {
 	const user = locals.user;
-	if (!user || (user.role !== 'dj' && user.role !== 'admin')) {
+	if (!user || user.role !== 'admin') {
 		return json({ error: 'Forbidden' }, { status: 403 });
 	}
 	const body = (await request.json()) as {
