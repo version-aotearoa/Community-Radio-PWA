@@ -59,7 +59,7 @@
 		}
 	});
 
-	let prevKey = '';
+	let prevKey = 'live';
 
 	$effect(() => {
 		const p = $playback;
@@ -226,9 +226,87 @@
 		return playing ? 'Now playing' : 'Paused';
 	}
 
-	// Wired up later — see handover.
-	function shareTrack() {}
-	function toggleFavourite() {}
+	// ---- Player actions: bookmark (sign-in gated) + native share ----
+
+	const user = $derived(page.data.user);
+
+	/** Show context for save/share: archive episode first, then on-air show. */
+	const shareContext = $derived(
+		media?.href
+			? { href: media.href, id: media.show?.id ?? null, title: (media.show?.title ?? media.title).replace(' — ', ' · ') }
+			: showLink
+				? { href: `/shows/${showLink.id}`, id: showLink.id, title: showLink.title }
+				: { href: location.href, id: null, title: 'Version Radio' }
+	);
+
+	const bookmarkTarget = $derived(media?.show?.id ?? showLink?.id ?? null);
+	const bookmarkShow = $derived(media?.show ?? showLink ?? null);
+
+	let savedShow = $state(false);
+	let loginHint = $state(false);
+	let copied = $state(false);
+	let copyTimer: ReturnType<typeof setTimeout> | null = null;
+
+	$effect(() => {
+		const id = bookmarkTarget;
+		savedShow = false;
+		loginHint = false;
+		if (!id || !user) return;
+		let cancelled = false;
+		fetch(`/api/shows/${id}/saved`)
+			.then((r) => (r.status === 401 ? null : r.json() as Promise<{ saved: boolean }>))
+			.then((data) => {
+				if (!cancelled && data) savedShow = data.saved;
+			})
+			.catch(() => {});
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	async function togglePlayerBookmark() {
+		const id = bookmarkTarget;
+		if (!id || !bookmarkShow) return;
+		if (!user) {
+			loginHint = true;
+			return;
+		}
+		loginHint = false;
+		const prev = savedShow;
+		savedShow = !savedShow;
+		const res = await fetch(`/api/shows/${id}/saved`, { method: 'POST' });
+		if (res.status === 401) {
+			savedShow = prev;
+			loginHint = true;
+			return;
+		}
+		if (!res.ok) savedShow = prev;
+	}
+
+	async function shareTrack() {
+		const { href, title } = shareContext;
+		const url = new URL(href, location.origin).href;
+		if (navigator.share) {
+			try {
+				await navigator.share({ title: `${title} — Version Radio`, url });
+			} catch {
+				// cancelled — no-op
+			}
+			return;
+		}
+		try {
+			await navigator.clipboard.writeText(url);
+		} catch {
+			return;
+		}
+		copied = true;
+		if (copyTimer) clearTimeout(copyTimer);
+		copyTimer = setTimeout(() => (copied = false), 1600);
+	}
+
+	onDestroy(() => {
+		if (copyTimer) clearTimeout(copyTimer);
+	});
 </script>
 
 <audio bind:this={audioEl} preload="none"></audio>
@@ -277,6 +355,9 @@
 					{/if}
 				{:else}
 					<span class="track muted">From the show archive</span>
+					{#if media?.show}
+						<a class="showlink mono" href={`/shows/${media.show.id}`}>{media.show.title} →</a>
+					{/if}
 				{/if}
 			</div>
 			<div class="sheet-controls">
@@ -294,28 +375,40 @@
 					{/if}
 					{#if !mediaMode}
 						<button
-							class="autoplay"
-							class:off={!autoplayOn}
+							class="autoplay-switch"
+							role="switch"
+							aria-checked={autoplayOn}
 							onclick={() => ($autoplay = !$autoplay)}
 							title="Autoplay: {autoplayOn ? 'on — starts the stream when you open the site' : 'off — press play to listen'}"
-							aria-pressed={autoplayOn}
+							type="button"
 						>
-							Autoplay{#if !autoplayOn} off{/if}
+							<span class="switch-label mono">Autoplay</span>
+							<span class="switch-track" class:on={autoplayOn} aria-hidden="true">
+								<span class="switch-knob"></span>
+							</span>
 						</button>
 					{/if}
-					<button class="icon-btn" onclick={toggleFavourite} title="Favourite (coming soon)" aria-label="Favourite">
-						<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-							<path
-								d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="1.8"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-							/>
-						</svg>
-					</button>
-					<button class="icon-btn" onclick={shareTrack} title="Share (coming soon)" aria-label="Share">
+					{#if bookmarkTarget}
+						<button
+							class="icon-btn"
+							class:active={savedShow}
+							onclick={togglePlayerBookmark}
+							aria-pressed={savedShow}
+							aria-label={savedShow ? 'Remove bookmark' : 'Bookmark show'}
+							title={savedShow ? 'Remove bookmark' : 'Bookmark show'}
+						>
+							<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+								<path
+									d="M6 4.5v15l6-4.5 6 4.5v-15a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"
+									fill={savedShow ? 'currentColor' : 'none'}
+									stroke="currentColor"
+									stroke-width="1.8"
+									stroke-linejoin="round"
+								/>
+							</svg>
+						</button>
+					{/if}
+					<button class="icon-btn" onclick={shareTrack} aria-label="Share" title="Share">
 						<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
 							<path
 								d="M12 3v12M8 7l4-4 4 4M5 12v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7"
@@ -351,6 +444,15 @@
 					</button>
 				</div>
 			</div>
+			{#if loginHint || copied}
+				<div class="sheet-note">
+					{#if loginHint}
+						<span class="mono">Sign in to save shows — <a class="note-link" href="/login">Sign in</a></span>
+					{:else}
+						<span class="mono note-copied">Copied</span>
+					{/if}
+				</div>
+			{/if}
 		</div>
 	</section>
 
@@ -640,31 +742,86 @@
 		color: var(--vr-black);
 	}
 
-	.autoplay {
-		border: 1px solid var(--vr-line);
-		background: transparent;
+	.icon-btn.active {
+		border-color: var(--vr-line);
 		color: var(--vr-text);
-		font-family: var(--vr-font-mono);
-		font-size: 0.72rem;
-		font-weight: 500;
-		letter-spacing: 0.05em;
-		text-transform: uppercase;
-		padding: 0.45rem 0.7rem;
+	}
+
+	.sheet-note {
+		border-top: 1px solid var(--vr-line-muted);
+		padding: 0.6rem 0 0;
+		margin-top: 0.15rem;
+	}
+
+	.sheet-note .mono {
+		font-size: 0.78rem;
+		color: var(--vr-muted);
+	}
+
+	.note-link {
+		color: var(--vr-text);
+		text-decoration: underline;
+		font-weight: 600;
+	}
+
+	.note-copied {
+		color: var(--vr-green);
+	}
+
+	.autoplay-switch {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.55rem;
+		border: none;
+		background: transparent;
+		color: var(--vr-muted);
+		padding: 0.35rem 0;
 		cursor: pointer;
 	}
 
-	.autoplay.off {
+	.switch-label {
+		font-size: 0.72rem;
 		color: var(--vr-faint);
-		border-color: var(--vr-line-muted);
 	}
 
-	.autoplay:hover {
-		background: var(--vr-text);
-		color: var(--vr-black);
+	.switch-track {
+		position: relative;
+		display: inline-block;
+		width: 34px;
+		height: 18px;
+		flex-shrink: 0;
+		border: 1px solid var(--vr-line-muted);
+		background: transparent;
+		transition: background-color 150ms, border-color 150ms;
 	}
 
-	.autoplay.off:hover {
+	.switch-track .switch-knob {
+		position: absolute;
+		top: 2px;
+		left: 2px;
+		width: 12px;
+		height: 12px;
+		background: var(--vr-faint);
+		transition: transform 150ms, background-color 150ms;
+	}
+
+	.switch-track.on {
 		border-color: var(--vr-line);
+		background: var(--vr-text);
+	}
+
+	.switch-track.on .switch-knob {
+		transform: translateX(16px);
+		background: var(--vr-black);
+	}
+
+	.autoplay-switch:hover .switch-track {
+		border-color: var(--vr-line);
+	}
+
+	.autoplay-switch:focus-visible {
+		outline: none;
+		box-shadow: 0 0 0 2px var(--vr-bg), 0 0 0 3px var(--vr-line);
 	}
 
 	.live-btn {

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import ShowActions from '$lib/components/ShowActions.svelte';
 	import { playback, playMedia, requestTogglePlay, streamPlaying } from '$lib/stores/player';
 	import { replayArtFromUrl } from '$lib/azuracast';
 
@@ -44,7 +45,7 @@
 		return `Every ${show.interval_weeks} weeks`;
 	}
 
-	function toggleReplay(b: { replay_url: string | null; date: string }) {
+	function toggleReplay(b: { id: string; replay_url: string | null; date: string }) {
 		if (!b.replay_url) return;
 		if (replayActive(b.replay_url)) {
 			requestTogglePlay();
@@ -54,7 +55,9 @@
 			url: b.replay_url,
 			title: `${show.title} — ${fmtDate(b.date)}`,
 			artist: show.dj_name ?? null,
-			art: replayArtFromUrl(b.replay_url)
+			art: replayArtFromUrl(b.replay_url),
+			show: { id: show.id, title: show.title },
+			href: `/shows/${show.id}/broadcasts/${b.id}`
 		});
 	}
 
@@ -86,9 +89,12 @@
 				<p class="desc">{show.description}</p>
 			{/if}
 		</div>
-		{#if data.canEdit}
-			<a href={`/shows/${show.id}/tracklist`} class="btn-outline">Edit tracklist</a>
-		{/if}
+		<div class="head-actions">
+			<ShowActions showId={show.id} showTitle={show.title} saved={data.saved} user={data.user} />
+			{#if data.canEdit}
+				<a href={`/shows/${show.id}/tracklist`} class="btn-outline">Edit tracklist</a>
+			{/if}
+		</div>
 	</header>
 
 	{#if upcoming.length > 0}
@@ -201,6 +207,14 @@
 		align-items: flex-start;
 		gap: 1rem;
 		margin-bottom: 1.75rem;
+	}
+
+	.head-actions {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.6rem;
+		flex-shrink: 0;
 	}
 
 	.back {

@@ -46,14 +46,20 @@
 			.replace(/\s/g, ' ');
 	}
 
-	function playEpisode(show: { title: string; date: string; replay_url: string | null; dj_name?: string | null }) {
+	function playEpisode(show: { show_id: string; broadcast_id: string; title: string; date: string; replay_url: string | null; dj_name?: string | null }) {
 		if (!show.replay_url) return;
 		playMedia({
 			url: show.replay_url,
 			title: `${show.title} — ${fmtBroadcastDate(show.date)}`,
 			artist: show.dj_name ?? null,
-			art: replayArtFromUrl(show.replay_url)
+			art: replayArtFromUrl(show.replay_url),
+			show: { id: show.show_id, title: show.title },
+			href: `/shows/${show.show_id}/broadcasts/${show.broadcast_id}`
 		});
+	}
+
+	function featArt(f: { replay_url: string | null; image: string | null }) {
+		return replayArtFromUrl(f.replay_url) ?? f.image;
 	}
 
 	onMount(() => startLivePolling());
@@ -80,7 +86,7 @@
 		<div>
 			<span class="sticker hero-sticker">{isLiveNow ? 'On air now' : 'Streaming now'}</span>
 			<h1 class="hero-title">{heroTitle}</h1>
-			<p class="hero-meta mono">Independent radio · Auckland, NZ · 24/7</p>
+			<p class="hero-meta mono">Independent radio · Aotearoa · 24/7</p>
 		</div>
 		<button class="btn-block hero-play" onclick={requestTogglePlay}>
 			{#if isPlaying}
@@ -175,28 +181,62 @@
 			</a>
 		</div>
 	</div>
-	<div class="panel coming-up">
-		<div class="coming-up-head">
-			<h2 class="h-lg">Coming Up</h2>
-			<a class="view-all" href="/schedule">Full schedule</a>
+	<div class="panel-col">
+		<div class="panel coming-up">
+			<div class="coming-up-head">
+				<h2 class="h-lg">Coming Up</h2>
+				<a class="view-all" href="/schedule">Full schedule</a>
+			</div>
+			<ul>
+				{#each data.upcoming as b (b.id)}
+					<li class="slot" class:onair={b.onair}>
+						<span class="slot-time mono" class:onair={b.onair}>
+							<span class="slot-date">{fmtDay(b.date)} · </span>{fmtTime(b.start_minutes)}–{fmtTime(b.start_minutes + b.duration_minutes)}
+						</span>
+						<span class="h-sm slot-title">
+							{#if b.onair}
+								<span class="live-dot" aria-hidden="true"></span>
+							{/if}
+							{b.title}{#if b.dj_name} <span class="slot-dj">with {b.dj_name}</span>{/if}
+						</span>
+					</li>
+				{:else}
+					<li class="slot"><span class="slot-dj">Nothing scheduled yet.</span></li>
+				{/each}
+			</ul>
 		</div>
-		<ul>
-			{#each data.upcoming as b (b.id)}
-				<li class="slot" class:onair={b.onair}>
-					<span class="slot-time mono" class:onair={b.onair}>
-						<span class="slot-date">{fmtDay(b.date)} · </span>{fmtTime(b.start_minutes)}–{fmtTime(b.start_minutes + b.duration_minutes)}
-					</span>
-					<span class="h-sm slot-title">
-						{#if b.onair}
-							<span class="live-dot" aria-hidden="true"></span>
-						{/if}
-						{b.title}{#if b.dj_name} <span class="slot-dj">with {b.dj_name}</span>{/if}
-					</span>
-				</li>
-			{:else}
-				<li class="slot"><span class="slot-dj">Nothing scheduled yet.</span></li>
-			{/each}
-		</ul>
+		{#if data.featured.length > 0}
+			<div class="panel featured">
+				<div class="coming-up-head">
+					<h2 class="h-lg">Featured Shows</h2>
+				</div>
+				<ul>
+					{#each data.featured as f (f.broadcast_id)}
+						<li>
+							<a class="feat-row" href={`/shows/${f.show_id}/broadcasts/${f.broadcast_id}`}>
+								<span class="feat-art">
+									{#if featArt(f)}
+										<img src={featArt(f)} alt="" loading="lazy" />
+									{:else}
+										<svg viewBox="0 0 80 70" fill="currentColor" width="22" height="19" aria-hidden="true">
+											<path
+												fill-rule="evenodd"
+												d="M0 0H40V40H50V0H80V45H70V60H55V70H25V60H10V45H0V5ZM10 5H5V40H15V55H30V65H50V55H65V40H75V5H55V45H35V5H15Z"
+											/>
+										</svg>
+									{/if}
+								</span>
+								<span class="feat-info">
+									<span class="h-sm">{f.title}</span>
+									{#if f.dj_name}<span class="mono feat-dj">{f.dj_name}</span>{/if}
+								</span>
+								<span class="mono feat-when">{fmtBroadcastDate(f.date)}</span>
+							</a>
+						</li>
+					{/each}
+				</ul>
+			</div>
+		{/if}
 	</div>
 </section>
 
@@ -452,6 +492,16 @@
 		margin: 0 0 -1px -1px;
 	}
 
+	.panel-col {
+		display: flex;
+		flex-direction: column;
+		margin: 0 0 -1px -1px;
+	}
+
+	.panel-col > .panel {
+		margin: 0 0 -1px 0;
+	}
+
 	.get-involved {
 		padding: 1.5rem;
 		display: flex;
@@ -554,6 +604,14 @@
 		color: var(--vr-muted);
 	}
 
+	@media (max-width: 640px) {
+		.slot {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 0.35rem;
+		}
+	}
+
 	.live-dot {
 		width: 0.55rem;
 		height: 0.55rem;
@@ -574,6 +632,74 @@
 
 	.empty {
 		grid-column: 1 / -1;
+	}
+
+	.featured {
+		padding-bottom: 0.5rem;
+	}
+
+	.featured ul {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+
+	.feat-row {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		padding: 0.9rem 1.5rem;
+		border-top: 1px solid var(--vr-line-muted);
+		text-decoration: none;
+		color: var(--vr-text);
+		transition: color 150ms, background-color 150ms;
+	}
+
+	.feat-row:hover {
+		background: #fff;
+		color: #000;
+	}
+
+	.feat-art {
+		width: 48px;
+		height: 48px;
+		flex-shrink: 0;
+		display: grid;
+		place-items: center;
+		background: var(--vr-surface-highest);
+		color: var(--vr-muted);
+	}
+
+	.feat-art img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		display: block;
+	}
+
+	.feat-info {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+		min-width: 0;
+	}
+
+	.feat-dj {
+		color: var(--vr-muted);
+		font-size: 0.75rem;
+	}
+
+	.feat-row:hover .feat-dj,
+	.feat-row:hover .feat-when {
+		color: rgba(0, 0, 0, 0.75);
+	}
+
+	.feat-when {
+		margin-left: auto;
+		color: var(--vr-muted);
+		font-size: 0.78rem;
+		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
 	}
 
 	@media (min-width: 960px) {

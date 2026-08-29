@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ShowActions from '$lib/components/ShowActions.svelte';
 	import { playback, playMedia, requestTogglePlay, streamPlaying } from '$lib/stores/player';
 	import { replayArtFromUrl } from '$lib/azuracast';
 
@@ -50,7 +51,9 @@
 			url: broadcast.replay_url,
 			title: `${show.title} — ${fmtDate(broadcast.date)}`,
 			artist: show.dj_name ?? null,
-			art: replayArtFromUrl(broadcast.replay_url)
+			art: replayArtFromUrl(broadcast.replay_url),
+			show: { id: show.id, title: show.title },
+			href: `/shows/${show.id}/broadcasts/${broadcast.id}`
 		});
 	}
 
@@ -67,16 +70,26 @@
 </svelte:head>
 
 <div class="page">
-<a class="back mono" href={`/shows/${show.id}`}>← {show.title}</a>
+	<div class="head">
+		<div>
+			<a class="back mono" href={`/shows/${show.id}`}>← {show.title}</a>
 
-<h1 class="h-lg">{show.title}</h1>
-<p class="meta mono">
-	<strong>{fmtDate(broadcast.date)}</strong>
-	· {fmtTime(broadcast.start_minutes)}–{fmtTime(
-		broadcast.start_minutes + broadcast.duration_minutes
-	)}
-	{#if show.dj_name}· with {show.dj_name}{/if}
-</p>
+			<h1 class="h-lg">{show.title}</h1>
+			<p class="meta mono">
+				<strong>{fmtDate(broadcast.date)}</strong>
+				· {fmtTime(broadcast.start_minutes)}–{fmtTime(
+					broadcast.start_minutes + broadcast.duration_minutes
+				)}
+				{#if show.dj_name}· with {show.dj_name}{/if}
+			</p>
+		</div>
+		<ShowActions
+			showId={show.id}
+			showTitle={`${show.title} — ${fmtDate(broadcast.date)}`}
+			saved={data.saved}
+			user={data.user}
+		/>
+	</div>
 
 <section class="card">
 	{#if broadcast.replay_url}
@@ -142,6 +155,13 @@
 	.page {
 		padding: 2rem;
 		max-width: 56rem;
+	}
+
+	.head {
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-start;
+		gap: 1rem;
 	}
 
 	.back {

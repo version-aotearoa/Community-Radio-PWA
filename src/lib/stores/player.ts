@@ -24,6 +24,10 @@ export interface MediaSource {
 	title: string;
 	artist: string | null;
 	art: string | null;
+	/** Originating show, when playing an archive episode (used for player links). */
+	show?: { id: string; title: string } | null;
+	/** Direct URL to the episode page (for sharing from the player). */
+	href?: string | null;
 }
 
 export type PlaybackSource = { kind: 'live' } | ({ kind: 'media' } & MediaSource);

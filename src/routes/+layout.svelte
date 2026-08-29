@@ -126,7 +126,7 @@
 				</svg>
 			</span>
 			<span class="footer-name">Version Radio</span>
-			<span class="footer-note mono">Independent radio · Auckland, NZ · 24/7</span>
+			<span class="footer-note mono">Independent radio · Aotearoa · 24/7</span>
 		</footer>
 
 		<StreamPlayer />
