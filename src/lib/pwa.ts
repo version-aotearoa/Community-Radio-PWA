@@ -60,6 +60,9 @@ export function registerServiceWorker() {
 	if (typeof window === 'undefined') return;
 	if (!import.meta.env.PROD) return;
 	if (!('serviceWorker' in navigator)) return;
+	// Suspect: SW control correlates with iOS lock-screen audio death —
+	// skip registration on iOS while the background-audio issue is open.
+	if (isIos()) return;
 	navigator.serviceWorker.register('/sw.js').catch(() => {
 		// registration failure is non-fatal
 	});
