@@ -1,8 +1,16 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { authClient } from '$lib/client';
 
 	let { data } = $props();
+
+	// Clicking the avatar right after following/saving can race the write:
+	// the page load may have started before the toggle POST committed.
+	// Revalidate on mount so the lists always settle to the persisted state.
+	onMount(() => {
+		void invalidateAll();
+	});
 
 	const user = $derived(data.user);
 	let busy = $state(false);
