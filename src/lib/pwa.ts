@@ -56,10 +56,34 @@ export function initPwa() {
 	window.addEventListener('appinstalled', () => installEvent.set(null));
 }
 
+/**
+ * Kill-switch: service worker is fully bypassed until stale-cache /
+ * lock-screen regressions are fixed. Flip to true to re-enable.
+ */
+const SW_ENABLED = false;
+
 export function registerServiceWorker() {
 	if (typeof window === 'undefined') return;
-	if (!import.meta.env.PROD) return;
 	if (!('serviceWorker' in navigator)) return;
+
+	if (!SW_ENABLED) {
+		// Purge any previously installed SW (static/sw.js also self-destructs).
+		navigator.serviceWorker
+			.getRegistrations()
+			.then((registrations) => {
+				for (const reg of registrations) {
+					reg.unregister().catch(() => {
+						// removal is non-fatal
+					});
+				}
+			})
+			.catch(() => {
+				// removal is non-fatal
+			});
+		return;
+	}
+
+	if (!import.meta.env.PROD) return;
 	// Suspect: SW control correlates with iOS lock-screen audio death —
 	// skip registration on iOS while the background-audio issue is open.
 	if (isIos()) return;

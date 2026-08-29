@@ -38,9 +38,12 @@
 
 	let adminUsers = $state<AdminUser[]>([]);
 	const emailById = $derived(new Map(adminUsers.map((u) => [u.id, u.email])));
+	const djUsers = $derived(adminUsers.filter((u) => u.role === 'dj' || u.role === 'admin'));
 	let chatMessages = $state<ChatMessage[]>([]);
 	let chatLoaded = $state(false);
 	let purgeName = $state('');
+	let adminError = $state('');
+	let adminNotice = $state('');
 
 	async function loadAdmin() {
 		if (!isAdmin) return;
@@ -57,25 +60,32 @@
 		}
 	}
 
-	async function setActive(u: AdminUser, active: boolean) {
-		const res = await fetch(`/api/admin/users/${u.id}`, {
+	async function adminPost(id: string, action: string, value: unknown): Promise<boolean> {
+		adminError = '';
+		adminNotice = '';
+		const res = await fetch(`/api/admin/${action === 'dj' ? 'shows' : 'users'}/${id}`, {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ action: 'active', value: active })
+			body: JSON.stringify({ action, value })
 		});
-		if (res.ok) {
-			u.active = active ? 1 : 0;
-		}
+		if (res.ok) return true;
+		const body = (await res.json().catch(() => null)) as { error?: string } | null;
+		adminError = body?.error ?? `Save failed (${res.status})`;
+		return false;
+	}
+
+	async function setActive(u: AdminUser, active: boolean) {
+		if (await adminPost(u.id, 'active', active)) u.active = active ? 1 : 0;
 	}
 
 	async function setRole(u: AdminUser, role: AdminUser['role']) {
-		const res = await fetch(`/api/admin/users/${u.id}`, {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ action: 'role', value: role })
-		});
-		if (res.ok) {
-			u.role = role;
+		if (await adminPost(u.id, 'role', role)) u.role = role;
+	}
+
+	async function setShowDj(show: ShowRow, djId: string) {
+		if (await adminPost(show.id, 'dj', djId)) {
+			show.dj_id = djId;
+			adminNotice = 'Show DJ updated.';
 		}
 	}
 
@@ -237,6 +247,12 @@
 </section>
 
 {#if isAdmin}
+	{#if adminError}
+		<div class="notice bad">{adminError}</div>
+	{/if}
+	{#if adminNotice}
+		<div class="notice ok">{adminNotice}</div>
+	{/if}
 	<section class="card">
 		<h2>Admin — users</h2>
 		{#if adminUsers.length === 0}
@@ -267,6 +283,42 @@
 						>
 							{u.active ? 'Deactivate' : 'Activate'}
 						</button>
+					</div>
+				{/each}
+			</div>
+		{/if}
+	</section>
+
+	<section class="card">
+		<h2>Admin — show DJs</h2>
+		{#if shows.length === 0}
+			<p class="muted">No shows yet.</p>
+		{:else if adminUsers.length === 0}
+			<p class="muted">Loading users…</p>
+		{:else}
+			<div class="admin-table">
+				{#each shows as show (show.id)}
+					<div class="admin-row">
+						<div class="user-main">
+							<strong>{show.title}</strong>
+							<span class="meta">
+								{DAYS[show.day_of_week]} · {fmtStart(show.start_minutes)}
+							</span>
+						</div>
+						<label class="role-label" title="DJ">
+							<span class="meta">DJ</span>
+							<select
+								value={show.dj_id}
+								onchange={(e) => setShowDj(show, e.currentTarget.value)}
+							>
+								{#if !djUsers.some((d) => d.id === show.dj_id)}
+									<option value={show.dj_id} disabled>Unknown DJ</option>
+								{/if}
+								{#each djUsers as dj (dj.id)}
+									<option value={dj.id}>{dj.name || dj.email}</option>
+								{/each}
+							</select>
+						</label>
 					</div>
 				{/each}
 			</div>
