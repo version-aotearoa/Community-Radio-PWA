@@ -102,7 +102,7 @@
 
 	{#if data.saved.length > 0}
 		<section class="card">
-			<h2 class="card-title">Saved recordings</h2>
+			<h2 class="card-title">Saved broadcasts</h2>
 			<ul>
 				{#each data.saved as s (s.broadcast_id)}
 					<li>

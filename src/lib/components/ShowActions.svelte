@@ -99,37 +99,39 @@
 	{/if}
 	{#if loginHint}
 		<div class="login-hint">
-			{hintKind === 'follow' ? 'Sign in to follow shows' : 'Sign in to save recordings'} — <a class="hint-link" href="/login">Sign in</a>
+			{hintKind === 'follow' ? 'Sign in to follow shows' : 'Sign in to save broadcasts'} — <a class="hint-link" href="/login">Sign in</a>
 		</div>
 	{/if}
 	<div class="icon-row">
-		<button
-			class="sq-btn"
-			class:active={followed}
-			onclick={toggleFollow}
-			aria-pressed={followed}
-			aria-label={followed ? 'Unfollow show' : 'Follow show'}
-			title={followed ? 'Unfollow show' : 'Follow show'}
-		>
-			<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-				<path
-					d="M12 3a6 6 0 0 1 6 6v3l1.6 2.6a.6.6 0 0 1-.5.9H4.9a.6.6 0 0 1-.5-.9L6 12V9a6 6 0 0 1 6-6zM10 17.5a2 2 0 0 0 4 0"
-					fill={followed ? 'currentColor' : 'none'}
-					stroke="currentColor"
-					stroke-width="1.6"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-				/>
-			</svg>
-		</button>
+		{#if !episode}
+			<button
+				class="sq-btn"
+				class:active={followed}
+				onclick={toggleFollow}
+				aria-pressed={followed}
+				aria-label={followed ? 'Unfollow show' : 'Follow show'}
+				title={followed ? 'Unfollow show' : 'Follow show'}
+			>
+				<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+					<path
+						d="M12 3a6 6 0 0 1 6 6v3l1.6 2.6a.6.6 0 0 1-.5.9H4.9a.6.6 0 0 1-.5-.9L6 12V9a6 6 0 0 1 6-6zM10 17.5a2 2 0 0 0 4 0"
+						fill={followed ? 'currentColor' : 'none'}
+						stroke="currentColor"
+						stroke-width="1.6"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/>
+				</svg>
+			</button>
+		{/if}
 		{#if episode}
 			<button
 				class="sq-btn"
 				class:active={episodeSaved}
 				onclick={toggleEpisodeSaved}
 				aria-pressed={episodeSaved}
-				aria-label={episodeSaved ? 'Remove bookmark' : 'Bookmark recording'}
-				title={episodeSaved ? 'Remove bookmark' : 'Bookmark recording'}
+				aria-label={episodeSaved ? 'Remove bookmark' : 'Bookmark broadcast'}
+				title={episodeSaved ? 'Remove bookmark' : 'Bookmark broadcast'}
 			>
 				<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
 					<path

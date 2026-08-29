@@ -423,7 +423,7 @@
 							</span>
 						</button>
 					{/if}
-					{#if showId}
+					{#if showId && !broadcastId}
 						<button
 							class="icon-btn"
 							class:active={followed}
@@ -450,8 +450,8 @@
 							class:active={episodeSaved}
 							onclick={togglePlayerEpisodeSaved}
 							aria-pressed={episodeSaved}
-							aria-label={episodeSaved ? 'Remove bookmark' : 'Bookmark recording'}
-							title={episodeSaved ? 'Remove bookmark' : 'Bookmark recording'}
+							aria-label={episodeSaved ? 'Remove bookmark' : 'Bookmark broadcast'}
+							title={episodeSaved ? 'Remove bookmark' : 'Bookmark broadcast'}
 						>
 							<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
 								<path
@@ -504,7 +504,7 @@
 				<div class="sheet-note">
 					{#if loginHint}
 						<span class="mono">
-							{hintKind === 'follow' ? 'Sign in to follow shows' : 'Sign in to save recordings'} — <a class="note-link" href="/login">Sign in</a>
+							{hintKind === 'follow' ? 'Sign in to follow shows' : 'Sign in to save broadcasts'} — <a class="note-link" href="/login">Sign in</a>
 						</span>
 					{:else}
 						<span class="mono note-copied">Copied</span>
