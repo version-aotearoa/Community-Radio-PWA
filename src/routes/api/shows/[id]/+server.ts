@@ -14,7 +14,12 @@ export const POST: RequestHandler = async ({ request, params, locals, platform }
 		return json({ error: 'Forbidden' }, { status: 403 });
 	}
 
-	const body = (await request.json()) as { title?: string; description?: string; djId?: string };
+	const body = (await request.json()) as {
+		title?: string;
+		description?: string;
+		djId?: string;
+		djHandle?: string;
+	};
 
 	const columns: string[] = [];
 	const values: unknown[] = [];
@@ -29,6 +34,11 @@ export const POST: RequestHandler = async ({ request, params, locals, platform }
 	if (typeof body.description === 'string') {
 		columns.push('description = ?');
 		values.push(body.description.trim().slice(0, 2000));
+	}
+
+	if (typeof body.djHandle === 'string') {
+		columns.push('dj_handle = ?');
+		values.push(body.djHandle.trim().slice(0, 100));
 	}
 
 	if (typeof body.djId === 'string') {

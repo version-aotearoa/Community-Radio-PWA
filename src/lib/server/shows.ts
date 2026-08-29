@@ -1,6 +1,7 @@
 export interface ShowRow {
 	id: string;
 	dj_id: string;
+	dj_handle: string | null;
 	title: string;
 	description: string;
 	image: string | null;
@@ -201,7 +202,7 @@ export interface ShowWithDj extends ShowRow {
 export async function getShowWithDj(db: D1Database, id: string): Promise<ShowWithDj | null> {
 	return db
 		.prepare(
-			`SELECT s.*, u.name AS dj_name, u.image AS dj_image
+			`SELECT s.*, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name, u.image AS dj_image
 			 FROM show s
 			 LEFT JOIN user u ON u.id = s.dj_id
 			 WHERE s.id = ?`
@@ -235,7 +236,7 @@ export interface ScheduleShow extends ShowRow {
 export async function getSchedule(db: D1Database): Promise<ScheduleShow[]> {
 	const { results } = await db
 		.prepare(
-			`SELECT s.*, u.name AS dj_name, u.image AS dj_image
+			`SELECT s.*, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name, u.image AS dj_image
 			 FROM show s
 			 LEFT JOIN user u ON u.id = s.dj_id
 			 WHERE s.active = 1
@@ -275,7 +276,7 @@ export async function getOnAirBroadcast(
 ): Promise<AiringInfo | null> {
 	return db
 		.prepare(
-			`SELECT b.*, s.title, u.name AS dj_name, u.image AS dj_image
+			`SELECT b.*, s.title, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name, u.image AS dj_image
 			 FROM broadcast b
 			 JOIN show s ON s.id = b.show_id
 			 LEFT JOIN user u ON u.id = s.dj_id
@@ -295,7 +296,7 @@ export async function getNextBroadcast(
 ): Promise<AiringInfo | null> {
 	return db
 		.prepare(
-			`SELECT b.*, s.title, u.name AS dj_name, u.image AS dj_image
+			`SELECT b.*, s.title, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name, u.image AS dj_image
 			 FROM broadcast b
 			 JOIN show s ON s.id = b.show_id
 			 LEFT JOIN user u ON u.id = s.dj_id
@@ -336,7 +337,7 @@ export async function getUpcomingBroadcasts(
 	const to = addDays(from, days);
 	const { results } = await db
 		.prepare(
-			`SELECT b.*, s.title, u.name AS dj_name
+			`SELECT b.*, s.title, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name
 			 FROM broadcast b
 			 JOIN show s ON s.id = b.show_id
 			 LEFT JOIN user u ON u.id = s.dj_id

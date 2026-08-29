@@ -7,6 +7,7 @@
 	let { data } = $props();
 
 	let email = $state('');
+	let displayName = $state('');
 	let sent = $state(false);
 	let error = $state('');
 	let busy = $state(false);
@@ -49,7 +50,12 @@
 			}
 		}
 		busy = true;
-		const res = await authClient.signIn.magicLink({ email, callbackURL: '/' });
+		const name = displayName.trim().slice(0, 50);
+		const res = await authClient.signIn.magicLink({
+			email,
+			callbackURL: '/',
+			...(name ? { name } : {})
+		});
 		busy = false;
 		if (res.error) {
 			error = res.error.message ?? 'Something went wrong. Please try again.';
@@ -89,6 +95,14 @@
 				<div class="notice ok">Check your inbox — we've emailed you a sign-in link.</div>
 			{:else}
 				<form onsubmit={(e) => { e.preventDefault(); sendMagicLink(); }}>
+					<Field label="Display name (optional)">
+						<Text
+							type="text"
+							placeholder="Used when creating your account"
+							bind:value={displayName}
+							css="vr-input"
+						/>
+					</Field>
 					<Field label="Email">
 						<Text
 							type="text"

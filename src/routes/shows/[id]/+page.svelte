@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { invalidateAll } from '$app/navigation';
 	import { untrack } from 'svelte';
 	import { Text, TextArea, Field, Button } from '@svar-ui/svelte-core';
 	import ShowActions from '$lib/components/ShowActions.svelte';
@@ -16,6 +17,7 @@
 	let description = $state(untrack(() => data.show.description ?? ''));
 	let djName = $state(untrack(() => data.show.dj_name));
 	let djId = $state(untrack(() => data.show.dj_id));
+	let djHandle = $state(untrack(() => data.show.dj_handle ?? ''));
 
 	let editing = $state(false);
 	let saving = $state(false);
@@ -40,6 +42,7 @@
 		title = data.show.title;
 		description = data.show.description ?? '';
 		djId = data.show.dj_id;
+		djHandle = data.show.dj_handle ?? '';
 		if (isAdmin && djOptions.length === 0) {
 			const res = await fetch('/api/admin/users');
 			if (res.ok) {
@@ -58,7 +61,7 @@
 		saving = true;
 		editError = '';
 		editSaved = false;
-		const body: Record<string, string> = { title, description };
+		const body: Record<string, string> = { title, description, djHandle };
 		if (isAdmin) body.djId = djId;
 		const res = await fetch(`/api/shows/${data.show.id}`, {
 			method: 'POST',
@@ -71,15 +74,12 @@
 			editError = err?.error ?? `Save failed (${res.status})`;
 			return;
 		}
-		title = body.title.trim();
-		description = body.description.trim();
-		if (isAdmin && djId !== data.show.dj_id) {
-			const chosen = djOptions.find((d) => d.id === djId);
-			djName = chosen ? chosen.name || chosen.email : djName;
-		}
-		data.show.title = title;
-		data.show.description = description;
-		data.show.dj_id = djId;
+		await invalidateAll();
+		title = data.show.title;
+		description = data.show.description ?? '';
+		djName = data.show.dj_name;
+		djId = data.show.dj_id;
+		djHandle = data.show.dj_handle ?? '';
 		editing = false;
 		editSaved = true;
 		setTimeout(() => (editSaved = false), 4000);
@@ -165,6 +165,13 @@
 				<form class="edit-form" onsubmit={(e) => { e.preventDefault(); saveEdit(); }}>
 					<Field label="Title">
 						<Text bind:value={title} css="vr-input" />
+					</Field>
+					<Field label="DJ name">
+						<Text
+							bind:value={djHandle}
+							css="vr-input"
+							placeholder={data.show.dj_name ?? 'e.g. LLUSH'}
+						/>
 					</Field>
 					{#if isAdmin}
 						<Field label="DJ">

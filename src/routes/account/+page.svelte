@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
+	import { Button, Field, Text } from '@svar-ui/svelte-core';
 	import { authClient } from '$lib/client';
 
 	let { data } = $props();
@@ -14,6 +15,36 @@
 
 	const user = $derived(data.user);
 	let busy = $state(false);
+
+	let editingName = $state(false);
+	let nameInput = $state('');
+	let nameBusy = $state(false);
+	let nameError = $state('');
+	let nameSaved = $state(false);
+
+	async function startNameEdit() {
+		editingName = true;
+		nameInput = user.name ?? '';
+		nameError = '';
+		nameSaved = false;
+	}
+
+	async function saveName() {
+		nameBusy = true;
+		nameError = '';
+		nameSaved = false;
+		const name = nameInput.trim().slice(0, 50);
+		const res = await authClient.updateUser({ name });
+		nameBusy = false;
+		if (res.error) {
+			nameError = res.error.message ?? 'Could not save your name.';
+			return;
+		}
+		await invalidateAll();
+		editingName = false;
+		nameSaved = true;
+		setTimeout(() => (nameSaved = false), 4000);
+	}
 
 	const createdAt = $derived(
 		data.createdAt
@@ -73,6 +104,34 @@
 				</span>
 			</div>
 		</div>
+		{#if editingName}
+			<form class="name-form" onsubmit={(e) => { e.preventDefault(); saveName(); }}>
+				<Field label="Display name">
+					<Text bind:value={nameInput} placeholder="e.g. LLUSH" css="vr-input" />
+				</Field>
+				{#if nameError}
+					<div class="notice bad">{nameError}</div>
+				{/if}
+				{#if nameSaved}
+					<div class="notice ok">Name saved</div>
+				{/if}
+				<div class="name-actions">
+					<Button css="vr-cta" type="primary" disabled={nameBusy} onclick={saveName}>
+						{nameBusy ? 'Saving…' : 'Save'}
+					</Button>
+					<Button css="vr-cta ghost" onclick={() => (editingName = false)}>Cancel</Button>
+				</div>
+			</form>
+		{:else}
+			{#if nameSaved}
+				<div class="notice ok">Name saved</div>
+			{/if}
+			<div class="name-actions">
+				<button class="btn-outline" onclick={startNameEdit}>
+					{user.name ? 'Edit name' : 'Set name'}
+				</button>
+			</div>
+		{/if}
 		<button class="btn-outline signout" onclick={signOut} disabled={busy}>
 			{busy ? 'Signing out…' : 'Sign out'}
 		</button>
@@ -208,6 +267,34 @@
 	.signout {
 		width: 100%;
 		justify-content: center;
+	}
+
+	.name-form {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		margin-bottom: 1.25rem;
+		max-width: 24rem;
+	}
+
+	.name-actions {
+		display: flex;
+		gap: 0.6rem;
+		margin-bottom: 1.25rem;
+	}
+
+	.notice {
+		padding: 0.5rem 0.8rem;
+		border: 1px solid var(--vr-line);
+		font-size: 0.85rem;
+	}
+
+	.notice.ok {
+		color: var(--vr-green);
+	}
+
+	.notice.bad {
+		color: var(--vr-red);
 	}
 
 	.card ul {

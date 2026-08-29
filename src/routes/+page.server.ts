@@ -28,7 +28,7 @@ export const load: PageServerLoad = async ({ platform }) => {
 
 	const { results } = await db
 		.prepare(
-			`SELECT b.id AS broadcast_id, b.show_id, b.date, b.start_minutes, b.replay_url, s.title, s.image AS show_image, u.name AS dj_name
+			`SELECT b.id AS broadcast_id, b.show_id, b.date, b.start_minutes, b.replay_url, s.title, s.image AS show_image, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name
 			 FROM broadcast b
 			 JOIN show s ON s.id = b.show_id
 			 LEFT JOIN user u ON u.id = s.dj_id
@@ -61,7 +61,7 @@ export const load: PageServerLoad = async ({ platform }) => {
 	];
 
 	const featuredSelect = (extra: string) => `
-		SELECT b.id AS broadcast_id, b.date, b.show_id, b.replay_url, s.title, s.image AS show_image, u.name AS dj_name
+		SELECT b.id AS broadcast_id, b.date, b.show_id, b.replay_url, s.title, s.image AS show_image, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name
 		FROM broadcast b
 		JOIN show s ON s.id = b.show_id
 		LEFT JOIN user u ON u.id = s.dj_id
