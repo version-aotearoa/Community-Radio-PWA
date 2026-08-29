@@ -35,6 +35,17 @@
 		return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 	}
 
+	function fmtDay(dateStr: string) {
+		return new Intl.DateTimeFormat('en-NZ', {
+			weekday: 'short',
+			day: '2-digit',
+			month: 'short',
+			timeZone: 'UTC'
+		})
+			.format(new Date(`${dateStr}T00:00:00Z`))
+			.replace(/\s/g, ' ');
+	}
+
 	function playEpisode(show: { title: string; date: string; replay_url: string | null; dj_name?: string | null }) {
 		if (!show.replay_url) return;
 		playMedia({
@@ -173,7 +184,7 @@
 			{#each data.upcoming as b (b.id)}
 				<li class="slot" class:onair={b.onair}>
 					<span class="slot-time mono" class:onair={b.onair}>
-						{fmtTime(b.start_minutes)}–{fmtTime(b.start_minutes + b.duration_minutes)}
+						<span class="slot-date">{fmtDay(b.date)} · </span>{fmtTime(b.start_minutes)}–{fmtTime(b.start_minutes + b.duration_minutes)}
 					</span>
 					<span class="h-sm slot-title">
 						{#if b.onair}
