@@ -937,10 +937,10 @@
 
 	@keyframes trace-loop {
 		from {
-			stroke-dashoffset: 100;
+			stroke-dashoffset: 0;
 		}
 		to {
-			stroke-dashoffset: 0;
+			stroke-dashoffset: 100;
 		}
 	}
 
