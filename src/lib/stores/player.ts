@@ -1,10 +1,10 @@
-import { writable } from 'svelte/store';
+import { get, writable } from 'svelte/store';
 
 const AUTOPLAY_KEY = 'vr-autoplay';
 
 function readAutoplay(): boolean {
-	if (typeof localStorage === 'undefined') return true;
-	return localStorage.getItem(AUTOPLAY_KEY) !== 'off';
+	if (typeof localStorage === 'undefined') return false;
+	return localStorage.getItem(AUTOPLAY_KEY) === 'on';
 }
 
 /** Whether the stream player should start playing automatically on page load. */
@@ -45,8 +45,13 @@ export const playback = writable<PlaybackSource>({ kind: 'live' });
 
 /** Ask the global stream player to return to the live stream and play. */
 export function requestPlay() {
-	playback.set({ kind: 'live' });
-	playerRequest.update((p) => ({ n: p.n + 1 }));
+	if (get(playback).kind !== 'live') {
+		// media → live: the playback effect switches engines and starts audio.
+		playback.set({ kind: 'live' });
+	} else {
+		// already live but paused: resume only (no kind change, no double play).
+		playerRequest.update((p) => ({ n: p.n + 1 }));
+	}
 }
 
 /** Ask the global stream player to play a recording (replay). */

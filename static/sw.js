@@ -3,7 +3,7 @@
  * Same-origin static assets: stale-while-revalidate. Navigations: network
  * only (never serves stale SSR). APIs/media: untouched.
  */
-const CACHE = 'vr-static-v1';
+const CACHE = 'vr-static-v2';
 
 self.addEventListener('install', () => {
 	self.skipWaiting();

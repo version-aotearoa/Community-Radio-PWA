@@ -40,7 +40,8 @@ export async function fetchLive(): Promise<LivePayload | null> {
 		const res = await fetch('/api/live', { headers: { accept: 'application/json' } });
 		if (!res.ok) return null;
 		return (await res.json()) as LivePayload;
-	} catch {
+	} catch (e) {
+		console.warn(`[vr] /api/live fetch failed on ${location.origin}:`, e);
 		return null;
 	}
 }

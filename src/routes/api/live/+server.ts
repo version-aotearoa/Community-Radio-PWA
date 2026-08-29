@@ -4,6 +4,15 @@ import type { RequestHandler } from './$types';
 
 const AZURACAST = 'https://stream.version.nz/api/nowplaying';
 
+/** Tolerant CORS: loopback/LAN dev origins (localhost vs [::1] vs 127.0.0.1). */
+const CORS = {
+	'Access-Control-Allow-Origin': '*',
+	'Access-Control-Allow-Methods': 'GET, OPTIONS',
+	'Access-Control-Allow-Headers': 'content-type, accept'
+};
+
+export const OPTIONS: RequestHandler = () => new Response(null, { headers: CORS });
+
 function normalize(s: string): string {
 	return s.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
 }
@@ -95,15 +104,15 @@ export const GET: RequestHandler = async ({ platform, fetch: cfFetch }) => {
 						}
 					: null,
 				now
-			},
-			{
-				headers: { 'Cache-Control': 'public, max-age=15' }
-			}
-		);
-	} catch {
-		return json(
-			{ isOnline: false, live: { isLive: false, streamerName: null }, nowPlaying: null, trackShow: null, onAir: null, next: null, now },
-			{ headers: { 'Cache-Control': 'public, max-age=10' } }
-		);
-	}
+		},
+		{
+			headers: { 'Cache-Control': 'public, max-age=15', ...CORS }
+		}
+	);
+} catch {
+	return json(
+		{ isOnline: false, live: { isLive: false, streamerName: null }, nowPlaying: null, trackShow: null, onAir: null, next: null, now },
+		{ headers: { 'Cache-Control': 'public, max-age=10', ...CORS } }
+	);
+}
 };

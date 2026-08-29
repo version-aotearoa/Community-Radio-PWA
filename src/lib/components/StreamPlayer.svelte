@@ -19,11 +19,10 @@
 	let HlsCtor: typeof import('hls.js').default | null = null;
 	let nativeHls = $state(false);
 	let playing = $derived($streamPlaying);
+	let loading = $state(false);
 	let expanded = $state(false);
 	let currentTime = $state(0);
 	let duration = $state(NaN);
-
-	let prevKind: 'live' | 'media' = 'live';
 
 	const livePayload = $derived($live);
 	const media = $derived($playback.kind === 'media' ? $playback : null);
@@ -60,20 +59,25 @@
 		}
 	});
 
+	let prevKey = '';
+
 	$effect(() => {
 		const p = $playback;
-		if (p.kind === prevKind) return;
-		prevKind = p.kind;
+		const key = p.kind === 'media' ? `media:${p.url}` : 'live';
+		if (key === prevKey) return;
+		prevKey = key;
 		currentTime = 0;
 		duration = NaN;
 		if (!audioEl) return;
 		if (p.kind === 'media') {
 			stopLive();
 			audioEl.src = p.url;
+			loading = true;
 			audioEl.play().catch(() => {});
 		} else {
 			stopMedia();
 			initLiveEngine();
+			loading = true;
 			audioEl.play().catch(() => {});
 		}
 	});
@@ -145,6 +149,7 @@
 		if (!audioEl) return;
 		if (mediaMode) {
 			if (audioEl.paused) {
+				loading = true;
 				await audioEl.play().catch(() => {});
 			} else {
 				audioEl.pause();
@@ -153,6 +158,7 @@
 		}
 		await initLiveEngine();
 		if (audioEl.paused) {
+			loading = true;
 			await audioEl.play().catch(() => {});
 		} else {
 			audioEl.pause();
@@ -168,6 +174,11 @@
 		if (audioEl) {
 			audioEl.addEventListener('play', () => streamPlaying.set(true));
 			audioEl.addEventListener('pause', () => streamPlaying.set(false));
+			audioEl.addEventListener('playing', () => (loading = false));
+			audioEl.addEventListener('canplay', () => (loading = false));
+			audioEl.addEventListener('waiting', () => (loading = true));
+			audioEl.addEventListener('stalled', () => (loading = true));
+			audioEl.addEventListener('loadstart', () => (loading = true));
 			audioEl.addEventListener('timeupdate', () => (currentTime = audioEl?.currentTime ?? 0));
 			audioEl.addEventListener('loadedmetadata', () => (duration = audioEl?.duration ?? NaN));
 			audioEl.addEventListener('durationchange', () => (duration = audioEl?.duration ?? NaN));
@@ -278,6 +289,9 @@
 					▾
 				</button>
 				<div class="sheet-controls-right">
+					{#if !mediaMode && !playing}
+						<button class="live-btn" onclick={requestPlay}>Listen live</button>
+					{/if}
 					{#if !mediaMode}
 						<button
 							class="autoplay"
@@ -317,7 +331,19 @@
 						<button class="live-btn" onclick={requestPlay}>Back to live</button>
 					{/if}
 					<button class="play big" onclick={togglePlay} aria-label={playing ? 'Pause' : 'Play'}>
-						{#if playing}
+						{#if loading}
+							<svg class="trace" viewBox="0 0 24 24" aria-hidden="true">
+								<path
+									class="trace-path"
+									pathLength="100"
+									d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linejoin="round"
+								/>
+							</svg>
+						{:else if playing}
 							<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0zM15 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0z" fill="currentColor" /></svg>
 						{:else}
 							<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z" fill="currentColor" /></svg>
@@ -371,7 +397,19 @@
 				<button class="live-btn" onclick={requestPlay}>Back to live</button>
 			{/if}
 			<button class="play" onclick={togglePlay} aria-label={playing ? 'Pause' : 'Play'}>
-				{#if playing}
+				{#if loading}
+					<svg class="trace" viewBox="0 0 24 24" aria-hidden="true">
+						<path
+							class="trace-path"
+							pathLength="100"
+							d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linejoin="round"
+						/>
+					</svg>
+				{:else if playing}
 					<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0zM15 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0z" fill="currentColor" /></svg>
 				{:else}
 					<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z" fill="currentColor" /></svg>
@@ -671,6 +709,24 @@
 		height: 22px;
 		display: block;
 		margin-left: 1px;
+	}
+
+	.play svg.trace .trace-path {
+		stroke-dasharray: 34 66;
+		animation: trace-loop 1.8s linear infinite;
+	}
+
+	.play.big svg.trace .trace-path {
+		animation-duration: 1.6s;
+	}
+
+	@keyframes trace-loop {
+		from {
+			stroke-dashoffset: 100;
+		}
+		to {
+			stroke-dashoffset: 0;
+		}
 	}
 
 	.play.big {

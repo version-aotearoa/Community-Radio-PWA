@@ -2,6 +2,7 @@ import { getUpcomingBroadcasts, todayStr, zonedNow } from '$lib/server/shows';
 import type { PageServerLoad } from './$types';
 
 export interface LatestShow {
+	broadcast_id: string;
 	show_id: string;
 	date: string;
 	start_minutes: number;
@@ -17,12 +18,14 @@ export const load: PageServerLoad = async ({ platform }) => {
 
 	const { results } = await db
 		.prepare(
-			`SELECT b.show_id, b.date, b.start_minutes, b.replay_url, s.title, s.image AS show_image, u.name AS dj_name
+			`SELECT b.id AS broadcast_id, b.show_id, b.date, b.start_minutes, b.replay_url, s.title, s.image AS show_image, u.name AS dj_name
 			 FROM broadcast b
 			 JOIN show s ON s.id = b.show_id
 			 LEFT JOIN user u ON u.id = s.dj_id
-			 WHERE b.date < ? AND s.active = 1 AND b.id IN (
-				SELECT MAX(b2.id) FROM broadcast b2 WHERE b2.show_id = b.show_id AND b2.date < ?
+			 WHERE b.date < ? AND s.active = 1 AND b.id = (
+				SELECT b2.id FROM broadcast b2
+				WHERE b2.show_id = b.show_id AND b2.date < ?
+				ORDER BY b2.date DESC, b2.start_minutes DESC LIMIT 1
 			 )
 			 ORDER BY b.date DESC, b.start_minutes DESC
 			 LIMIT 3`

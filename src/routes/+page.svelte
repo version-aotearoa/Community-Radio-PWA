@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { requestPlay, requestTogglePlay, streamPlaying } from '$lib/stores/player';
+	import { playMedia } from '$lib/stores/player';
 	import { live, startLivePolling } from '$lib/stores/live';
+	import { replayArtFromUrl } from '$lib/azuracast';
 
 	let { data } = $props();
 
@@ -31,6 +33,16 @@
 		const h = Math.floor(mins / 60);
 		const m = mins % 60;
 		return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+	}
+
+	function playEpisode(show: { title: string; date: string; replay_url: string | null; dj_name?: string | null }) {
+		if (!show.replay_url) return;
+		playMedia({
+			url: show.replay_url,
+			title: `${show.title} — ${fmtBroadcastDate(show.date)}`,
+			artist: show.dj_name ?? null,
+			art: replayArtFromUrl(show.replay_url)
+		});
 	}
 
 	onMount(() => startLivePolling());
@@ -83,7 +95,7 @@
 	</div>
 	<div class="shows-grid">
 		{#each data.latest as show (show.show_id)}
-			<a class="showcard" href={`/shows/${show.show_id}`}>
+			<a class="showcard" href={`/shows/${show.show_id}/broadcasts/${show.broadcast_id}`}>
 				<div class="showcard-art">
 					{#if show.show_image}
 						<img src={show.show_image} alt="" loading="lazy" />
@@ -101,6 +113,20 @@
 					{/if}
 					{#if show.replay_url}
 						<span class="sticker dark art-sticker">Replay</span>
+						<button
+							class="card-play"
+							onclick={(e) => {
+								e.preventDefault();
+								e.stopPropagation();
+								playEpisode(show);
+							}}
+							aria-label={`Play ${show.title} replay`}
+							title={`Play ${show.title} replay`}
+						>
+							<svg viewBox="0 0 24 24" aria-hidden="true">
+								<path d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z" fill="currentColor" />
+							</svg>
+						</button>
 					{/if}
 				</div>
 				<div class="showcard-meta mono">
@@ -331,6 +357,39 @@
 		position: absolute;
 		top: 0.75rem;
 		left: 0.75rem;
+	}
+
+	.card-play {
+		position: absolute;
+		right: 0.75rem;
+		bottom: 0.75rem;
+		display: grid;
+		place-items: center;
+		width: 44px;
+		height: 44px;
+		background: #fff;
+		color: #000;
+		border: 1px solid #fff;
+		cursor: pointer;
+		padding: 0;
+	}
+
+	.card-play svg {
+		width: 18px;
+		height: 18px;
+		display: block;
+		margin-left: 2px;
+	}
+
+	.card-play:hover {
+		background: #000;
+		color: #fff;
+		border-color: #fff;
+	}
+
+	.showcard:hover .card-play {
+		background: #000;
+		color: #fff;
 	}
 
 	.art-glyph,

@@ -38,6 +38,9 @@
 <svelte:head>
 	<title>Version Radio</title>
 	<meta name="theme-color" content="#141313" />
+	<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+	<link rel="apple-touch-icon" href="/icons/icon-192.png" />
+	<link rel="manifest" href="/manifest.webmanifest" />
 </svelte:head>
 
 <WillowDark fonts={false}>
@@ -45,14 +48,13 @@
 		<header class="site-header">
 			<a class="brand" href="/" aria-label="Version Radio home">
 				<span class="brand-mark" aria-hidden="true">
-					<svg viewBox="0 0 80 70" width="22" height="19" fill="currentColor">
+					<svg viewBox="0 0 80 70" width="27" height="24" fill="currentColor">
 						<path
 							fill-rule="evenodd"
 							d="M0 0H40V40H50V0H80V45H70V60H55V70H25V60H10V45H0V5ZM10 5H5V40H15V55H30V65H50V55H65V40H75V5H55V45H35V5H15Z"
 						/>
 					</svg>
 				</span>
-				<span class="brand-name">Version Radio</span>
 			</a>
 			<button
 				class="menu-toggle"
@@ -165,14 +167,6 @@
 		display: grid;
 		place-items: center;
 		color: var(--vr-text);
-	}
-
-	.brand-name {
-		font-family: var(--vr-font-headline);
-		font-size: 1.5rem;
-		line-height: 1;
-		text-transform: uppercase;
-		letter-spacing: 0.01em;
 	}
 
 	.site-nav {

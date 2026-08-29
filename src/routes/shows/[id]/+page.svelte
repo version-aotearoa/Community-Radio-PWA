@@ -106,8 +106,8 @@
 								<a class="edit-mini" href={`/shows/${show.id}/broadcasts/${b.id}/tracklist`}>Edit</a>
 							{/if}
 						</header>
-						{#if b.replay_url}
-							<div class="replay">
+						<div class="replay">
+							{#if b.replay_url}
 								{#if replayArtFromUrl(b.replay_url)}
 									<img
 										class="replay-art"
@@ -127,9 +127,11 @@
 										Replay
 									{/if}
 								</button>
-								<a class="view-show mono" href={`/shows/${show.id}/broadcasts/${b.id}`}>View show →</a>
-							</div>
-						{/if}
+							{:else}
+								<span class="replay-soon mono">Replay soon</span>
+							{/if}
+							<a class="view-show mono" href={`/shows/${show.id}/broadcasts/${b.id}`}>View show →</a>
+						</div>
 					</li>
 				{/each}
 			</ul>
@@ -151,8 +153,8 @@
 								<a class="edit-mini" href={`/shows/${show.id}/broadcasts/${b.id}/tracklist`}>Edit</a>
 							{/if}
 						</header>
-						{#if b.replay_url}
-							<div class="replay">
+						<div class="replay">
+							{#if b.replay_url}
 								{#if replayArtFromUrl(b.replay_url)}
 									<img
 										class="replay-art"
@@ -172,9 +174,11 @@
 										Replay
 									{/if}
 								</button>
-								<a class="view-show mono" href={`/shows/${show.id}/broadcasts/${b.id}`}>View show →</a>
-							</div>
-						{/if}
+							{:else}
+								<span class="replay-soon mono">Replay soon</span>
+							{/if}
+							<a class="view-show mono" href={`/shows/${show.id}/broadcasts/${b.id}`}>View show →</a>
+						</div>
 					</li>
 				{/each}
 			</ul>
@@ -321,6 +325,12 @@
 		margin-top: 0.85rem;
 		padding-top: 0.75rem;
 		border-top: 1px solid var(--vr-line-muted);
+	}
+
+	.replay-soon {
+		color: var(--vr-faint);
+		font-size: 0.78rem;
+		padding: 0.35rem 0;
 	}
 
 	.replay-art {
