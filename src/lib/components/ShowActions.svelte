@@ -5,12 +5,14 @@
 		showId,
 		showTitle,
 		saved: initialSaved,
-		user
+		user,
+		compact = false
 	}: {
 		showId: string;
 		showTitle: string;
 		saved: boolean;
 		user: { role?: string; name?: string; email?: string } | null;
+		compact?: boolean;
 	} = $props();
 
 	let saved = $state(untrack(() => initialSaved));
@@ -61,7 +63,7 @@
 	});
 </script>
 
-<div class="actions">
+<div class="actions" class:compact>
 	{#if copied}
 		<span class="copy-note mono">Copied</span>
 	{/if}
@@ -111,6 +113,17 @@
 		align-items: flex-start;
 		gap: 0.6rem;
 		flex-shrink: 0;
+	}
+
+	.actions.compact {
+		margin-left: auto;
+		align-items: flex-end;
+		gap: 0.4rem;
+	}
+
+	.actions.compact .login-hint,
+	.actions.compact .copy-note {
+		text-align: right;
 	}
 
 	.icon-row {

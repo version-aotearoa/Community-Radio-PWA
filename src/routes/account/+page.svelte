@@ -1,0 +1,228 @@
+<script lang="ts">
+	import { invalidateAll } from '$app/navigation';
+	import { authClient } from '$lib/client';
+
+	let { data } = $props();
+
+	const user = $derived(data.user);
+	let busy = $state(false);
+
+	const createdAt = $derived(
+		data.createdAt
+			? new Intl.DateTimeFormat('en-NZ', { year: 'numeric', month: 'short', day: 'numeric' })
+					.format(new Date(data.createdAt * 1000))
+			: null
+	);
+
+	function fmtSaved(ts: number) {
+		return new Intl.DateTimeFormat('en-NZ', { day: '2-digit', month: 'short', year: 'numeric' })
+			.format(new Date(ts * 1000))
+			.toUpperCase();
+	}
+
+	async function signOut() {
+		busy = true;
+		await authClient.signOut();
+		await invalidateAll();
+	}
+</script>
+
+<svelte:head>
+	<title>Account — Version Radio</title>
+</svelte:head>
+
+<div class="page">
+	<header class="head">
+		<h1 class="h-lg">Account</h1>
+	</header>
+
+	<section class="card">
+		<div class="identity">
+			<div class="avatar" aria-hidden="true">
+				<svg viewBox="0 0 24 24" width="18" height="18">
+					<circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8" />
+					<path
+						d="M5.5 19a6.5 6.5 0 0 1 13 0"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.8"
+						stroke-linecap="round"
+					/>
+				</svg>
+				<span class="mono initials">{user.name?.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || (user.email?.[0] ?? '?')}</span>
+			</div>
+			<div class="identity-copy">
+				<span class="h-sm">{user.name || 'Listener'}</span>
+				<span class="mono meta">{user.email}</span>
+				<span class="mono meta">
+					{user.role ?? 'listener'}{#if createdAt} · since {createdAt}{/if}
+				</span>
+			</div>
+		</div>
+		<button class="btn-outline signout" onclick={signOut} disabled={busy}>
+			{busy ? 'Signing out…' : 'Sign out'}
+		</button>
+	</section>
+
+	{#if data.saved.length > 0}
+		<section class="card">
+			<h2 class="card-title">Saved shows</h2>
+			<ul>
+				{#each data.saved as s (s.id)}
+					<li>
+						<a class="saved-row" href={`/shows/${s.id}`}>
+							<span class="saved-art">
+								{#if s.image}
+									<img src={s.image} alt="" loading="lazy" />
+								{:else}
+									<svg viewBox="0 0 80 70" fill="currentColor" width="20" height="17" aria-hidden="true">
+										<path
+											fill-rule="evenodd"
+											d="M0 0H40V40H50V0H80V45H70V60H55V70H25V60H10V45H0V5ZM10 5H5V40H15V55H30V65H50V55H65V40H75V5H55V45H35V5H15Z"
+										/>
+									</svg>
+								{/if}
+							</span>
+							<span class="saved-info">
+								<span class="h-sm">{s.title}</span>
+								<span class="mono meta">Saved {fmtSaved(s.saved_at)}</span>
+							</span>
+						</a>
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
+</div>
+
+<style>
+	.page {
+		padding: 2rem;
+		max-width: 40rem;
+	}
+
+	.head {
+		margin: 0 0 1.5rem;
+		border-bottom: 1px solid var(--vr-line);
+		padding-bottom: 1rem;
+	}
+
+	.head h1 {
+		margin: 0;
+	}
+
+	.card {
+		border: 1px solid var(--vr-line);
+		background: var(--vr-surface);
+		padding: 1.25rem 1.5rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.card-title {
+		font-family: var(--vr-font-mono);
+		font-size: 0.82rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		margin: 0 0 1rem;
+		border-bottom: 1px solid var(--vr-line);
+		padding-bottom: 0.6rem;
+	}
+
+	.identity {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		margin-bottom: 1.25rem;
+	}
+
+	.avatar {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		border: 1px solid var(--vr-line);
+		color: var(--vr-text);
+		padding: 0.55rem 0.7rem;
+	}
+
+	.initials {
+		font-size: 0.78rem;
+	}
+
+	.identity-copy {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+		min-width: 0;
+	}
+
+	.meta {
+		color: var(--vr-muted);
+		font-size: 0.75rem;
+	}
+
+	.signout {
+		width: 100%;
+		justify-content: center;
+	}
+
+	.card ul {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+
+	.saved-row {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		padding: 0.7rem 0;
+		border-top: 1px solid var(--vr-line-muted);
+		text-decoration: none;
+		color: var(--vr-text);
+		transition: color 150ms, background-color 150ms;
+	}
+
+	.saved-row:hover {
+		background: #fff;
+		color: #000;
+	}
+
+	.card ul li:first-child .saved-row {
+		border-top: none;
+	}
+
+	.saved-art {
+		width: 48px;
+		height: 48px;
+		flex-shrink: 0;
+		display: grid;
+		place-items: center;
+		background: var(--vr-surface-highest);
+		color: var(--vr-muted);
+	}
+
+	.saved-art img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		display: block;
+	}
+
+	.saved-info {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+		min-width: 0;
+	}
+
+	.saved-row:hover .meta {
+		color: rgba(0, 0, 0, 0.75);
+	}
+
+	.saved-info .h-sm {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+</style>

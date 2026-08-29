@@ -1,12 +1,10 @@
 <script lang="ts">
 	import { WillowDark } from '@svar-ui/svelte-core';
 	import { onMount } from 'svelte';
-	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
 	import InstallPrompt from '$lib/components/InstallPrompt.svelte';
 	import { initBannerDismissed, initPwa, registerServiceWorker } from '$lib/pwa';
-	import { authClient } from '$lib/client';
 	import '@fontsource/anton/latin.css';
 	import '@fontsource/hanken-grotesk/latin-400.css';
 	import '@fontsource/hanken-grotesk/latin-600.css';
@@ -22,10 +20,10 @@
 		menuOpen = false;
 	}
 
-	async function signOut() {
-		await authClient.signOut();
-		await invalidateAll();
-		closeMenu();
+	function initials(u: { name?: string | null; email?: string | null }): string {
+		const words = u.name?.trim().split(/\s+/).filter(Boolean) ?? [];
+		if (words.length > 0) return words.slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+		return (u.email?.[0] ?? '?').toUpperCase();
 	}
 
 	onMount(() => {
@@ -83,8 +81,19 @@
 			</nav>
 			{#if user}
 				<div class="account">
-					<span class="account-name mono" title={user.email}>{user.name || 'You'}</span>
-					<button class="account-signout" onclick={signOut}>Sign out</button>
+					<a class="avatar" href="/account" title={user.email} aria-label="Account: {user.name || user.email}">
+						<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+							<circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8" />
+							<path
+								d="M5.5 19a6.5 6.5 0 0 1 13 0"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="1.8"
+								stroke-linecap="round"
+							/>
+						</svg>
+						<span class="mono avatar-initials">{initials(user)}</span>
+					</a>
 				</div>
 			{:else}
 				<a class="signin" href="/login">Sign in</a>
@@ -102,7 +111,7 @@
 						{#if user.role === 'dj' || user.role === 'admin'}
 							<a href="/studio" onclick={closeMenu}>DJ Studio</a>
 						{/if}
-						<button onclick={signOut}>Sign out</button>
+						<a href="/account" onclick={closeMenu}>Account</a>
 					{:else}
 						<a href="/login" onclick={closeMenu}>Sign in</a>
 					{/if}
@@ -198,9 +207,9 @@
 		display: none;
 		margin-left: auto;
 		background: none;
-		border: 1px solid var(--vr-line);
+		border: none;
 		color: var(--vr-text);
-		padding: 0.5rem;
+		padding: 0.4rem;
 		cursor: pointer;
 	}
 
@@ -220,8 +229,7 @@
 		flex-direction: column;
 	}
 
-	.mobile-menu a,
-	.mobile-menu button {
+	.mobile-menu a {
 		color: var(--vr-text);
 		text-decoration: none;
 		font-family: var(--vr-font-headline);
@@ -235,8 +243,7 @@
 		cursor: pointer;
 	}
 
-	.mobile-menu a:hover,
-	.mobile-menu button:hover {
+	.mobile-menu a:hover {
 		background: var(--vr-text);
 		color: var(--vr-black);
 	}
@@ -247,12 +254,9 @@
 		}
 
 		.site-nav,
-		.account {
-			display: none;
-		}
-
+		.account,
 		.signin {
-			margin-left: auto;
+			display: none;
 		}
 	}
 
@@ -284,34 +288,26 @@
 	.account {
 		display: flex;
 		align-items: center;
-		gap: 1rem;
 	}
 
-	.account-name {
-		color: var(--vr-muted);
-		max-width: 14rem;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+	.avatar {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		border: 1px solid var(--vr-line);
+		color: var(--vr-text);
+		text-decoration: none;
+		padding: 0.4rem 0.65rem;
+		transition: color 150ms, background-color 150ms;
 	}
 
-	.account-signout {
-		background: none;
-		border: 1px solid var(--vr-line-muted);
-		color: var(--vr-muted);
-		font-family: var(--vr-font-mono);
-		font-size: 0.82rem;
-		font-weight: 500;
-		letter-spacing: 0.05em;
-		text-transform: uppercase;
-		padding: 0.45rem 0.9rem;
-		cursor: pointer;
-	}
-
-	.account-signout:hover {
+	.avatar:hover {
 		background: var(--vr-text);
-		border-color: var(--vr-line);
 		color: var(--vr-black);
+	}
+
+	.avatar-initials {
+		font-size: 0.78rem;
 	}
 
 	.site-footer {

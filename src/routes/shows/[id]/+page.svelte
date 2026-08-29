@@ -101,7 +101,7 @@
 		<section class="block">
 			<h2 class="h-md">Upcoming</h2>
 			<ul class="broadcasts">
-				{#each upcoming as b (b.id)}
+				{#each upcoming as b, i (b.id)}
 					<li class="broadcast" class:today={b.date === data.today}>
 						<header>
 							<strong>{fmtDate(b.date)}</strong>
@@ -148,7 +148,7 @@
 		<section class="block">
 			<h2 class="h-md">Past broadcasts</h2>
 			<ul class="broadcasts">
-				{#each past as b (b.id)}
+				{#each past as b, i (b.id)}
 					<li class="broadcast">
 						<header>
 							<strong>{fmtDate(b.date)}</strong>

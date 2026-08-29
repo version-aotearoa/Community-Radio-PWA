@@ -156,6 +156,7 @@
 			<p class="empty mono">No shows yet — the schedule is being built.</p>
 		{/each}
 	</div>
+	<a class="btn-outline view-all-mobile" href="/shows">View all</a>
 </section>
 
 <!-- Get involved / Coming up -->
@@ -361,6 +362,19 @@
 		display: grid;
 		grid-template-columns: 1fr;
 		border: 1px solid var(--vr-line);
+	}
+
+	.view-all-mobile {
+		display: none;
+	}
+
+	@media (max-width: 640px) {
+		.view-all-mobile {
+			display: inline-flex;
+			width: 100%;
+			margin-top: 1rem;
+			justify-content: center;
+		}
 	}
 
 	@media (min-width: 640px) {

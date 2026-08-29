@@ -70,30 +70,20 @@
 </svelte:head>
 
 <div class="page">
-	<div class="head">
-		<div>
-			<a class="back mono" href={`/shows/${show.id}`}>← {show.title}</a>
+	<a class="back mono" href={`/shows/${show.id}`}>← {show.title}</a>
 
-			<h1 class="h-lg">{show.title}</h1>
-			<p class="meta mono">
-				<strong>{fmtDate(broadcast.date)}</strong>
-				· {fmtTime(broadcast.start_minutes)}–{fmtTime(
-					broadcast.start_minutes + broadcast.duration_minutes
-				)}
-				{#if show.dj_name}· with {show.dj_name}{/if}
-			</p>
-		</div>
-		<ShowActions
-			showId={show.id}
-			showTitle={`${show.title} — ${fmtDate(broadcast.date)}`}
-			saved={data.saved}
-			user={data.user}
-		/>
-	</div>
+	<h1 class="h-lg">{show.title}</h1>
+	<p class="meta mono">
+		<strong>{fmtDate(broadcast.date)}</strong>
+		· {fmtTime(broadcast.start_minutes)}–{fmtTime(
+			broadcast.start_minutes + broadcast.duration_minutes
+		)}
+		{#if show.dj_name}· with {show.dj_name}{/if}
+	</p>
 
 <section class="card">
-	{#if broadcast.replay_url}
-		<div class="replay">
+	<div class="replay">
+		{#if broadcast.replay_url}
 			{#if replayArtFromUrl(broadcast.replay_url)}
 				<img
 					class="replay-art"
@@ -113,8 +103,15 @@
 					Replay
 				{/if}
 			</button>
-		</div>
-	{/if}
+		{/if}
+		<ShowActions
+			showId={show.id}
+			showTitle={`${show.title} — ${fmtDate(broadcast.date)}`}
+			saved={data.saved}
+			user={data.user}
+			compact
+		/>
+	</div>
 	<h2>Tracklist</h2>
 	{#if tracks.length}
 		<ol class="tracklist">
@@ -155,13 +152,6 @@
 	.page {
 		padding: 2rem;
 		max-width: 56rem;
-	}
-
-	.head {
-		display: flex;
-		justify-content: space-between;
-		align-items: flex-start;
-		gap: 1rem;
 	}
 
 	.back {
