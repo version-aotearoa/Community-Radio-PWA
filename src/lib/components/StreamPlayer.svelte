@@ -208,13 +208,13 @@
 		ms.setActionHandler('pause', () => {
 			if (audioEl && !audioEl.paused) void togglePlay();
 		});
-		ms.setActionHandler('seekbackward', (d) => {
+		ms.setActionHandler('seekbackward', () => {
 			if (!mediaMode) return;
-			seekBy(-(d.seekOffset ?? 30));
+			seekBy(-30);
 		});
-		ms.setActionHandler('seekforward', (d) => {
+		ms.setActionHandler('seekforward', () => {
 			if (!mediaMode) return;
-			seekBy(d.seekOffset ?? 30);
+			seekBy(30);
 		});
 	}
 
