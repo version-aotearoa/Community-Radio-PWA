@@ -130,7 +130,7 @@
 
 	.cycle-week {
 		padding: 0.4rem 0.85rem;
-		border: 1px solid var(--vr-line-muted);
+		border: 1px solid transparent;
 		color: var(--vr-muted);
 	}
 
