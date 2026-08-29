@@ -1,48 +1,36 @@
-# Handover — 2026-08-27
+# Handover — 2026-08-29 (final)
 
 ## Session outcome
 
-Two working days of player work, admin moderation, auth/email wiring, chat identity, and prod/dev repairs. All builds pass (`npm run check` 0 errors; chat worker `tsc --noEmit` clean). Multiple prod deploys live at `https://version-radio.pages.dev` (+ `radio.version.nz`).
+Lock-screen (background) audio on iOS was the **critical feature**; the archive time/seek work was explicitly non-critical. The time/seek work is **parked**; the player is **restored** to the pre-archive (last-known-good) state; the actual lock-screen killer turned out to be the **service worker**, now skipped on iOS. Prod (`version-radio.pages.dev`) = commit `f67e446` (plus restore `3c09010`). `npm run check` clean.
 
-## Player (StreamPlayer.svelte, live in prod)
-- Mini bar: art, track, "On air" link, ▴ maximise toggle (far-left, stays bottom-left), play (SVG icons — triangle/pause, white on accent), Back-to-live.
-- Max sheet: full-height slide-up below the header, square-cropped art (`object-fit: cover`, aspect 1), badges, on-air link, Up next, autoplay toggle, share + heart icons (no-ops, wiring deferred), big play. Grid layout pins controls to the **bottom row** (▾ collapse bottom-left, controls bottom-right) — safe-area aware.
-- CSS-transition choreography: mini bar slides down (900ms) → sheet rises after 200ms; on close sheet sinks 800ms → bar rises 650ms. Auto-collapses on navigation (`page.url.pathname` effect in component). Esc closes.
-- `streamPlaying` store syncs player state to the home card big-play (play/pause icon + toggle). Autoplay store (`vr-autoplay`) persisted; badge moved into the sheet.
+## Critical finding: iOS lock-screen audio death = service worker control
 
-## Auth & email (prod live)
-- Admin seeded in `version-radio-db`: `admin@version.nz` (role `admin`), signed in via magic link — session verified in D1.
-- Google OAuth (DJs) live: `GOOGLE_ID`/`GOOGLE_SECRET` set, button on `/login`.
-- Magic links via **Resend**: `email.ts` fallback chain = CF Email binding → Resend (`RESEND_API_KEY`, `RESEND_FROM=Version Radio <noreply@radio.version.nz>`) → console. Domain `radio.version.nz` verified. `BETTER_AUTH_URL` + `AUTH_SECRET` set.
-- `.dev.vars.example` updated (resend/chat secrets documented).
+- Symptom: background audio dies when the screen locks (live HLS AND plain on-demand archives); the page/player itself is fine; the stream server is healthy (playlists + segments 200); bare Safari playing the same direct m3u8 on the phone survives lock — so it was never the stream, the player code, or the media session.
+- Root cause: **SW control of the page** — a service worker only controls a page from the second load onward. First-load tabs (uncontrolled) survived; reload-controlled tabs died on lock. No interception of the (cross-origin) audio fetches — the effect of being SW-controlled on iOS Safari's background-audio handling is what kills it.
+- Fix (committed `f67e446`): `registerServiceWorker()` in `src/lib/pwa.ts` returns early on iOS (`isIos()`). Android/desktop keep the SW + install prompt; iOS PWA install (Add to Home Screen) doesn't need it. Removal candidates for future sessions: unregister + one-time cache cleanup on the phone (Settings → Safari → Clear History and Website Data) removes the wedged old SW.
+- The same SW/cache explained an earlier confusing symptom: the iPhone briefly serving a **stale bundle from hours ago** (loading bug visible again) — tab/SW caching, not deploys. **Any future "old version" report: check the address bar (`version-radio.pages.dev`, not a `xxxx.` preview hash), clear this tab, verify the bundle, not the deployed commit.**
 
-## Admin moderation (studio, admin-only section)
-- Admin sees all shows (scope plan: `getAllShows` for admin) — `studio/+page.server.ts`, `api/shows` GET.
-- Migration `0005_user_active.sql` (applied local + remote): `user.active` flag. Deactivated users: `sendMagicLink` silently declines; hooks sign out any live session (`auth.api.signOut`).
-- Studio admin panel: user list (role select, activate/deactivate), chat moderation (history, delete msg, purge by name or account), chat-proxied through `/api/admin/*` with `CHAT_ADMIN_TOKEN` (shared with chat worker).
+## Player state NOW (restored — pre-`4341318` at `3c09010`)
 
-## Chat (workers/chat-worker, deployed)
-- `CHAT_ADMIN_TOKEN`-gated endpoints: `DELETE /api/messages/:id`, `POST /api/messages/purge {name|userId}` → broadcast `deleted`/`purged` frames (client applies them).
-- **Authenticated chat identity** (was roadmap item — now done): app issues HMAC-SHA256 tokens (`/api/chat/identity`, 10-min TTL, `CHAT_IDENTITY_SECRET` shared with worker); verified on WS upgrade; messages stamped `user_id` (DO migration v2).
-- **Sequential anonymous handles**: `Listener N` per room via `chat_meta` counter (DO migration v3), delivered to client as `{type:'name'}` frame.
-- Chat page: signed-out users get an editable handle (persisted only when set — `vr-chat-handle`), anonymous==fresh `Listener N` each visit; signed-in uses account name.
+- StreamPlayer.svelte byte-exact `4341318~1` (90c133d), i.e. NO media-session code, NO archive time/±30 UI, NO same-origin HLS proxy, NO `/api/replay-info`. `STREAM_URL` = `https://stream.version.nz/hls/version_radio/live.m3u8` (origin direct; hls.js lazy for desktop; native HLS on iOS).
+- Why restored: media session + time/seek work (commits `4341318`..`29d613e`) was the suspect at the time; it turned out innocent, and the user directed a clean restore anyway. Lock + player verified working on iOS after the SW skip. Desktop Chrome live: origin direct + hls.js = CORS-blocked XHR again (as it was before `dedc893`) — acceptable; the proxy could be restored later if wanted.
 
-## Local dev gotcha (fixed this session)
-- `window` usage in the client component's `onDestroy` throws on SSR → **all routes 500** + HMR WS "bad response". Guarded with `typeof window !== 'undefined'`. Don't reintroduce browser globals in teardown callbacks.
-- `platformProxy` is NOT valid in this Kit version — do not add to `vite.config.ts`; README line about it is stale (still to correct).
+## Parked (recoverable from `29d613e`)
 
-## Remaining roadmap / next steps
-1. **Turnstile prod keys** (widget for `version-radio.pages.dev,radio.version.nz` + `TURNSTILE_SECRET`/`TURNSTILE_HOSTNAMES`/`PUBLIC_TURNSTILE_SITE_KEY` on Pages AND chat worker; currently test keys only).
-2. **Staging** (`dev.radio.version.nz`): Pages project + `version-radio-db-staging` + migrations + secrets (repeat Google/Resend/chat secrets + `BETTER_AUTH_URL`) — not created yet.
-3. **Share & heart** icons: wire (Web Share/clipboard; favourites localStorage).
-4. **Email Service migration**: code already supports CF Email binding (`EMAIL`/`EMAIL_FROM`) ahead of Resend.
-5. **Chat spoof resistance**: names remain client-set for anonymous users (by design); considers rate-limit by uid later.
-6. README platformProxy note correction; commit the working tree (ever-growing uncommitted changeset).
+- Live-stream-archive time/seek (API clock via nowplaying exact `duration`/`elapsed`, `reairNow`/`archiveLike`, ±30 seek with real-window clamp + "Seek unavailable" refusal, media-session gating + `__vrms` kill-switch, debug strip, TLEN probe in `/api/replay-info`, `durationMinutes` plumbing). Non-critical per user.
+- To restore the feature: pick files/commits from `29d613e`; if media session is re-enabled, re-verify iOS lock behavior (SW skip now masks nothing — the media-session code was tested innocent with SW off, but do one lock test with SW off before shipping lock-screen extras).
+
+## Domain facts (still valid)
+
+- Re-aired recordings (live-streamed playlist, `live.is_live = false` + `nowplaying.duration`) are the "live-streamed archives"; AzuraCast public API: `/api/nowplaying` carries exact `duration` + `elapsed` (+ track id inside `song.art`); on-demand list has NO length field; history/media detail endpoints are auth-gated.
+- On-demand replay files (m4a/mp3 via `ondemand/download/<id>`) probe exact length via m4a `mvhd` / ID3v2 `TLEN` (verified: detunedradio → 7648s). Old `29d613e` code only.
 
 ## Commands
+
 ```sh
-npm run check                  # svelte-check
-npm run pages:deploy           # prod
+npm run check                       # svelte-check
+npm run pages:deploy                # prod
 cd workers/chat-worker && npx wrangler deploy   # chat worker
 npx wrangler d1 migrations apply version-radio-db --remote
 ```
