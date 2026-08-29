@@ -169,6 +169,65 @@
 		if (e.key === 'Escape' && expanded) expanded = false;
 	}
 
+	/** Seek the archive playback, clamped to [0, live point = duration]. */
+	function seekBy(delta: number) {
+		if (!audioEl || !mediaMode) return;
+		if (!Number.isFinite(duration) || duration <= 0) return;
+		const next = Math.min(Math.max((audioEl.currentTime ?? 0) + delta, 0), duration);
+		audioEl.currentTime = next;
+	}
+
+	/** Media Session: metadata + play/pause + ±30s (clamped at the live point). */
+	function wireMediaSession() {
+		if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+		const ms = navigator.mediaSession;
+		ms.setActionHandler('play', () => {
+			if (audioEl?.paused) void togglePlay();
+		});
+		ms.setActionHandler('pause', () => {
+			if (audioEl && !audioEl.paused) void togglePlay();
+		});
+		ms.setActionHandler('seekbackward', (d) => {
+			if (!mediaMode) return;
+			seekBy(-(d.seekOffset ?? 30));
+		});
+		ms.setActionHandler('seekforward', (d) => {
+			if (!mediaMode) return;
+			seekBy(d.seekOffset ?? 30);
+		});
+	}
+
+	// Keep lock-screen / notification metadata in step with playback
+	$effect(() => {
+		if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+		$playback;
+		$live;
+		artSource;
+		let title = 'Version Radio';
+		let artist = '';
+		if (media) {
+			title = media.title;
+			artist = media.artist ?? '';
+		} else if (showLink) {
+			title = showLink.title;
+			artist = livePayload?.live?.streamerName ?? '';
+		} else if (livePayload?.nowPlaying?.title) {
+			title = livePayload.nowPlaying.title;
+			artist = livePayload.nowPlaying.artist ?? '';
+		}
+		const artwork = artSource ? [{ src: artSource, sizes: '512x512' }] : [];
+		try {
+			navigator.mediaSession.metadata = new MediaMetadata({
+				title,
+				artist: artist || 'Version Radio',
+				album: 'Version Radio',
+				artwork
+			});
+		} catch {
+			// metadata is best-effort
+		}
+	});
+
 	onMount(() => {
 		startLivePolling();
 		if (audioEl) {
@@ -184,6 +243,7 @@
 			audioEl.addEventListener('durationchange', () => (duration = audioEl?.duration ?? NaN));
 		}
 		window.addEventListener('keydown', onKey);
+		wireMediaSession();
 		if ($autoplay && !mediaMode) togglePlay();
 	});
 
@@ -478,6 +538,24 @@
 					</button>
 					{#if mediaMode}
 						<button class="live-btn" onclick={requestPlay}>Back to live</button>
+					{/if}
+					{#if mediaMode && Number.isFinite(duration) && duration > 0}
+						<button class="icon-btn" onclick={() => seekBy(-30)} title="Rewind 30s" aria-label="Rewind 30 seconds">
+							<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+								<path
+									d="M12 5V2L6 6.5L12 11V8a5 5 0 1 1-5 5H5a7 7 0 1 0 7-8z"
+									fill="currentColor"
+								/>
+							</svg>
+						</button>
+						<button class="icon-btn" onclick={() => seekBy(30)} title="Forward 30s" aria-label="Forward 30 seconds">
+							<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+								<path
+									d="M12 5V2l6 4.5L12 11V8a5 5 0 1 0 5 5h2a7 7 0 1 1-7-8z"
+									fill="currentColor"
+								/>
+							</svg>
+						</button>
 					{/if}
 					<button class="play big" onclick={togglePlay} aria-label={playing ? 'Pause' : 'Play'}>
 						{#if loading}

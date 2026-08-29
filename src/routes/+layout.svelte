@@ -37,6 +37,22 @@
 		initPwa();
 		initBannerDismissed();
 		registerServiceWorker();
+
+		// Tap/click outside the mobile menu (or the toggle) closes it.
+		// Also covers the player bar: its expand chev is outside the menu,
+		// so opening the max player closes the menu via this same handler.
+		const onDocPointer = (e: PointerEvent) => {
+			if (!menuOpen) return;
+			const t = e.target as Node | null;
+			if (!t) return;
+			const el = t instanceof Element ? t : t.parentElement;
+			if (el?.closest('.mobile-menu') || el?.closest('.menu-toggle')) return;
+			closeMenu();
+		};
+		document.addEventListener('pointerdown', onDocPointer);
+		return () => {
+			document.removeEventListener('pointerdown', onDocPointer);
+		};
 	});
 </script>
 
