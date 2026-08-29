@@ -1,30 +1,35 @@
-# Handover — 2026-08-29 (final)
+# Handover — 2026-08-29 end of day (resume tomorrow)
 
-## Session outcome
+## State
 
-Lock-screen (background) audio on iOS was the **critical feature**; the archive time/seek work was explicitly non-critical. The time/seek work is **parked**; the player is **restored** to the pre-archive (last-known-good) state; the actual lock-screen killer turned out to be the **service worker**, now skipped on iOS. Prod (`version-radio.pages.dev`) = commit `f67e446` (plus restore `3c09010`). `npm run check` clean.
+Clean tree, prod `version-radio.pages.dev` live at **`beece22`** (deploy `ff640ff2`). `npm run check` 0 errors. Critical feature (iOS lock-screen background audio) **restored and verified**; player restored to last-known-good; everything else today is safe.
 
-## Critical finding: iOS lock-screen audio death = service worker control
+## What's fixed & live
 
-- Symptom: background audio dies when the screen locks (live HLS AND plain on-demand archives); the page/player itself is fine; the stream server is healthy (playlists + segments 200); bare Safari playing the same direct m3u8 on the phone survives lock — so it was never the stream, the player code, or the media session.
-- Root cause: **SW control of the page** — a service worker only controls a page from the second load onward. First-load tabs (uncontrolled) survived; reload-controlled tabs died on lock. No interception of the (cross-origin) audio fetches — the effect of being SW-controlled on iOS Safari's background-audio handling is what kills it.
-- Fix (committed `f67e446`): `registerServiceWorker()` in `src/lib/pwa.ts` returns early on iOS (`isIos()`). Android/desktop keep the SW + install prompt; iOS PWA install (Add to Home Screen) doesn't need it. Removal candidates for future sessions: unregister + one-time cache cleanup on the phone (Settings → Safari → Clear History and Website Data) removes the wedged old SW.
-- The same SW/cache explained an earlier confusing symptom: the iPhone briefly serving a **stale bundle from hours ago** (loading bug visible again) — tab/SW caching, not deploys. **Any future "old version" report: check the address bar (`version-radio.pages.dev`, not a `xxxx.` preview hash), clear this tab, verify the bundle, not the deployed commit.**
-
-## Player state NOW (restored — pre-`4341318` at `3c09010`)
-
-- StreamPlayer.svelte byte-exact `4341318~1` (90c133d), i.e. NO media-session code, NO archive time/±30 UI, NO same-origin HLS proxy, NO `/api/replay-info`. `STREAM_URL` = `https://stream.version.nz/hls/version_radio/live.m3u8` (origin direct; hls.js lazy for desktop; native HLS on iOS).
-- Why restored: media session + time/seek work (commits `4341318`..`29d613e`) was the suspect at the time; it turned out innocent, and the user directed a clean restore anyway. Lock + player verified working on iOS after the SW skip. Desktop Chrome live: origin direct + hls.js = CORS-blocked XHR again (as it was before `dedc893`) — acceptable; the proxy could be restored later if wanted.
+1. **iOS lock-screen audio death — SOLVED.** The killer was **service worker control of the page**, not media session / player code / stream:
+   - Symptom chain (for reference): audio died on lock for live AND on-demand; same code "worked" in first-load tabs, died for SW-controlled (reload) tabs; bare Safari direct m3u8 survived lock; phone unchanged.
+   - Fix `f67e446`: `registerServiceWorker()` returns early on iOS (`isIos()` gate in `src/lib/pwa.ts`). Android/desktop keep SW + install prompt. SW must be skipped — a future regressor risks a return of the death.
+   - Refresher if it ever comes back: re-run the lock test on a **reload-controlled** tab (first-load tests pass even when broken).
+2. **Player restored** (`3c09010`): StreamPlayer.svelte byte-exact `4341318~1` (90c133d) — no media session, no archive time/seek UI, no `/api/stream` proxy, no `/api/replay-info`. `STREAM_URL` = origin direct (`https://stream.version.nz/hls/version_radio/live.m3u8`); hls.js lazy for desktop (CORS-blocked again without proxy — acceptable, must test), native HLS on iOS.
+3. **Loading-trace fix ported** (`beece22`): `streamPlaying` flips on the element's `playing` event (post-buffering) instead of `play` — trace stays visible across the load. Pure UI timing; no lock/media-session impact.
 
 ## Parked (recoverable from `29d613e`)
 
-- Live-stream-archive time/seek (API clock via nowplaying exact `duration`/`elapsed`, `reairNow`/`archiveLike`, ±30 seek with real-window clamp + "Seek unavailable" refusal, media-session gating + `__vrms` kill-switch, debug strip, TLEN probe in `/api/replay-info`, `durationMinutes` plumbing). Non-critical per user.
-- To restore the feature: pick files/commits from `29d613e`; if media session is re-enabled, re-verify iOS lock behavior (SW skip now masks nothing — the media-session code was tested innocent with SW off, but do one lock test with SW off before shipping lock-screen extras).
+- Live-stream-archive time/seek (API clock via nowplaying `duration`/`elapsed`, `reairNow`/`archiveLike`, ±30 + window-clamped seek + "Seek unavailable", media-session gating + `__vrms`, debug strip, TLEN probe, `durationMinutes` plumbing). Non-critical per user; restore via cherry-picking from `29d613e`, and re-verify lock after any media-session re-enable.
 
-## Domain facts (still valid)
+## NEXT SESSION — queued: account refresh staleness
 
-- Re-aired recordings (live-streamed playlist, `live.is_live = false` + `nowplaying.duration`) are the "live-streamed archives"; AzuraCast public API: `/api/nowplaying` carries exact `duration` + `elapsed` (+ track id inside `song.art`); on-demand list has NO length field; history/media detail endpoints are auth-gated.
-- On-demand replay files (m4a/mp3 via `ondemand/download/<id>`) probe exact length via m4a `mvhd` / ID3v2 `TLEN` (verified: detunedradio → 7648s). Old `29d613e` code only.
+- **Symptom:** account page saved/followed lists don't settle after avatar-chip navigation (fix `5e6e9dd` — `onMount invalidateAll()` in `src/routes/account/+page.svelte` — is in prod, user still saw it).
+- **Diagnosis (likely, not yet shipped):** `static/sw.js` exempts only `/api/` + `/media/` from its stale-while-revalidate cache, so it **caches SvelteKit `__data.json` data fetches** (`invalidateAll()` → GET `/account/__data.json` → cached stale copy). Old caches (`vr-static-v2`) may also hold stale chunks.
+- **Planned fix:** restrict sw.js caching to static assets only (`/_app/` paths, no `__data.json`, no data endpoints), bump `CACHE` to `vr-static-v3` (activate handler already purges old-named caches). Then verify desktop Chrome (SW active): follow/save → avatar navigation → lists settle; Network tab shows `__data.json` served fresh.
+- **Open question:** was the observed symptom on desktop Chrome (SW-controlled — fits diagnosis) or iPhone (SW-skipped — then look deeper: race-harden by `invalidateAll()` after each toggle POST, or second revalidation ~800ms post-mount).
+- Also on the phone: Settings → Safari → Clear History and Website Data once to purge the wedged old SW.
+
+## Useful context
+
+- Azuracast skill: `~/.config/opencode/skills/azuracast/SKILL.md` — full public API, re-air/AutoDJ semantics, on-demand=VOD note, verified gotchas (2026-08-29).
+- AzuraCast domain (verified today): re-airs = station playlist `default` rotating recorded files (each = 1 "song" w/ file duration); nowplaying = only free exact length/position source; on-demand download URLs are Range-capable files (server-side seekable) — the VOD path if the episode player ever returns.
+- Admin/D1 notes: remote D1 needs `export CLOUDFLARE_ACCOUNT_ID=6f00a3bc33382599b284ed7a623807d9`; `npx wrangler d1 execute version-radio-db --remote`.
 
 ## Commands
 
@@ -32,5 +37,4 @@ Lock-screen (background) audio on iOS was the **critical feature**; the archive 
 npm run check                       # svelte-check
 npm run pages:deploy                # prod
 cd workers/chat-worker && npx wrangler deploy   # chat worker
-npx wrangler d1 migrations apply version-radio-db --remote
 ```
