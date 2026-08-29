@@ -42,6 +42,7 @@
 	let chatMessages = $state<ChatMessage[]>([]);
 	let chatLoaded = $state(false);
 	let purgeName = $state('');
+	let activeTab = $state('shows');
 	let adminError = $state('');
 
 	interface RowFeedback {
@@ -209,27 +210,49 @@
 <div class="page">
 <h1 class="h-lg">DJ Studio</h1>
 
-<section class="card">
-	<h2>Your shows</h2>
-	{#if shows.length === 0}
-		<p class="muted">You don't have any shows yet. Create one below.</p>
-	{:else}
-		<ul class="show-list">
-			{#each shows as show (show.id)}
-				<li>
-					<a href={`/shows/${show.id}`}>
-						<strong>{show.title}</strong>
-						<span class="meta mono">
-							{DAYS[show.day_of_week]} · {fmtStart(show.start_minutes)}
-						</span>
-					</a>
-				</li>
-			{/each}
-		</ul>
+<div class="tabs" role="tablist">
+	<button class="tab" class:active={activeTab === 'shows'} onclick={() => (activeTab = 'shows')}>
+		Shows
+	</button>
+	{#if isAdmin}
+		<button class="tab" class:active={activeTab === 'create'} onclick={() => (activeTab = 'create')}>
+			Create
+		</button>
+		<button class="tab" class:active={activeTab === 'users'} onclick={() => (activeTab = 'users')}>
+			Users
+		</button>
+		<button class="tab" class:active={activeTab === 'show-djs'} onclick={() => (activeTab = 'show-djs')}>
+			Show DJs
+		</button>
+		<button class="tab" class:active={activeTab === 'chat'} onclick={() => (activeTab = 'chat')}>
+			Chat
+		</button>
 	{/if}
-</section>
+</div>
 
-{#if isAdmin}
+{#if activeTab === 'shows'}
+	<section class="card">
+		<h2>Your shows</h2>
+		{#if shows.length === 0}
+			<p class="muted">You don't have any shows yet. Create one below.</p>
+		{:else}
+			<ul class="show-list">
+				{#each shows as show (show.id)}
+					<li>
+						<a href={`/shows/${show.id}`}>
+							<strong>{show.title}</strong>
+							<span class="meta mono">
+								{DAYS[show.day_of_week]} · {fmtStart(show.start_minutes)}
+							</span>
+						</a>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+	</section>
+{/if}
+
+{#if isAdmin && activeTab === 'create'}
 	<section class="card">
 		<h2>Create a show</h2>
 	<form
@@ -278,7 +301,7 @@
 </section>
 {/if}
 
-{#if isAdmin}
+{#if isAdmin && activeTab === 'users'}
 	<section class="card">
 		<h2>Admin — users</h2>
 		{#if adminUsers.length === 0}
@@ -319,7 +342,9 @@
 			</div>
 		{/if}
 	</section>
+{/if}
 
+{#if isAdmin && activeTab === 'show-djs'}
 	<section class="card">
 		<h2>Admin — show DJs</h2>
 		{#if shows.length === 0}
@@ -360,7 +385,9 @@
 			</div>
 		{/if}
 	</section>
+{/if}
 
+{#if isAdmin && activeTab === 'chat'}
 	<section class="card">
 		<h2>Admin — chat moderation</h2>
 		<form class="purge-row" onsubmit={(e) => { e.preventDefault(); purgeChatByName(); }}>
@@ -411,6 +438,39 @@
 
 	.page > h1 {
 		margin: 0 0 1.5rem;
+	}
+
+	.tabs {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+		border-bottom: 1px solid var(--vr-line);
+		padding-bottom: 0.75rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.tab {
+		background: none;
+		border: 1px solid var(--vr-line);
+		color: var(--vr-muted);
+		font-family: var(--vr-font-mono);
+		font-size: 0.72rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		padding: 0.4rem 0.9rem;
+		cursor: pointer;
+	}
+
+	.tab:hover {
+		color: var(--vr-text);
+		border-color: var(--vr-text);
+	}
+
+	.tab.active {
+		background: var(--vr-text);
+		color: var(--vr-black);
+		border-color: var(--vr-text);
 	}
 
 	.card {
