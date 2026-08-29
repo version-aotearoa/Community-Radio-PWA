@@ -30,8 +30,6 @@ export interface MediaSource {
 	href?: string | null;
 	/** Broadcast id of the archive episode being played. */
 	broadcastId?: string | null;
-	/** Scheduled length (minutes) of the broadcast — last-resort duration estimate. */
-	durationMinutes?: number | null;
 }
 
 export type PlaybackSource = { kind: 'live' } | ({ kind: 'media' } & MediaSource);

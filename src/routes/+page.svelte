@@ -46,7 +46,7 @@
 			.replace(/\s/g, ' ');
 	}
 
-	function playEpisode(show: { show_id: string; broadcast_id: string; title: string; date: string; duration_minutes: number; replay_url: string | null; dj_name?: string | null }) {
+	function playEpisode(show: { show_id: string; broadcast_id: string; title: string; date: string; replay_url: string | null; dj_name?: string | null }) {
 		if (!show.replay_url) return;
 		playMedia({
 			url: show.replay_url,
@@ -55,8 +55,7 @@
 			art: replayArtFromUrl(show.replay_url),
 			show: { id: show.show_id, title: show.title },
 			href: `/shows/${show.show_id}/broadcasts/${show.broadcast_id}`,
-			broadcastId: show.broadcast_id,
-			durationMinutes: show.duration_minutes
+			broadcastId: show.broadcast_id
 		});
 	}
 
