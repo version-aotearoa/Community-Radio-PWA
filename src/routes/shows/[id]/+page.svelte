@@ -45,7 +45,7 @@
 		return `Every ${show.interval_weeks} weeks`;
 	}
 
-	function toggleReplay(b: { id: string; replay_url: string | null; date: string }) {
+	function toggleReplay(b: { id: string; replay_url: string | null; date: string; duration_minutes: number }) {
 		if (!b.replay_url) return;
 		if (replayActive(b.replay_url)) {
 			requestTogglePlay();
@@ -58,7 +58,8 @@
 			art: replayArtFromUrl(b.replay_url),
 			show: { id: show.id, title: show.title },
 			href: `/shows/${show.id}/broadcasts/${b.id}`,
-			broadcastId: b.id
+			broadcastId: b.id,
+			durationMinutes: b.duration_minutes
 		});
 	}
 

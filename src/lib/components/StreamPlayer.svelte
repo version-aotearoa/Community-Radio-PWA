@@ -14,6 +14,9 @@
 	import { extractReplayTrackId } from '$lib/azuracast';
 
 	const STREAM_URL = '/api/stream/hls/version_radio/live.m3u8';
+	/** Native HLS (iOS Safari) fetches the origin directly — a proxy hop here
+	 * stalls the pipeline and starves background playback on lock. */
+	const NATIVE_STREAM_URL = 'https://stream.version.nz/hls/version_radio/live.m3u8';
 
 	let audioEl: HTMLAudioElement | undefined = $state();
 	let hls: import('hls.js').default | null = null;
@@ -26,6 +29,7 @@
 	function setLoading(v: boolean, reason: string) {
 		if (loading === v) return;
 		loading = v;
+		dlog(`loading ${v} (${reason})`);
 		console.info(`[vr] loading → ${v} (${reason}) @${Math.round(performance.now())}ms`);
 	}
 	let expanded = $state(false);
@@ -35,6 +39,18 @@
 	const livePayload = $derived($live);
 	const media = $derived($playback.kind === 'media' ? $playback : null);
 	const mediaMode = $derived(media !== null);
+	/**
+	 * The station is re-airing a recorded show (live-streamed archive): the
+	 * live player acts like an archive — time, length and seek all apply.
+	 * Re-air = not a live DJ broadcast + nowplaying reports a finite length.
+	 */
+	const reairNow = $derived(
+		livePayload?.nowPlaying?.duration != null &&
+			livePayload.nowPlaying.duration > 0 &&
+			livePayload.live.isLive !== true
+	);
+	/** Recording context: an archive replay, or the live stream re-airing one. */
+	const archiveLike = $derived(mediaMode || reairNow);
 	const autoplayOn = $derived($autoplay);
 
 	const artSource = $derived(media?.art ?? livePayload?.nowPlaying?.art ?? livePayload?.onAir?.djImage ?? '');
@@ -72,6 +88,37 @@
 	/** Estimated end (seconds) for streams without an element duration. */
 	let estDuration = $state<number | null>(null);
 
+	/** Exact total (seconds) when the played archive IS the on-air re-air entry. */
+	let exactDuration = $state<number | null>(null);
+
+	/**
+	 * Re-air clock anchors: API position at last poll + wall time since, so
+	 * the clock ticks smoothly regardless of the live element's own timeline.
+	 */
+	let reairBase = $state(0);
+	let reairBaseAt = $state(0);
+	let wallNow = $state(Date.now());
+
+	$effect(() => {
+		if (!reairNow) return;
+		const id = setInterval(() => (wallNow = Date.now()), 1000);
+		return () => clearInterval(id);
+	});
+
+	/** A/B switch: kill all mediaSession registration (A/B the lock-screen death). */
+	let msEnabled = $state(true);
+	let msToggle = $state(0);
+
+	/** Transient "Seek unavailable" notice (no real seek window). */
+	let seekNotice = $state(false);
+	let seekNoticeTimer: ReturnType<typeof setTimeout> | null = null;
+
+	/** TEMPORARY: on-page log (the iOS inspector dies with page suspension). */
+	let dbg = $state<string[]>([]);
+	function dlog(line: string) {
+		dbg = [...dbg.slice(-19), `${new Date().toLocaleTimeString('en-NZ', { hour12: false })} ${line}`];
+	}
+
 	function probeDuration(url: string) {
 		const id = extractReplayTrackId(url);
 		if (!id) return;
@@ -83,6 +130,59 @@
 			.catch(() => {});
 	}
 
+	function artTrackId(url: string | null | undefined): string | null {
+		if (!url) return null;
+		const m = url.match(/\/art\/([0-9a-f]{24})\b/i);
+		return m ? m[1].toLowerCase() : null;
+	}
+
+	function normForMatch(s: string | null | undefined): string {
+		return (s ?? '').toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
+	}
+
+	/**
+	 * When the archive being played IS the station's current on-air entry
+	 * (live-streamed playlist re-air), nowplaying carries exact length and
+	 * position. Match by track id in the art URL, then by title/text.
+	 */
+	const matchedReplay = $derived.by(() => {
+		if (!mediaMode || !livePayload?.nowPlaying) return null;
+		const np = livePayload.nowPlaying;
+		const artId = artTrackId(np.art);
+		if (artId && artId === artTrackId(media?.art)) return np;
+		const npTitle = normForMatch(np.title);
+		const npText = normForMatch(np.text);
+		const mediaTitle = normForMatch(media?.title?.split(' — ')[0] ?? '');
+		const showTitle = normForMatch(media?.show?.title ?? '');
+		const keys = [mediaTitle, showTitle].filter((k) => k.length >= 4);
+		if (keys.length === 0) return null;
+		if (npTitle.length >= 4 && keys.some((k) => k.includes(npTitle) || npTitle.includes(k))) return np;
+		if (npText.length >= 4 && keys.some((k) => k.includes(npText) || npText.includes(k))) return np;
+		return null;
+	});
+
+	/**
+	 * Position the user sees. Live re-air: API position + wall-clock since
+	 * the last poll (ticks between polls, resynced every 30s). Media: element
+	 * time verbatim.
+	 */
+	const replayPosition = $derived.by(() => {
+		if (reairNow && livePayload?.nowPlaying?.elapsed && livePayload.nowPlaying.elapsed > 0) {
+			const p = reairBase + (wallNow - reairBaseAt) / 1000;
+			return exactDuration && exactDuration > 0 ? Math.min(p, exactDuration) : p;
+		}
+		return currentTime;
+	});
+
+	$effect(() => {
+		const np = matchedReplay ?? (reairNow ? livePayload?.nowPlaying : null);
+		exactDuration = np?.duration && np.duration > 0 ? np.duration : null;
+		if (reairNow && np?.elapsed && np.elapsed > 0) {
+			reairBase = np.elapsed;
+			reairBaseAt = Date.now();
+		}
+	});
+
 	$effect(() => {
 		const p = $playback;
 		const key = p.kind === 'media' ? `media:${p.url}` : 'live';
@@ -91,12 +191,15 @@
 		currentTime = 0;
 		duration = NaN;
 		estDuration = null;
+		exactDuration = null;
 		if (!audioEl) return;
 		if (p.kind === 'media') {
 			stopLive();
 			audioEl.src = p.url;
 			setLoading(true, 'source-switch');
 			audioEl.play().catch(() => {});
+			const mins = p.durationMinutes ?? 0;
+			estDuration = mins > 0 ? mins * 60 : null;
 			probeDuration(p.url);
 		} else {
 			stopMedia();
@@ -136,7 +239,7 @@
 				}
 			} else if (!nativeHls && audioEl.canPlayType('application/vnd.apple.mpegurl')) {
 				nativeHls = true;
-				audioEl.src = STREAM_URL;
+				audioEl.src = NATIVE_STREAM_URL;
 			}
 			return;
 		}
@@ -150,9 +253,10 @@
 			hls.attachMedia(audioEl);
 			wireHlsEvents(HlsCtor);
 		} else if (audioEl.canPlayType('application/vnd.apple.mpegurl')) {
-			// Native HLS (Safari): no per-variant control.
+			// Native HLS (Safari): no per-variant control — direct origin so
+			// background lock playback behaves like before the proxy.
 			nativeHls = true;
-			audioEl.src = STREAM_URL;
+			audioEl.src = NATIVE_STREAM_URL;
 		}
 	}
 
@@ -211,21 +315,51 @@
 		if (e.key === 'Escape' && expanded) expanded = false;
 	}
 
-	/** Seek the archive playback, clamped to [0, live point]. */
+	/** Real seekable edge from the element only — never an estimate. */
+	function seekLivePoint(): number | null {
+		if (Number.isFinite(duration) && duration > 0) return duration;
+		if (!audioEl?.seekable.length) return null;
+		let max = -1;
+		for (let i = 0; i < audioEl.seekable.length; i++) {
+			const end = audioEl.seekable.end(i);
+			if (Number.isFinite(end) && end > max) max = end;
+		}
+		return max > 0 ? max : null;
+	}
+
+	function showSeekUnavailable() {
+		if (seekNoticeTimer) clearTimeout(seekNoticeTimer);
+		seekNotice = true;
+		seekNoticeTimer = setTimeout(() => (seekNotice = false), 1600);
+	}
+
+	/** Seek the archive playback, clamped to the real live point. */
 	function seekBy(delta: number) {
-		if (!audioEl || !mediaMode) return;
+		if (!audioEl || !archiveLike) return;
+		const lp = seekLivePoint();
+		if (lp === null) {
+			// No real seek window (live edge unknown): never jump on a guess —
+			// that's what kills the stream.
+			dlog(`seek ${delta > 0 ? '+30' : '-30'} refused (no window)`);
+			showSeekUnavailable();
+			return;
+		}
 		const cur = audioEl.currentTime ?? 0;
-		const end =
-			Number.isFinite(duration) && duration > 0
-				? duration
-				: estDuration ?? (audioEl.seekable.length ? audioEl.seekable.end(0) : null) ?? cur;
-		const next = Math.min(Math.max(cur + delta, 0), end);
+		const next = Math.min(Math.max(cur + delta, 0), lp);
 		audioEl.currentTime = next;
+		if (reairNow) {
+			// Element time is unreliable for the re-air — shift the API anchor
+			// by the applied delta so the clock follows the user's position.
+			reairBase += next - cur;
+			if (exactDuration && reairBase > exactDuration) reairBase = exactDuration;
+			if (reairBase < 0) reairBase = 0;
+		}
+		dlog(`seek ${delta > 0 ? '+30' : '-30'} → ${next.toFixed(1)} (live=${lp.toFixed(1)})`);
 	}
 
 	/** Media Session: metadata + play/pause + ±30s (clamped at the live point). */
 	function wireMediaSession() {
-		if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+		if (!msEnabled || typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
 		const ms = navigator.mediaSession;
 		ms.setActionHandler('play', () => {
 			if (audioEl?.paused) void togglePlay();
@@ -240,63 +374,88 @@
 
 	/** Seek actions only exist once an end is known — never touch unseekable media. */
 	function endKnown(): boolean {
-		return (Number.isFinite(duration) && duration > 0) || (estDuration ?? 0) > 0;
+		return (
+			(Number.isFinite(duration) && duration > 0) ||
+			(exactDuration ?? 0) > 0 ||
+			(estDuration ?? 0) > 0
+		);
 	}
 
 	function updateSeekActions() {
-		if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+		if (!msEnabled || typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
 		const ms = navigator.mediaSession;
-		const enabled = mediaMode && endKnown();
+		// Only advertise seek to the OS when the element has a real window —
+		// never ask iOS to skip on a live timeline it can't map.
+		const enabled = archiveLike && endKnown() && seekLivePoint() !== null;
 		if (mediaSessionSeekState.on === enabled) return;
 		mediaSessionSeekState.on = enabled;
 		if (enabled) {
 			ms.setActionHandler('seekbackward', () => {
-				if (!mediaMode) return;
+				if (!archiveLike) return;
 				seekBy(-30);
 			});
 			ms.setActionHandler('seekforward', () => {
-				if (!mediaMode) return;
+				if (!archiveLike) return;
 				seekBy(30);
 			});
 		} else {
 			ms.setActionHandler('seekbackward', null);
 			ms.setActionHandler('seekforward', null);
 		}
-		console.info(`[vr] media session seek actions: ${enabled ? 'ON' : 'OFF'} (dur=${duration} est=${estDuration})`);
+		console.info(`[vr] media session seek actions: ${enabled ? 'ON' : 'OFF'} (dur=${duration} exact=${exactDuration} est=${estDuration} live=${seekLivePoint()})`);
 	}
 
+	let lastPS: { dur: number; pos: number } | null = null;
+
 	function updatePositionState() {
-		if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+		if (!msEnabled || typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
 		const ms = navigator.mediaSession;
-		if (!mediaMode || !endKnown()) return;
-		const end = Number.isFinite(duration) && duration > 0 ? duration : estDuration!;
+		if (!archiveLike || !endKnown()) return;
+		// A live element has no finite frame — a fake duration on the lock
+		// screen makes iOS scrub against nothing and drops the session.
+		if (seekLivePoint() === null) return;
+		// Live re-air: the element's duration is a sliding window artifact —
+		// the API total is the only real length. Media keeps element-first.
+		const end = exactDuration ?? (!reairNow ? (Number.isFinite(duration) && duration > 0 ? duration : estDuration ?? 0) : 0);
+		if (end <= 0) return;
+		const pos = Math.min(replayPosition, end);
+		const changed = lastPS === null || lastPS.dur !== end || Math.abs(lastPS.pos - pos) >= 1;
+		if (!changed) return;
 		try {
 			ms.setPositionState({
 				duration: end,
-				position: Math.min(currentTime, end),
+				position: pos,
 				playbackRate: 1
 			});
+			lastPS = { dur: end, pos };
+			console.info(`[vr] positionState dur=${end.toFixed(0)} pos=${pos.toFixed(1)}`);
 		} catch {
 			// best-effort
 		}
 	}
 
 	$effect(() => {
-		mediaMode;
+		archiveLike;
 		endKnown();
+		exactDuration;
 		updateSeekActions();
 		updatePositionState();
 	});
 
 	$effect(() => {
-		if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
-		$streamPlaying;
-		navigator.mediaSession.playbackState = $streamPlaying ? 'playing' : 'paused';
+		if (!msEnabled || typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+		const state = $streamPlaying ? 'playing' : 'paused';
+		const cur = navigator.mediaSession.playbackState;
+		if (cur === state) return;
+		navigator.mediaSession.playbackState = state;
+		console.info(`[vr] playbackState ${state}`);
 	});
 
 	// Keep lock-screen / notification metadata in step with playback
 	$effect(() => {
-		if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+		msEnabled;
+		msToggle;
+		if (!msEnabled || typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
 		$playback;
 		$live;
 		artSource;
@@ -328,8 +487,12 @@
 	onMount(() => {
 		startLivePolling();
 		if (audioEl) {
-			audioEl.addEventListener('play', () => streamPlaying.set(true));
-			audioEl.addEventListener('playing', () => setLoading(false, 'event:playing'));
+			// streamPlaying flips on `playing` (post-buffering) so the loading
+			// trace stays visible across the load; `play` fires far too early.
+			audioEl.addEventListener('playing', () => {
+				streamPlaying.set(true);
+				setLoading(false, 'event:playing');
+			});
 			audioEl.addEventListener('canplay', () => setLoading(false, 'event:canplay'));
 			audioEl.addEventListener('seeked', () => setLoading(false, 'event:seeked'));
 			audioEl.addEventListener('waiting', () => setLoading(true, 'event:waiting'));
@@ -338,6 +501,12 @@
 			audioEl.addEventListener('timeupdate', () => {
 				currentTime = audioEl?.currentTime ?? 0;
 				setLoading(false, 'event:timeupdate');
+				if (!audioEl?.paused && !$streamPlaying) {
+					// Fallback: if the `playing` event is unreliable on a live
+					// element (iOS), the first tick proves audio really runs.
+					streamPlaying.set(true);
+					dlog('playing ← timeupdate fallback');
+				}
 			});
 			audioEl.addEventListener('pause', () => {
 				streamPlaying.set(false);
@@ -345,6 +514,7 @@
 			});
 			audioEl.addEventListener('loadedmetadata', () => (duration = audioEl?.duration ?? NaN));
 			audioEl.addEventListener('durationchange', () => (duration = audioEl?.duration ?? NaN));
+			audioEl.addEventListener('error', onAudioError);
 			for (const ev of ['play', 'pause', 'canplay', 'loadedmetadata', 'durationchange', 'emptied', 'seeking', 'seeked', 'ended', 'error', 'ratechange']) {
 				audioEl.addEventListener(ev, () =>
 					console.info(
@@ -367,17 +537,48 @@
 					src: audioEl?.currentSrc ?? null,
 					duration: audioEl?.duration ?? duration,
 					est: estDuration,
+					exact: exactDuration,
+					mediaMode,
+					reairNow,
+					archiveLike,
+					matched: matchedReplay !== null,
+					nowPlaying: livePayload?.nowPlaying
+						? {
+								duration: livePayload.nowPlaying.duration,
+								elapsed: livePayload.nowPlaying.elapsed,
+								title: livePayload.nowPlaying.title
+							}
+						: null,
 					seekable: audioEl?.seekable.length ?? 0,
 					currentTime: audioEl?.currentTime ?? currentTime,
+					pos: replayPosition,
+					reairBase,
 					loading,
 					streamPlaying: $streamPlaying,
-					mediaMode,
 					artSource,
 					autoplay: $autoplay,
-					lsAutoplay: ls
+					lsAutoplay: ls,
+					msEnabled,
+					logs: dbg
 				};
 			};
+			(window as unknown as Record<string, unknown>).__vrlogs = () => dbg;
+			(window as unknown as Record<string, unknown>).__vrms = (on: boolean) => {
+				msEnabled = !!on;
+				msToggle += 1;
+				dlog(`__vrms(${!!on})`);
+				console.info(`[vr] media session ${msEnabled ? 'ON' : 'OFF'} (kill-switch)`);
+			};
 		}
+		if (typeof document !== 'undefined') {
+			document.addEventListener('visibilitychange', () =>
+				dlog(`visibility:${document.hidden ? 'hidden' : 'visible'}`)
+			);
+			document.addEventListener('freeze', () => dlog('page freeze'));
+			document.addEventListener('resume', () => dlog('page resume'));
+		}
+		window.addEventListener('pagehide', () => dlog('pagehide'));
+		window.addEventListener('pageshow', () => dlog('pageshow'));
 		window.addEventListener('keydown', onKey);
 		wireMediaSession();
 		if ($autoplay && !mediaMode) togglePlay();
@@ -386,6 +587,8 @@
 	onDestroy(() => {
 		hls?.destroy();
 		audioEl?.pause();
+		if (copyTimer) clearTimeout(copyTimer);
+		if (seekNoticeTimer) clearTimeout(seekNoticeTimer);
 		if (typeof window !== 'undefined') window.removeEventListener('keydown', onKey);
 	});
 
@@ -420,6 +623,25 @@
 			return `${livePayload.nowPlaying.title}${livePayload.nowPlaying.artist ? ` — ${livePayload.nowPlaying.artist}` : ''}`;
 		}
 		return playing ? 'Now playing' : 'Paused';
+	}
+
+	/** Fail-safe: a dead archive element must not leave a phantom spinner. */
+	function onAudioError() {
+		const code = audioEl?.error?.code ?? '?';
+		const msg = audioEl?.error?.message ?? '';
+		dlog(`audio:error code=${code} msg=${msg}`);
+		console.info(
+			`[vr] audio:error code=${code} msg=${msg} src=${audioEl?.currentSrc || audioEl?.src || '?'}`
+		);
+		setLoading(false, 'audio-error');
+		streamPlaying.set(false);
+		// Only re-base a media element. A live element is owned by the engine
+		// (hls.js / native HLS) — tearing it down mid-recovery is what kills
+		// live playback.
+		if (!mediaMode) return;
+		audioEl?.pause();
+		audioEl?.removeAttribute('src');
+		audioEl?.load();
 	}
 
 	// ---- Player actions: follow (show) + episode bookmark + native share ----
@@ -570,11 +792,13 @@
 						{stationSticker}
 					</span>
 					<span class="station-name">
-						{#if mediaMode}
-							Recording · {fmtClock(currentTime)}
-							{#if Number.isFinite(duration) && duration > 0}
+						{#if archiveLike}Recording · {/if}{fmtClock(replayPosition)}
+						{#if archiveLike}
+							{#if !reairNow && Number.isFinite(duration) && duration > 0}
 								/ {fmtClock(duration)}
-							{:else if estDuration}
+							{:else if exactDuration}
+								/ {fmtClock(exactDuration)}
+							{:else if !reairNow && estDuration}
 								/ ≈{fmtClock(estDuration)}
 							{/if}
 						{/if}
@@ -680,7 +904,7 @@
 					{#if mediaMode}
 						<button class="live-btn" onclick={requestPlay}>Back to live</button>
 					{/if}
-					{#if mediaMode}
+					{#if archiveLike}
 						<button class="icon-btn" onclick={() => seekBy(-30)} title="Rewind 30s" aria-label="Rewind 30 seconds">
 							<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
 								<path
@@ -719,12 +943,19 @@
 					</button>
 				</div>
 			</div>
-			{#if loginHint || copied}
+			{#if dbg.length > 0}
+				<div class="dbg-strip mono" aria-hidden="true">
+					{#each dbg as l}<div>{l}</div>{/each}
+				</div>
+			{/if}
+			{#if loginHint || copied || seekNotice}
 				<div class="sheet-note">
 					{#if loginHint}
 						<span class="mono">
 							{hintKind === 'follow' ? 'Sign in to follow shows' : 'Sign in to save broadcasts'} — <a class="note-link" href="/login">Sign in</a>
 						</span>
+					{:else if seekNotice}
+						<span class="mono note-copied">Seek unavailable</span>
 					{:else}
 						<span class="mono note-copied">Copied</span>
 					{/if}
@@ -1022,6 +1253,19 @@
 	.icon-btn.active {
 		border-color: var(--vr-line);
 		color: var(--vr-text);
+	}
+
+	.dbg-strip {
+		max-height: 110px;
+		overflow-y: auto;
+		font-size: 9px;
+		line-height: 1.4;
+		color: #777;
+		border-top: 1px solid #ddd;
+		padding: 0.4rem 0;
+	}
+	.dbg-strip div {
+		white-space: nowrap;
 	}
 
 	.sheet-note {

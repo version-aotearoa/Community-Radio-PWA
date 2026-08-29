@@ -54,7 +54,8 @@
 			art: replayArtFromUrl(broadcast.replay_url),
 			show: { id: show.id, title: show.title },
 			href: `/shows/${show.id}/broadcasts/${broadcast.id}`,
-			broadcastId: broadcast.id
+			broadcastId: broadcast.id,
+			durationMinutes: broadcast.duration_minutes
 		});
 	}
 

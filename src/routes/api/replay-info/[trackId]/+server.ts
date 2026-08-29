@@ -10,6 +10,32 @@ import type { RequestHandler } from './$types';
 const cache = new Map<string, { bytes: number; kbps: number; durationEst: number; at: number }>();
 const TTL = 60 * 60 * 1000;
 
+/** ID3v2 "TLEN" frame: audio length in milliseconds stored as ASCII digits. */
+function id3TlenSeconds(buf: Uint8Array): number {
+	if (buf.length < 10 || buf[0] !== 0x49 || buf[1] !== 0x44 || buf[2] !== 0x33) return 0;
+	const tagSize = (buf[6] << 21) | (buf[7] << 13) | (buf[8] << 5) | buf[9];
+	const end = Math.min(buf.length, 10 + tagSize);
+	let pos = 10;
+	while (pos + 10 <= end) {
+		const id = String.fromCharCode(buf[pos], buf[pos + 1], buf[pos + 2], buf[pos + 3]);
+		const size = (buf[pos + 4] << 24) | (buf[pos + 5] << 16) | (buf[pos + 6] << 8) | buf[pos + 7];
+		if (id === 'TLEN') {
+			let digits = '';
+			const frameEnd = Math.min(pos + 10 + size, buf.length);
+			for (let i = pos + 10; i < frameEnd; i++) {
+				const c = buf[i];
+				if (c >= 0x30 && c <= 0x39) digits += String.fromCharCode(c);
+				else if (digits.length > 0) break;
+			}
+			const ms = Number(digits);
+			return digits.length > 0 && ms > 0 ? Math.round(ms / 1000) : 0;
+		}
+		if (size <= 0 || pos + 10 + size > end) break;
+		pos += 10 + size;
+	}
+	return 0;
+}
+
 export const GET: RequestHandler = async ({ params }) => {
 	const id = extractReplayTrackId(params.trackId);
 	if (!id) return json({ error: 'bad-id' }, { status: 400 });
@@ -54,6 +80,20 @@ export const GET: RequestHandler = async ({ params }) => {
 				}
 			} catch {
 				// mvhd unavailable -> fall through to estimate
+			}
+
+			// MP3 (ID3v2) files carry a TLEN frame: length in milliseconds.
+			if (!durationEst) {
+				let tlen = 0;
+				try {
+					const pre = await fetch(replayPlayUrl(id), {
+						headers: { range: 'bytes=0-1048575' }
+					});
+					tlen = id3TlenSeconds(new Uint8Array(await pre.arrayBuffer()));
+				} catch {
+					// tlen unavailable -> fall through
+				}
+				if (tlen > 0) durationEst = tlen;
 			}
 
 			// Fallback: measured slice throughput is download speed, NOT the
