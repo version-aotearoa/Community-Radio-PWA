@@ -217,7 +217,7 @@
 		<ul class="show-list">
 			{#each shows as show (show.id)}
 				<li>
-					<a href={`/shows/${show.id}/tracklist`}>
+					<a href={`/shows/${show.id}`}>
 						<strong>{show.title}</strong>
 						<span class="meta mono">
 							{DAYS[show.day_of_week]} · {fmtStart(show.start_minutes)}

@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { untrack } from 'svelte';
+	import { Text, TextArea, Field, Button } from '@svar-ui/svelte-core';
 	import ShowActions from '$lib/components/ShowActions.svelte';
 	import { playback, playMedia, requestTogglePlay, streamPlaying } from '$lib/stores/player';
 	import { replayArtFromUrl } from '$lib/azuracast';
@@ -9,6 +11,79 @@
 	const show = $derived(data.show);
 	const upcoming = $derived(data.upcoming);
 	const past = $derived(data.past);
+
+	let title = $state(untrack(() => data.show.title));
+	let description = $state(untrack(() => data.show.description ?? ''));
+	let djName = $state(untrack(() => data.show.dj_name));
+	let djId = $state(untrack(() => data.show.dj_id));
+
+	let editing = $state(false);
+	let saving = $state(false);
+	let editError = $state('');
+	let editSaved = $state(false);
+
+	const isAdmin = $derived(data.user?.role === 'admin');
+
+	interface DjOption {
+		id: string;
+		name: string;
+		email: string;
+	}
+
+	let djOptions = $state<DjOption[]>([]);
+
+	async function startEdit() {
+		editing = true;
+		saving = false;
+		editError = '';
+		editSaved = false;
+		title = data.show.title;
+		description = data.show.description ?? '';
+		djId = data.show.dj_id;
+		if (isAdmin && djOptions.length === 0) {
+			const res = await fetch('/api/admin/users');
+			if (res.ok) {
+				const users = (await res.json()) as {
+					id: string;
+					name: string;
+					email: string;
+					role: string;
+				}[];
+				djOptions = users.filter((u) => u.role === 'dj' || u.role === 'admin');
+			}
+		}
+	}
+
+	async function saveEdit() {
+		saving = true;
+		editError = '';
+		editSaved = false;
+		const body: Record<string, string> = { title, description };
+		if (isAdmin) body.djId = djId;
+		const res = await fetch(`/api/shows/${data.show.id}`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(body)
+		});
+		saving = false;
+		if (!res.ok) {
+			const err = (await res.json().catch(() => null)) as { error?: string } | null;
+			editError = err?.error ?? `Save failed (${res.status})`;
+			return;
+		}
+		title = body.title.trim();
+		description = body.description.trim();
+		if (isAdmin && djId !== data.show.dj_id) {
+			const chosen = djOptions.find((d) => d.id === djId);
+			djName = chosen ? chosen.name || chosen.email : djName;
+		}
+		data.show.title = title;
+		data.show.description = description;
+		data.show.dj_id = djId;
+		editing = false;
+		editSaved = true;
+		setTimeout(() => (editSaved = false), 4000);
+	}
 
 	const backHref = $derived(
 		page.url.searchParams.get('from') === 'schedule' ? '/schedule' : '/shows'
@@ -70,35 +145,70 @@
 </script>
 
 <svelte:head>
-	<title>{show.title} — Version Radio</title>
+	<title>{title} — Version Radio</title>
 </svelte:head>
 
 <div class="page">
 	<header class="head">
 		<div>
 			<p class="mono back"><a href={backHref}>← {backLabel}</a></p>
-			<h1 class="h-lg">{show.title}</h1>
+			<h1 class="h-lg">{title}</h1>
 			<p class="subtitle mono">
 				{DAY_NAMES[show.day_of_week]}s · {fmtTime(show.start_minutes)}–{fmtTime(
 					show.start_minutes + show.duration_minutes
 				)} · {cycleLabel(show)}
 			</p>
-			{#if show.dj_name}
-				<p class="dj mono">with {show.dj_name}</p>
+			{#if djName}
+				<p class="dj mono">with {djName}</p>
 			{/if}
-			{#if show.description}
-				<p class="desc">{show.description}</p>
+			{#if editing}
+				<form class="edit-form" onsubmit={(e) => { e.preventDefault(); saveEdit(); }}>
+					<Field label="Title">
+						<Text bind:value={title} css="vr-input" />
+					</Field>
+					{#if isAdmin}
+						<Field label="DJ">
+							<select class="dj-select" bind:value={djId}>
+								{#if !djOptions.some((d) => d.id === djId)}
+									<option value={djId} disabled>Unknown DJ</option>
+								{/if}
+								{#each djOptions as dj (dj.id)}
+									<option value={dj.id}>{dj.name || dj.email}</option>
+								{/each}
+							</select>
+						</Field>
+					{/if}
+					<Field label="Description">
+						<TextArea bind:value={description} css="vr-input" />
+					</Field>
+					{#if editError}
+						<div class="notice bad">{editError}</div>
+					{/if}
+					<div class="edit-actions">
+						<Button css="vr-cta" type="primary" disabled={saving} onclick={saveEdit}>
+							{saving ? 'Saving…' : 'Save'}
+						</Button>
+						<Button css="vr-cta ghost" onclick={() => (editing = false)}>Cancel</Button>
+					</div>
+				</form>
+			{:else}
+				{#if description}
+					<p class="desc">{description}</p>
+				{/if}
+				{#if editSaved}
+					<div class="notice ok">Saved</div>
+				{/if}
 			{/if}
 		</div>
 		<div class="head-actions">
 			<ShowActions
 				showId={show.id}
-				showTitle={show.title}
+				showTitle={title}
 				followed={data.followed}
 				user={data.user}
 			/>
 			{#if data.canEdit}
-				<a href={`/shows/${show.id}/tracklist`} class="btn-outline">Edit tracklist</a>
+				<button class="btn-outline" onclick={startEdit} disabled={editing}>Edit show</button>
 			{/if}
 		</div>
 	</header>
@@ -228,6 +338,42 @@
 		margin: 0.85rem 0 0;
 		color: var(--vr-muted);
 		max-width: 44rem;
+	}
+
+	.edit-form {
+		margin-top: 1rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		max-width: 28rem;
+	}
+
+	.dj-select {
+		background: var(--vr-surface-low);
+		color: var(--vr-text);
+		border: 1px solid var(--vr-line);
+		padding: 0.4rem 0.5rem;
+		width: 100%;
+	}
+
+	.edit-actions {
+		display: flex;
+		gap: 0.6rem;
+		margin-top: 0.25rem;
+	}
+
+	.notice {
+		padding: 0.5rem 0.8rem;
+		border: 1px solid var(--vr-line);
+		font-size: 0.85rem;
+	}
+
+	.notice.ok {
+		color: var(--vr-green);
+	}
+
+	.notice.bad {
+		color: var(--vr-red);
 	}
 
 	.block {
