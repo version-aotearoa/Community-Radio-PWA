@@ -11,6 +11,7 @@
 		streamPlaying
 	} from '$lib/stores/player';
 	import { live, startLivePolling } from '$lib/stores/live';
+	import { extractReplayTrackId } from '$lib/azuracast';
 
 	const STREAM_URL = 'https://stream.version.nz/hls/version_radio/live.m3u8';
 
@@ -59,7 +60,21 @@
 		}
 	});
 
-	let prevKey = 'live';
+	let prevKey = '';
+
+	/** Estimated end (seconds) for streams without an element duration. */
+	let estDuration = $state<number | null>(null);
+
+	function probeDuration(url: string) {
+		const id = extractReplayTrackId(url);
+		if (!id) return;
+		fetch(`/api/replay-info/${id}`)
+			.then((r) => (r.ok ? (r.json() as Promise<{ durationEst: number }>) : null))
+			.then((d) => {
+				if (d?.durationEst && d.durationEst > 0) estDuration = d.durationEst;
+			})
+			.catch(() => {});
+	}
 
 	$effect(() => {
 		const p = $playback;
@@ -68,12 +83,14 @@
 		prevKey = key;
 		currentTime = 0;
 		duration = NaN;
+		estDuration = null;
 		if (!audioEl) return;
 		if (p.kind === 'media') {
 			stopLive();
 			audioEl.src = p.url;
 			loading = true;
 			audioEl.play().catch(() => {});
+			probeDuration(p.url);
 		} else {
 			stopMedia();
 			initLiveEngine();
@@ -169,11 +186,15 @@
 		if (e.key === 'Escape' && expanded) expanded = false;
 	}
 
-	/** Seek the archive playback, clamped to [0, live point = duration]. */
+	/** Seek the archive playback, clamped to [0, live point]. */
 	function seekBy(delta: number) {
 		if (!audioEl || !mediaMode) return;
-		if (!Number.isFinite(duration) || duration <= 0) return;
-		const next = Math.min(Math.max((audioEl.currentTime ?? 0) + delta, 0), duration);
+		const cur = audioEl.currentTime ?? 0;
+		const end =
+			Number.isFinite(duration) && duration > 0
+				? duration
+				: estDuration ?? (audioEl.seekable.length ? audioEl.seekable.end(0) : null) ?? cur;
+		const next = Math.min(Math.max(cur + delta, 0), end);
 		audioEl.currentTime = next;
 	}
 
@@ -232,13 +253,20 @@
 		startLivePolling();
 		if (audioEl) {
 			audioEl.addEventListener('play', () => streamPlaying.set(true));
-			audioEl.addEventListener('pause', () => streamPlaying.set(false));
 			audioEl.addEventListener('playing', () => (loading = false));
 			audioEl.addEventListener('canplay', () => (loading = false));
+			audioEl.addEventListener('seeked', () => (loading = false));
 			audioEl.addEventListener('waiting', () => (loading = true));
 			audioEl.addEventListener('stalled', () => (loading = true));
 			audioEl.addEventListener('loadstart', () => (loading = true));
-			audioEl.addEventListener('timeupdate', () => (currentTime = audioEl?.currentTime ?? 0));
+			audioEl.addEventListener('timeupdate', () => {
+				currentTime = audioEl?.currentTime ?? 0;
+				loading = false;
+			});
+			audioEl.addEventListener('pause', () => {
+				streamPlaying.set(false);
+				loading = false;
+			});
 			audioEl.addEventListener('loadedmetadata', () => (duration = audioEl?.duration ?? NaN));
 			audioEl.addEventListener('durationchange', () => (duration = audioEl?.duration ?? NaN));
 		}
@@ -435,7 +463,12 @@
 					</span>
 					<span class="station-name">
 						{#if mediaMode}
-							Recording · {fmtClock(currentTime)} / {Number.isFinite(duration) ? fmtClock(duration) : '--:--'}
+							Recording · {fmtClock(currentTime)}
+							{#if Number.isFinite(duration) && duration > 0}
+								/ {fmtClock(duration)}
+							{:else if estDuration}
+								/ ≈{fmtClock(estDuration)}
+							{/if}
 						{/if}
 					</span>
 				</div>
@@ -539,7 +572,7 @@
 					{#if mediaMode}
 						<button class="live-btn" onclick={requestPlay}>Back to live</button>
 					{/if}
-					{#if mediaMode && Number.isFinite(duration) && duration > 0}
+					{#if mediaMode}
 						<button class="icon-btn" onclick={() => seekBy(-30)} title="Rewind 30s" aria-label="Rewind 30 seconds">
 							<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
 								<path
