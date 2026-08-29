@@ -172,9 +172,13 @@
 	onMount(() => {
 		startLivePolling();
 		if (audioEl) {
-			audioEl.addEventListener('play', () => streamPlaying.set(true));
+			// streamPlaying flips on `playing` (post-buffering) so the loading
+			// trace stays visible across the load; `play` fires far too early.
+			audioEl.addEventListener('playing', () => {
+				streamPlaying.set(true);
+				loading = false;
+			});
 			audioEl.addEventListener('pause', () => streamPlaying.set(false));
-			audioEl.addEventListener('playing', () => (loading = false));
 			audioEl.addEventListener('canplay', () => (loading = false));
 			audioEl.addEventListener('waiting', () => (loading = true));
 			audioEl.addEventListener('stalled', () => (loading = true));
