@@ -462,15 +462,9 @@
 	}
 
 	.row {
-		display: grid;
-		grid-template-columns: 2fr 1fr 1fr 1fr 1.2fr;
+		display: flex;
+		flex-direction: column;
 		gap: 0.75rem;
-	}
-
-	@media (max-width: 640px) {
-		.row {
-			grid-template-columns: 1fr;
-		}
 	}
 
 	.notice {
