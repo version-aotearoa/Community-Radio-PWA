@@ -13,7 +13,7 @@
 	import { live, startLivePolling } from '$lib/stores/live';
 	import { extractReplayTrackId } from '$lib/azuracast';
 
-	const STREAM_URL = 'https://stream.version.nz/hls/version_radio/live.m3u8';
+	const STREAM_URL = '/api/stream/hls/version_radio/live.m3u8';
 
 	let audioEl: HTMLAudioElement | undefined = $state();
 	let hls: import('hls.js').default | null = null;
@@ -21,6 +21,13 @@
 	let nativeHls = $state(false);
 	let playing = $derived($streamPlaying);
 	let loading = $state(false);
+	const showLoading = $derived(loading && !playing);
+
+	function setLoading(v: boolean, reason: string) {
+		if (loading === v) return;
+		loading = v;
+		console.info(`[vr] loading → ${v} (${reason}) @${Math.round(performance.now())}ms`);
+	}
 	let expanded = $state(false);
 	let currentTime = $state(0);
 	let duration = $state(NaN);
@@ -60,7 +67,7 @@
 		}
 	});
 
-	let prevKey = '';
+	let prevKey = 'live';
 
 	/** Estimated end (seconds) for streams without an element duration. */
 	let estDuration = $state<number | null>(null);
@@ -88,13 +95,13 @@
 		if (p.kind === 'media') {
 			stopLive();
 			audioEl.src = p.url;
-			loading = true;
+			setLoading(true, 'source-switch');
 			audioEl.play().catch(() => {});
 			probeDuration(p.url);
 		} else {
 			stopMedia();
 			initLiveEngine();
-			loading = true;
+			setLoading(true, 'source-switch');
 			audioEl.play().catch(() => {});
 		}
 	});
@@ -150,14 +157,24 @@
 	}
 
 	function wireHlsEvents(Ctor: typeof import('hls.js').default) {
+		let fatalRetries = 0;
 		hls?.on(Ctor.Events.ERROR, (_evt, data) => {
 			if (!data.fatal) return;
 			if (data.type === Ctor.ErrorTypes.NETWORK_ERROR) {
-				hls?.startLoad();
+				fatalRetries += 1;
+				if (fatalRetries <= 3) {
+					setTimeout(() => hls?.startLoad(), 2000 * fatalRetries);
+				} else {
+					setLoading(false, 'hls-fatal-stopped');
+					stopLive();
+					streamPlaying.set(false);
+				}
 			} else if (data.type === Ctor.ErrorTypes.MEDIA_ERROR) {
 				hls?.recoverMediaError();
 			} else {
-				setTimeout(() => hls?.startLoad(), 3000);
+				setLoading(false, 'hls-fatal-stopped');
+				stopLive();
+				streamPlaying.set(false);
 			}
 		});
 	}
@@ -166,8 +183,9 @@
 		if (!audioEl) return;
 		if (mediaMode) {
 			if (audioEl.paused) {
-				loading = true;
-				await audioEl.play().catch(() => {});
+				setLoading(true, 'play-start');
+				const p = audioEl.play();
+				if (p) p.catch(() => setLoading(false, 'play-rejected'));
 			} else {
 				audioEl.pause();
 			}
@@ -175,8 +193,15 @@
 		}
 		await initLiveEngine();
 		if (audioEl.paused) {
-			loading = true;
-			await audioEl.play().catch(() => {});
+			setLoading(true, 'play-start');
+			const p = audioEl.play();
+			if (p)
+				p.catch(() => {
+					// Engine failed to start (e.g. autoplay blocked offline):
+					// no phantom spinner, tear the engine down.
+					setLoading(false, 'play-rejected');
+					stopLive();
+				});
 		} else {
 			audioEl.pause();
 		}
@@ -208,15 +233,66 @@
 		ms.setActionHandler('pause', () => {
 			if (audioEl && !audioEl.paused) void togglePlay();
 		});
-		ms.setActionHandler('seekbackward', () => {
-			if (!mediaMode) return;
-			seekBy(-30);
-		});
-		ms.setActionHandler('seekforward', () => {
-			if (!mediaMode) return;
-			seekBy(30);
-		});
+		updateSeekActions();
 	}
+
+	const mediaSessionSeekState = $state<{ on: boolean }>({ on: false });
+
+	/** Seek actions only exist once an end is known — never touch unseekable media. */
+	function endKnown(): boolean {
+		return (Number.isFinite(duration) && duration > 0) || (estDuration ?? 0) > 0;
+	}
+
+	function updateSeekActions() {
+		if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+		const ms = navigator.mediaSession;
+		const enabled = mediaMode && endKnown();
+		if (mediaSessionSeekState.on === enabled) return;
+		mediaSessionSeekState.on = enabled;
+		if (enabled) {
+			ms.setActionHandler('seekbackward', () => {
+				if (!mediaMode) return;
+				seekBy(-30);
+			});
+			ms.setActionHandler('seekforward', () => {
+				if (!mediaMode) return;
+				seekBy(30);
+			});
+		} else {
+			ms.setActionHandler('seekbackward', null);
+			ms.setActionHandler('seekforward', null);
+		}
+		console.info(`[vr] media session seek actions: ${enabled ? 'ON' : 'OFF'} (dur=${duration} est=${estDuration})`);
+	}
+
+	function updatePositionState() {
+		if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+		const ms = navigator.mediaSession;
+		if (!mediaMode || !endKnown()) return;
+		const end = Number.isFinite(duration) && duration > 0 ? duration : estDuration!;
+		try {
+			ms.setPositionState({
+				duration: end,
+				position: Math.min(currentTime, end),
+				playbackRate: 1
+			});
+		} catch {
+			// best-effort
+		}
+	}
+
+	$effect(() => {
+		mediaMode;
+		endKnown();
+		updateSeekActions();
+		updatePositionState();
+	});
+
+	$effect(() => {
+		if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+		$streamPlaying;
+		navigator.mediaSession.playbackState = $streamPlaying ? 'playing' : 'paused';
+	});
 
 	// Keep lock-screen / notification metadata in step with playback
 	$effect(() => {
@@ -253,22 +329,54 @@
 		startLivePolling();
 		if (audioEl) {
 			audioEl.addEventListener('play', () => streamPlaying.set(true));
-			audioEl.addEventListener('playing', () => (loading = false));
-			audioEl.addEventListener('canplay', () => (loading = false));
-			audioEl.addEventListener('seeked', () => (loading = false));
-			audioEl.addEventListener('waiting', () => (loading = true));
-			audioEl.addEventListener('stalled', () => (loading = true));
-			audioEl.addEventListener('loadstart', () => (loading = true));
+			audioEl.addEventListener('playing', () => setLoading(false, 'event:playing'));
+			audioEl.addEventListener('canplay', () => setLoading(false, 'event:canplay'));
+			audioEl.addEventListener('seeked', () => setLoading(false, 'event:seeked'));
+			audioEl.addEventListener('waiting', () => setLoading(true, 'event:waiting'));
+			audioEl.addEventListener('stalled', () => setLoading(true, 'event:stalled'));
+			audioEl.addEventListener('loadstart', () => setLoading(true, 'event:loadstart'));
 			audioEl.addEventListener('timeupdate', () => {
 				currentTime = audioEl?.currentTime ?? 0;
-				loading = false;
+				setLoading(false, 'event:timeupdate');
 			});
 			audioEl.addEventListener('pause', () => {
 				streamPlaying.set(false);
-				loading = false;
+				setLoading(false, 'event:pause');
 			});
 			audioEl.addEventListener('loadedmetadata', () => (duration = audioEl?.duration ?? NaN));
 			audioEl.addEventListener('durationchange', () => (duration = audioEl?.duration ?? NaN));
+			for (const ev of ['play', 'pause', 'canplay', 'loadedmetadata', 'durationchange', 'emptied', 'seeking', 'seeked', 'ended', 'error', 'ratechange']) {
+				audioEl.addEventListener(ev, () =>
+					console.info(
+						`[vr] audio:${ev}`,
+						`t=${(audioEl?.currentTime ?? 0).toFixed(1)} dur=${audioEl?.duration ?? ''} paused=${audioEl?.paused ?? '?'}`
+					)
+				);
+			}
+		}
+		if (typeof window !== 'undefined') {
+			(window as unknown as Record<string, unknown>).__vrplayer = () => {
+				let ls: string | null = null;
+				try {
+					ls = localStorage.getItem('vr-autoplay');
+				} catch {
+					ls = null;
+				}
+				return {
+					paused: audioEl?.paused ?? null,
+					src: audioEl?.currentSrc ?? null,
+					duration: audioEl?.duration ?? duration,
+					est: estDuration,
+					seekable: audioEl?.seekable.length ?? 0,
+					currentTime: audioEl?.currentTime ?? currentTime,
+					loading,
+					streamPlaying: $streamPlaying,
+					mediaMode,
+					artSource,
+					autoplay: $autoplay,
+					lsAutoplay: ls
+				};
+			};
 		}
 		window.addEventListener('keydown', onKey);
 		wireMediaSession();
@@ -591,7 +699,7 @@
 						</button>
 					{/if}
 					<button class="play big" onclick={togglePlay} aria-label={playing ? 'Pause' : 'Play'}>
-						{#if loading}
+						{#if showLoading}
 							<svg class="trace" viewBox="0 0 24 24" aria-hidden="true">
 								<path
 									class="trace-path"
@@ -668,7 +776,7 @@
 				<button class="live-btn" onclick={requestPlay}>Back to live</button>
 			{/if}
 			<button class="play" onclick={togglePlay} aria-label={playing ? 'Pause' : 'Play'}>
-				{#if loading}
+				{#if showLoading}
 					<svg class="trace" viewBox="0 0 24 24" aria-hidden="true">
 						<path
 							class="trace-path"
