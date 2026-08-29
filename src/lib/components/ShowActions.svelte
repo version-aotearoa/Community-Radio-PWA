@@ -4,37 +4,67 @@
 	let {
 		showId,
 		showTitle,
-		saved: initialSaved,
+		followed: initialFollowed,
 		user,
+		episode = null,
+		episodeSaved: initialEpisodeSaved = false,
 		compact = false
 	}: {
 		showId: string;
 		showTitle: string;
-		saved: boolean;
+		followed: boolean;
 		user: { role?: string; name?: string; email?: string } | null;
+		episode?: { broadcastId: string } | null;
+		episodeSaved?: boolean;
 		compact?: boolean;
 	} = $props();
 
-	let saved = $state(untrack(() => initialSaved));
+	let followed = $state(untrack(() => initialFollowed));
+	let episodeSaved = $state(untrack(() => initialEpisodeSaved));
 	let loginHint = $state(false);
+	let hintKind = $state<'follow' | 'save'>('follow');
 	let copied = $state(false);
 	let copyTimer: ReturnType<typeof setTimeout> | null = null;
 
-	async function toggleSaved() {
+	async function toggleFollow() {
 		if (!user) {
+			hintKind = 'follow';
 			loginHint = true;
 			return;
 		}
 		loginHint = false;
-		const prev = saved;
-		saved = !saved;
-		const res = await fetch(`/api/shows/${showId}/saved`, { method: 'POST' });
+		const prev = followed;
+		followed = !followed;
+		const res = await fetch(`/api/shows/${showId}/follow`, { method: 'POST' });
 		if (res.status === 401) {
-			saved = prev;
+			followed = prev;
+			hintKind = 'follow';
 			loginHint = true;
 			return;
 		}
-		if (!res.ok) saved = prev;
+		if (!res.ok) followed = prev;
+	}
+
+	async function toggleEpisodeSaved() {
+		if (!episode) return;
+		if (!user) {
+			hintKind = 'save';
+			loginHint = true;
+			return;
+		}
+		loginHint = false;
+		const prev = episodeSaved;
+		episodeSaved = !episodeSaved;
+		const res = await fetch(`/api/shows/${showId}/broadcasts/${episode.broadcastId}/saved`, {
+			method: 'POST'
+		});
+		if (res.status === 401) {
+			episodeSaved = prev;
+			hintKind = 'save';
+			loginHint = true;
+			return;
+		}
+		if (!res.ok) episodeSaved = prev;
 	}
 
 	async function share() {
@@ -69,29 +99,50 @@
 	{/if}
 	{#if loginHint}
 		<div class="login-hint">
-			Sign in to save shows — <a class="hint-link" href="/login">Sign in</a>
+			{hintKind === 'follow' ? 'Sign in to follow shows' : 'Sign in to save recordings'} — <a class="hint-link" href="/login">Sign in</a>
 		</div>
 	{/if}
 	<div class="icon-row">
 		<button
 			class="sq-btn"
-			class:active={saved}
-			onclick={toggleSaved}
-			aria-pressed={saved}
-			aria-label={saved ? 'Remove bookmark' : 'Bookmark show'}
-			title={saved ? 'Remove bookmark' : 'Bookmark show'}
+			class:active={followed}
+			onclick={toggleFollow}
+			aria-pressed={followed}
+			aria-label={followed ? 'Unfollow show' : 'Follow show'}
+			title={followed ? 'Unfollow show' : 'Follow show'}
 		>
 			<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
 				<path
-					d="M6 4.5v15l6-4.5 6 4.5v-15a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"
-					fill={saved ? 'currentColor' : 'none'}
+					d="M12 3a6 6 0 0 1 6 6v3l1.6 2.6a.6.6 0 0 1-.5.9H4.9a.6.6 0 0 1-.5-.9L6 12V9a6 6 0 0 1 6-6zM10 17.5a2 2 0 0 0 4 0"
+					fill={followed ? 'currentColor' : 'none'}
 					stroke="currentColor"
-					stroke-width="1.8"
+					stroke-width="1.6"
+					stroke-linecap="round"
 					stroke-linejoin="round"
 				/>
 			</svg>
 		</button>
-		<button class="sq-btn" onclick={share} aria-label="Share show" title="Share show">
+		{#if episode}
+			<button
+				class="sq-btn"
+				class:active={episodeSaved}
+				onclick={toggleEpisodeSaved}
+				aria-pressed={episodeSaved}
+				aria-label={episodeSaved ? 'Remove bookmark' : 'Bookmark recording'}
+				title={episodeSaved ? 'Remove bookmark' : 'Bookmark recording'}
+			>
+				<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+					<path
+						d="M6 4.5v15l6-4.5 6 4.5v-15a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"
+						fill={episodeSaved ? 'currentColor' : 'none'}
+						stroke="currentColor"
+						stroke-width="1.8"
+						stroke-linejoin="round"
+					/>
+				</svg>
+			</button>
+		{/if}
+		<button class="sq-btn" onclick={share} aria-label="Share" title="Share">
 			<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
 				<path
 					d="M12 3v12M8 7l4-4 4 4M5 12v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7"

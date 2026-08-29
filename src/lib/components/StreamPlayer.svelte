@@ -226,61 +226,96 @@
 		return playing ? 'Now playing' : 'Paused';
 	}
 
-	// ---- Player actions: bookmark (sign-in gated) + native share ----
+	// ---- Player actions: follow (show) + episode bookmark + native share ----
 
 	const user = $derived(page.data.user);
 
 	/** Show context for save/share: archive episode first, then on-air show. */
 	const shareContext = $derived(
 		media?.href
-			? { href: media.href, id: media.show?.id ?? null, title: (media.show?.title ?? media.title).replace(' — ', ' · ') }
+			? { href: media.href, id: media?.show?.id ?? null, title: (media?.show?.title ?? media.title).replace(' — ', ' · ') }
 			: showLink
 				? { href: `/shows/${showLink.id}`, id: showLink.id, title: showLink.title }
 				: { href: location.href, id: null, title: 'Version Radio' }
 	);
 
-	const bookmarkTarget = $derived(media?.show?.id ?? showLink?.id ?? null);
-	const bookmarkShow = $derived(media?.show ?? showLink ?? null);
+	const showId = $derived(media?.show?.id ?? showLink?.id ?? null);
+	const broadcastId = $derived(mediaMode ? (media?.broadcastId ?? null) : null);
 
-	let savedShow = $state(false);
+	let followed = $state(false);
+	let episodeSaved = $state(false);
 	let loginHint = $state(false);
+	let hintKind = $state<'follow' | 'save'>('follow');
 	let copied = $state(false);
 	let copyTimer: ReturnType<typeof setTimeout> | null = null;
 
 	$effect(() => {
-		const id = bookmarkTarget;
-		savedShow = false;
+		followed = false;
+		episodeSaved = false;
 		loginHint = false;
-		if (!id || !user) return;
+		if (!user) return;
 		let cancelled = false;
-		fetch(`/api/shows/${id}/saved`)
-			.then((r) => (r.status === 401 ? null : r.json() as Promise<{ saved: boolean }>))
-			.then((data) => {
-				if (!cancelled && data) savedShow = data.saved;
-			})
-			.catch(() => {});
+		if (showId) {
+			fetch(`/api/shows/${showId}/follow`)
+				.then((r) => (r.status === 401 ? null : r.json() as Promise<{ following: boolean }>))
+				.then((d) => {
+					if (!cancelled && d) followed = d.following;
+				})
+				.catch(() => {});
+		}
+		if (broadcastId) {
+			fetch(`/api/shows/${showId}/broadcasts/${broadcastId}/saved`)
+				.then((r) => (r.status === 401 ? null : r.json() as Promise<{ saved: boolean }>))
+				.then((d) => {
+					if (!cancelled && d) episodeSaved = d.saved;
+				})
+				.catch(() => {});
+		}
 		return () => {
 			cancelled = true;
 		};
 	});
 
-	async function togglePlayerBookmark() {
-		const id = bookmarkTarget;
-		if (!id || !bookmarkShow) return;
+	async function togglePlayerFollow() {
+		if (!showId) return;
 		if (!user) {
+			hintKind = 'follow';
 			loginHint = true;
 			return;
 		}
 		loginHint = false;
-		const prev = savedShow;
-		savedShow = !savedShow;
-		const res = await fetch(`/api/shows/${id}/saved`, { method: 'POST' });
+		const prev = followed;
+		followed = !followed;
+		const res = await fetch(`/api/shows/${showId}/follow`, { method: 'POST' });
 		if (res.status === 401) {
-			savedShow = prev;
+			followed = prev;
+			hintKind = 'follow';
 			loginHint = true;
 			return;
 		}
-		if (!res.ok) savedShow = prev;
+		if (!res.ok) followed = prev;
+	}
+
+	async function togglePlayerEpisodeSaved() {
+		if (!showId || !broadcastId) return;
+		if (!user) {
+			hintKind = 'save';
+			loginHint = true;
+			return;
+		}
+		loginHint = false;
+		const prev = episodeSaved;
+		episodeSaved = !episodeSaved;
+		const res = await fetch(`/api/shows/${showId}/broadcasts/${broadcastId}/saved`, {
+			method: 'POST'
+		});
+		if (res.status === 401) {
+			episodeSaved = prev;
+			hintKind = 'save';
+			loginHint = true;
+			return;
+		}
+		if (!res.ok) episodeSaved = prev;
 	}
 
 	async function shareTrack() {
@@ -388,19 +423,40 @@
 							</span>
 						</button>
 					{/if}
-					{#if bookmarkTarget}
+					{#if showId}
 						<button
 							class="icon-btn"
-							class:active={savedShow}
-							onclick={togglePlayerBookmark}
-							aria-pressed={savedShow}
-							aria-label={savedShow ? 'Remove bookmark' : 'Bookmark show'}
-							title={savedShow ? 'Remove bookmark' : 'Bookmark show'}
+							class:active={followed}
+							onclick={togglePlayerFollow}
+							aria-pressed={followed}
+							aria-label={followed ? 'Unfollow show' : 'Follow show'}
+							title={followed ? 'Unfollow show' : 'Follow show'}
+						>
+							<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+								<path
+									d="M12 3a6 6 0 0 1 6 6v3l1.6 2.6a.6.6 0 0 1-.5.9H4.9a.6.6 0 0 1-.5-.9L6 12V9a6 6 0 0 1 6-6zM10 17.5a2 2 0 0 0 4 0"
+									fill={followed ? 'currentColor' : 'none'}
+									stroke="currentColor"
+									stroke-width="1.6"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								/>
+							</svg>
+						</button>
+					{/if}
+					{#if broadcastId}
+						<button
+							class="icon-btn"
+							class:active={episodeSaved}
+							onclick={togglePlayerEpisodeSaved}
+							aria-pressed={episodeSaved}
+							aria-label={episodeSaved ? 'Remove bookmark' : 'Bookmark recording'}
+							title={episodeSaved ? 'Remove bookmark' : 'Bookmark recording'}
 						>
 							<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
 								<path
 									d="M6 4.5v15l6-4.5 6 4.5v-15a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"
-									fill={savedShow ? 'currentColor' : 'none'}
+									fill={episodeSaved ? 'currentColor' : 'none'}
 									stroke="currentColor"
 									stroke-width="1.8"
 									stroke-linejoin="round"
@@ -447,7 +503,9 @@
 			{#if loginHint || copied}
 				<div class="sheet-note">
 					{#if loginHint}
-						<span class="mono">Sign in to save shows — <a class="note-link" href="/login">Sign in</a></span>
+						<span class="mono">
+							{hintKind === 'follow' ? 'Sign in to follow shows' : 'Sign in to save recordings'} — <a class="note-link" href="/login">Sign in</a>
+						</span>
 					{:else}
 						<span class="mono note-copied">Copied</span>
 					{/if}

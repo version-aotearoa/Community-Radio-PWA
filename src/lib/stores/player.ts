@@ -28,6 +28,8 @@ export interface MediaSource {
 	show?: { id: string; title: string } | null;
 	/** Direct URL to the episode page (for sharing from the player). */
 	href?: string | null;
+	/** Broadcast id of the archive episode being played. */
+	broadcastId?: string | null;
 }
 
 export type PlaybackSource = { kind: 'live' } | ({ kind: 'media' } & MediaSource);

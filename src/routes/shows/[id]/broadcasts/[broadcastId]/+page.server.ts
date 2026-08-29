@@ -11,14 +11,22 @@ export const load: PageServerLoad = async ({ params, locals, platform }) => {
 	const tracks = await getTracklist(db, broadcast.id);
 
 	const user = locals.user ?? null;
-	const saved = user
+	const followed = user
 		? Boolean(
 				await db
-					.prepare('SELECT 1 AS x FROM saved_show WHERE user_id = ? AND show_id = ?')
+					.prepare('SELECT 1 AS x FROM follow_show WHERE user_id = ? AND show_id = ?')
 					.bind(user.id, show.id)
 					.first()
 			)
 		: false;
+	const savedEpisode = user
+		? Boolean(
+				await db
+					.prepare('SELECT 1 AS x FROM saved_episode WHERE user_id = ? AND broadcast_id = ?')
+					.bind(user.id, broadcast.id)
+					.first()
+			)
+		: false;
 
-	return { show, broadcast, tracks, saved };
+	return { show, broadcast, tracks, followed, savedEpisode };
 };

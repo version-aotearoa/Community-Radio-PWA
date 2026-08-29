@@ -54,7 +54,8 @@
 			artist: show.dj_name ?? null,
 			art: replayArtFromUrl(show.replay_url),
 			show: { id: show.show_id, title: show.title },
-			href: `/shows/${show.show_id}/broadcasts/${show.broadcast_id}`
+			href: `/shows/${show.show_id}/broadcasts/${show.broadcast_id}`,
+			broadcastId: show.broadcast_id
 		});
 	}
 
@@ -177,7 +178,7 @@
 				<span class="arrow" aria-hidden="true">→</span>
 			</a>
 			<a class="linkrow" href="/login">
-				<span class="h-sm">Sign in for DJ tools</span>
+				<span class="h-sm">Sign in &gt; My Version</span>
 				<span class="arrow" aria-hidden="true">→</span>
 			</a>
 		</div>

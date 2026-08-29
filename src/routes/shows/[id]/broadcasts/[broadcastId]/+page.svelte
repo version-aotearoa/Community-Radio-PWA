@@ -53,7 +53,8 @@
 			artist: show.dj_name ?? null,
 			art: replayArtFromUrl(broadcast.replay_url),
 			show: { id: show.id, title: show.title },
-			href: `/shows/${show.id}/broadcasts/${broadcast.id}`
+			href: `/shows/${show.id}/broadcasts/${broadcast.id}`,
+			broadcastId: broadcast.id
 		});
 	}
 
@@ -107,8 +108,10 @@
 		<ShowActions
 			showId={show.id}
 			showTitle={`${show.title} — ${fmtDate(broadcast.date)}`}
-			saved={data.saved}
+			followed={data.followed}
 			user={data.user}
+			episode={{ broadcastId: broadcast.id }}
+			episodeSaved={data.savedEpisode}
 			compact
 		/>
 	</div>

@@ -20,6 +20,12 @@
 			.toUpperCase();
 	}
 
+	function fmtDate(dateStr: string) {
+		return new Intl.DateTimeFormat('en-NZ', { day: '2-digit', month: 'short', year: 'numeric' })
+			.format(new Date(`${dateStr}T00:00:00Z`))
+			.toUpperCase();
+	}
+
 	async function signOut() {
 		busy = true;
 		await authClient.signOut();
@@ -64,11 +70,11 @@
 		</button>
 	</section>
 
-	{#if data.saved.length > 0}
+	{#if data.following.length > 0}
 		<section class="card">
-			<h2 class="card-title">Saved shows</h2>
+			<h2 class="card-title">Following</h2>
 			<ul>
-				{#each data.saved as s (s.id)}
+				{#each data.following as s (s.id)}
 					<li>
 						<a class="saved-row" href={`/shows/${s.id}`}>
 							<span class="saved-art">
@@ -85,7 +91,37 @@
 							</span>
 							<span class="saved-info">
 								<span class="h-sm">{s.title}</span>
-								<span class="mono meta">Saved {fmtSaved(s.saved_at)}</span>
+								<span class="mono meta">Following · {fmtSaved(s.followed_at)}</span>
+							</span>
+						</a>
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
+
+	{#if data.saved.length > 0}
+		<section class="card">
+			<h2 class="card-title">Saved recordings</h2>
+			<ul>
+				{#each data.saved as s (s.broadcast_id)}
+					<li>
+						<a class="saved-row" href={`/shows/${s.show_id}/broadcasts/${s.broadcast_id}`}>
+							<span class="saved-art">
+								{#if s.image}
+									<img src={s.image} alt="" loading="lazy" />
+								{:else}
+									<svg viewBox="0 0 80 70" fill="currentColor" width="20" height="17" aria-hidden="true">
+										<path
+											fill-rule="evenodd"
+											d="M0 0H40V40H50V0H80V45H70V60H55V70H25V60H10V45H0V5ZM10 5H5V40H15V55H30V65H50V55H65V40H75V5H55V45H35V5H15Z"
+										/>
+									</svg>
+								{/if}
+							</span>
+							<span class="saved-info">
+								<span class="h-sm">{s.title}</span>
+								<span class="mono meta">Saved {fmtSaved(s.saved_at)} · {fmtDate(s.date)}</span>
 							</span>
 						</a>
 					</li>

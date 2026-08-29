@@ -22,10 +22,10 @@ export const load: PageServerLoad = async ({ params, locals, platform }) => {
 		user !== null && (user.role === 'admin' || (user.role === 'dj' && show.dj_id === user.id));
 
 	const today = todayStr();
-	const saved = user
+	const followed = user
 		? Boolean(
 				await db
-					.prepare('SELECT 1 AS x FROM saved_show WHERE user_id = ? AND show_id = ?')
+					.prepare('SELECT 1 AS x FROM follow_show WHERE user_id = ? AND show_id = ?')
 					.bind(user.id, show.id)
 					.first()
 			)
@@ -36,7 +36,7 @@ export const load: PageServerLoad = async ({ params, locals, platform }) => {
 		tracks,
 		canEdit,
 		today,
-		saved,
+		followed,
 		upcoming: broadcasts.filter((b) => b.date >= today).slice(0, 1),
 		past: broadcasts.filter((b) => b.date < today).reverse()
 	};

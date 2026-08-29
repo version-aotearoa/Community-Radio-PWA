@@ -57,7 +57,8 @@
 			artist: show.dj_name ?? null,
 			art: replayArtFromUrl(b.replay_url),
 			show: { id: show.id, title: show.title },
-			href: `/shows/${show.id}/broadcasts/${b.id}`
+			href: `/shows/${show.id}/broadcasts/${b.id}`,
+			broadcastId: b.id
 		});
 	}
 
@@ -90,7 +91,12 @@
 			{/if}
 		</div>
 		<div class="head-actions">
-			<ShowActions showId={show.id} showTitle={show.title} saved={data.saved} user={data.user} />
+			<ShowActions
+				showId={show.id}
+				showTitle={show.title}
+				followed={data.followed}
+				user={data.user}
+			/>
 			{#if data.canEdit}
 				<a href={`/shows/${show.id}/tracklist`} class="btn-outline">Edit tracklist</a>
 			{/if}
@@ -101,7 +107,7 @@
 		<section class="block">
 			<h2 class="h-md">Upcoming</h2>
 			<ul class="broadcasts">
-				{#each upcoming as b, i (b.id)}
+				{#each upcoming as b (b.id)}
 					<li class="broadcast" class:today={b.date === data.today}>
 						<header>
 							<strong>{fmtDate(b.date)}</strong>
@@ -112,32 +118,6 @@
 								<a class="edit-mini" href={`/shows/${show.id}/broadcasts/${b.id}/tracklist`}>Edit</a>
 							{/if}
 						</header>
-						<div class="replay">
-							{#if b.replay_url}
-								{#if replayArtFromUrl(b.replay_url)}
-									<img
-										class="replay-art"
-										src={replayArtFromUrl(b.replay_url) ?? ''}
-										alt=""
-										width="40"
-										height="40"
-										loading="lazy"
-									/>
-								{/if}
-								<button class="replay-btn" class:playing={replayActive(b.replay_url)} onclick={() => toggleReplay(b)}>
-									{#if replayActive(b.replay_url)}
-										<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0zM15 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0z" fill="currentColor" /></svg>
-										Pause
-									{:else}
-										<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z" fill="currentColor" /></svg>
-										Replay
-									{/if}
-								</button>
-							{:else}
-								<span class="replay-soon mono">Replay soon</span>
-							{/if}
-							<a class="view-show mono" href={`/shows/${show.id}/broadcasts/${b.id}`}>View show →</a>
-						</div>
 					</li>
 				{/each}
 			</ul>
@@ -180,8 +160,6 @@
 										Replay
 									{/if}
 								</button>
-							{:else}
-								<span class="replay-soon mono">Replay soon</span>
 							{/if}
 							<a class="view-show mono" href={`/shows/${show.id}/broadcasts/${b.id}`}>View show →</a>
 						</div>
@@ -339,12 +317,6 @@
 		margin-top: 0.85rem;
 		padding-top: 0.75rem;
 		border-top: 1px solid var(--vr-line-muted);
-	}
-
-	.replay-soon {
-		color: var(--vr-faint);
-		font-size: 0.78rem;
-		padding: 0.35rem 0;
 	}
 
 	.replay-art {
