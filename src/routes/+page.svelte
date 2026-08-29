@@ -177,7 +177,7 @@
 				<span class="h-sm">See what's on</span>
 				<span class="arrow" aria-hidden="true">→</span>
 			</a>
-			<a class="linkrow" href="/login">
+			<a class="linkrow" href={data.user ? '/account' : '/login'}>
 				<span class="h-sm">Sign in &gt; My Version</span>
 				<span class="arrow" aria-hidden="true">→</span>
 			</a>

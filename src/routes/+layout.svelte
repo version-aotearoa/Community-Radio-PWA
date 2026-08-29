@@ -45,14 +45,7 @@
 	<div class="shell">
 		<header class="site-header">
 			<a class="brand" href="/" aria-label="Version Radio home">
-				<span class="brand-mark" aria-hidden="true">
-					<svg viewBox="0 0 80 70" width="27" height="24" fill="currentColor">
-						<path
-							fill-rule="evenodd"
-							d="M0 0H40V40H50V0H80V45H70V60H55V70H25V60H10V45H0V5ZM10 5H5V40H15V55H30V65H50V55H65V40H75V5H55V45H35V5H15Z"
-						/>
-					</svg>
-				</span>
+				<img class="brand-logo" src="/version-logo.svg" alt="VERSION" />
 			</a>
 			<button
 				class="menu-toggle"
@@ -126,15 +119,7 @@
 		</main>
 
 		<footer class="site-footer">
-			<span class="brand-mark" aria-hidden="true">
-				<svg viewBox="0 0 80 70" width="16" height="14" fill="currentColor">
-					<path
-						fill-rule="evenodd"
-						d="M0 0H40V40H50V0H80V45H70V60H55V70H25V60H10V45H0V5ZM10 5H5V40H15V55H30V65H50V55H65V40H75V5H55V45H35V5H15Z"
-					/>
-				</svg>
-			</span>
-			<span class="footer-name">Version Radio</span>
+			<img class="footer-logo" src="/version-logo.svg" alt="VERSION" />
 			<span class="footer-note mono">Independent radio · Aotearoa · 24/7</span>
 		</footer>
 
@@ -172,10 +157,10 @@
 		color: var(--vr-text);
 	}
 
-	.brand-mark {
-		display: grid;
-		place-items: center;
-		color: var(--vr-text);
+	.brand-logo {
+		height: 20px;
+		width: auto;
+		display: block;
 	}
 
 	.site-nav {
@@ -319,12 +304,10 @@
 		color: var(--vr-muted);
 	}
 
-	.footer-name {
-		font-family: var(--vr-font-headline);
-		font-size: 1rem;
-		line-height: 1;
-		text-transform: uppercase;
-		color: var(--vr-text);
+	.footer-logo {
+		height: 18px;
+		width: auto;
+		display: block;
 	}
 
 	.footer-note {
