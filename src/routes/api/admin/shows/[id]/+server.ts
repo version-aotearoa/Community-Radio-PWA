@@ -13,7 +13,7 @@ export const POST: RequestHandler = async ({ request, params, locals, platform }
 			.first();
 		if (!dj) return json({ error: 'Not a DJ account' }, { status: 400 });
 
-		db.prepare('UPDATE show SET dj_id = ?, updated_at = ? WHERE id = ?')
+		await db.prepare('UPDATE show SET dj_id = ?, updated_at = ? WHERE id = ?')
 			.bind(body.value, Math.floor(Date.now() / 1000), params.id)
 			.run();
 		return json({ ok: true });

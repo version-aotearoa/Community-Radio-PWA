@@ -11,12 +11,12 @@ export const POST: RequestHandler = async ({ request, params, locals, platform }
 	const value = body.value;
 
 	if (action === 'active' && typeof value === 'boolean') {
-		db.prepare('UPDATE user SET active = ? WHERE id = ?').bind(value ? 1 : 0, params.id).run();
+		await db.prepare('UPDATE user SET active = ? WHERE id = ?').bind(value ? 1 : 0, params.id).run();
 		return json({ ok: true });
 	}
 
 	if (action === 'role' && typeof value === 'string' && ROLES.has(value)) {
-		db.prepare('UPDATE user SET role = ? WHERE id = ?').bind(value, params.id).run();
+		await db.prepare('UPDATE user SET role = ? WHERE id = ?').bind(value, params.id).run();
 		return json({ ok: true });
 	}
 

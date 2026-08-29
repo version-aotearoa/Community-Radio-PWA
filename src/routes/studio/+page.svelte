@@ -43,7 +43,26 @@
 	let chatLoaded = $state(false);
 	let purgeName = $state('');
 	let adminError = $state('');
-	let adminNotice = $state('');
+
+	interface RowFeedback {
+		text: string;
+		ok: boolean;
+	}
+
+	let userFeedback = $state<Record<string, RowFeedback>>({});
+	let showFeedback = $state<Record<string, RowFeedback>>({});
+
+	function flashFeedback(
+		target: Record<string, RowFeedback>,
+		key: string,
+		text: string,
+		ok: boolean
+	) {
+		target[key] = { text, ok };
+		setTimeout(() => {
+			if (target[key]?.text === text) delete target[key];
+		}, 4000);
+	}
 
 	async function loadAdmin() {
 		if (!isAdmin) return;
@@ -62,7 +81,6 @@
 
 	async function adminPost(id: string, action: string, value: unknown): Promise<boolean> {
 		adminError = '';
-		adminNotice = '';
 		const res = await fetch(`/api/admin/${action === 'dj' ? 'shows' : 'users'}/${id}`, {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
@@ -75,17 +93,29 @@
 	}
 
 	async function setActive(u: AdminUser, active: boolean) {
-		if (await adminPost(u.id, 'active', active)) u.active = active ? 1 : 0;
+		if (await adminPost(u.id, 'active', active)) {
+			u.active = active ? 1 : 0;
+			flashFeedback(userFeedback, u.id, 'Active updated', true);
+		} else {
+			flashFeedback(userFeedback, u.id, adminError, false);
+		}
 	}
 
 	async function setRole(u: AdminUser, role: AdminUser['role']) {
-		if (await adminPost(u.id, 'role', role)) u.role = role;
+		if (await adminPost(u.id, 'role', role)) {
+			u.role = role;
+			flashFeedback(userFeedback, u.id, 'Role saved', true);
+		} else {
+			flashFeedback(userFeedback, u.id, adminError, false);
+		}
 	}
 
 	async function setShowDj(show: ShowRow, djId: string) {
 		if (await adminPost(show.id, 'dj', djId)) {
 			show.dj_id = djId;
-			adminNotice = 'Show DJ updated.';
+			flashFeedback(showFeedback, show.id, 'DJ saved', true);
+		} else {
+			flashFeedback(showFeedback, show.id, adminError, false);
 		}
 	}
 
@@ -247,12 +277,6 @@
 </section>
 
 {#if isAdmin}
-	{#if adminError}
-		<div class="notice bad">{adminError}</div>
-	{/if}
-	{#if adminNotice}
-		<div class="notice ok">{adminNotice}</div>
-	{/if}
 	<section class="card">
 		<h2>Admin — users</h2>
 		{#if adminUsers.length === 0}
@@ -276,6 +300,11 @@
 								<option value="admin">Admin</option>
 							</select>
 						</label>
+						{#if userFeedback[u.id]}
+							<span class="row-feedback" class:bad={!userFeedback[u.id].ok}>
+								{userFeedback[u.id].text}
+							</span>
+						{/if}
 						<button
 							class="mini-btn"
 							class:off={u.active === 0}
@@ -319,6 +348,11 @@
 								{/each}
 							</select>
 						</label>
+						{#if showFeedback[show.id]}
+							<span class="row-feedback" class:bad={!showFeedback[show.id].ok}>
+								{showFeedback[show.id].text}
+							</span>
+						{/if}
 					</div>
 				{/each}
 			</div>
@@ -495,6 +529,19 @@
 		color: var(--vr-text);
 		border: 1px solid var(--vr-line);
 		padding: 0.25rem 0.4rem;
+	}
+
+	.row-feedback {
+		font-family: var(--vr-font-mono);
+		font-size: 0.72rem;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		color: var(--vr-green);
+		white-space: nowrap;
+	}
+
+	.row-feedback.bad {
+		color: var(--vr-red);
 	}
 
 	.mini-btn {
