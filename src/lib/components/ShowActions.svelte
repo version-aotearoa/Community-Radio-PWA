@@ -8,7 +8,9 @@
 		user,
 		episode = null,
 		episodeSaved: initialEpisodeSaved = false,
-		compact = false
+		compact = false,
+		hintExternal = false,
+		onHintChange
 	}: {
 		showId: string;
 		showTitle: string;
@@ -17,6 +19,8 @@
 		episode?: { broadcastId: string } | null;
 		episodeSaved?: boolean;
 		compact?: boolean;
+		hintExternal?: boolean;
+		onHintChange?: (hint: { show: boolean; kind: 'follow' | 'save' } | null) => void;
 	} = $props();
 
 	let followed = $state(untrack(() => initialFollowed));
@@ -25,6 +29,11 @@
 	let hintKind = $state<'follow' | 'save'>('follow');
 	let copied = $state(false);
 	let copyTimer: ReturnType<typeof setTimeout> | null = null;
+
+	$effect(() => {
+		if (!hintExternal) return;
+		onHintChange?.(loginHint ? { show: true, kind: hintKind } : null);
+	});
 
 	async function toggleFollow() {
 		if (!user) {
@@ -97,7 +106,7 @@
 	{#if copied}
 		<span class="copy-note mono">Copied</span>
 	{/if}
-	{#if loginHint}
+	{#if !hintExternal && loginHint}
 		<div class="login-hint">
 			{hintKind === 'follow' ? 'Sign in to follow shows' : 'Sign in to save broadcasts'} — <a class="hint-link" href="/login">Sign in</a>
 		</div>

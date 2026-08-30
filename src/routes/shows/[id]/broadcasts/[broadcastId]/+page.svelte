@@ -64,6 +64,8 @@
 		const current = $playback;
 		return current.kind === 'media' && current.url === url && $streamPlaying;
 	}
+
+	let loginHint = $state<{ show: boolean; kind: 'follow' | 'save' } | null>(null);
 </script>
 
 <svelte:head>
@@ -113,7 +115,14 @@
 			episode={{ broadcastId: broadcast.id }}
 			episodeSaved={data.savedEpisode}
 			compact
+			hintExternal
+			onHintChange={(h) => (loginHint = h)}
 		/>
+		{#if loginHint?.show}
+			<div class="login-hint hint-row">
+				{loginHint.kind === 'follow' ? 'Sign in to follow shows' : 'Sign in to save broadcasts'} — <a class="hint-link" href="/login">Sign in</a>
+			</div>
+		{/if}
 	</div>
 	<h2>Tracklist</h2>
 	{#if tracks.length}
@@ -258,6 +267,25 @@
 		gap: 0.75rem;
 		flex-wrap: wrap;
 		margin-bottom: 0.25rem;
+	}
+
+	.hint-row {
+		flex-basis: 100%;
+	}
+
+	.login-hint {
+		border: 1px solid var(--vr-line);
+		background: var(--vr-surface-low);
+		color: var(--vr-muted);
+		padding: 0.5rem 0.7rem;
+		font-size: 0.85rem;
+		max-width: 100%;
+	}
+
+	.hint-link {
+		color: var(--vr-text);
+		text-decoration: underline;
+		font-weight: 600;
 	}
 
 	.replay-art {
