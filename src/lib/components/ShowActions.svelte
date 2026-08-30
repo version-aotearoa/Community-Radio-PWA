@@ -166,6 +166,8 @@
 		align-items: flex-start;
 		gap: 0.6rem;
 		flex-shrink: 0;
+		min-width: 0;
+		max-width: 100%;
 	}
 
 	.actions.compact {
@@ -219,6 +221,14 @@
 		color: var(--vr-muted);
 		padding: 0.5rem 0.7rem;
 		font-size: 0.85rem;
+		max-width: 100%;
+		white-space: normal;
+	}
+
+	@media (max-width: 640px) {
+		.actions.compact .login-hint {
+			text-align: left;
+		}
 	}
 
 	.hint-link {

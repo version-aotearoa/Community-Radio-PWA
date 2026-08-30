@@ -256,6 +256,7 @@
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
+		flex-wrap: wrap;
 		margin-bottom: 0.25rem;
 	}
 
