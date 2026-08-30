@@ -234,7 +234,8 @@
 	}
 
 	.embed-row {
-		padding: 0.85rem 0;
+		padding: 0;
+		border-bottom: none;
 		align-items: center;
 	}
 
