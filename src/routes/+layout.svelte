@@ -98,7 +98,7 @@
 			</nav>
 			{#if user}
 				<div class="account">
-					<a class="avatar" href="/account" title={user.email} aria-label="Account: {user.name || user.email}">
+					<a class="avatar" href="/account" title={user.email} aria-label="My Version: {user.name || user.email}">
 						<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
 							<circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8" />
 							<path

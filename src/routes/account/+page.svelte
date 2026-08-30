@@ -15,6 +15,7 @@
 
 	const user = $derived(data.user);
 	let busy = $state(false);
+	let activeTab = $state<'profile' | 'following' | 'saved'>('profile');
 
 	let editingName = $state(false);
 	let nameInput = $state('');
@@ -73,15 +74,32 @@
 </script>
 
 <svelte:head>
-	<title>Account — Version Radio</title>
+	<title>My Version — Version Radio</title>
 </svelte:head>
 
 <div class="page">
 	<header class="head">
-		<h1 class="h-lg">Account</h1>
+		<h1 class="h-lg">My Version</h1>
 	</header>
 
-	<section class="card">
+	<div class="tabs" role="tablist">
+		<button class="tab" class:active={activeTab === 'profile'} onclick={() => (activeTab = 'profile')}>
+			Profile
+		</button>
+		<button
+			class="tab"
+			class:active={activeTab === 'following'}
+			onclick={() => (activeTab = 'following')}
+		>
+			Following
+		</button>
+		<button class="tab" class:active={activeTab === 'saved'} onclick={() => (activeTab = 'saved')}>
+			Saved
+		</button>
+	</div>
+
+	{#if activeTab === 'profile'}
+		<section class="card">
 		<div class="identity">
 			<div class="avatar" aria-hidden="true">
 				<svg viewBox="0 0 24 24" width="18" height="18">
@@ -136,64 +154,73 @@
 			{busy ? 'Signing out…' : 'Sign out'}
 		</button>
 	</section>
+	{/if}
 
-	{#if data.following.length > 0}
+	{#if activeTab === 'following'}
 		<section class="card">
 			<h2 class="card-title">Following</h2>
-			<ul>
-				{#each data.following as s (s.id)}
-					<li>
-						<a class="saved-row" href={`/shows/${s.id}`}>
-							<span class="saved-art">
-								{#if s.image}
-									<img src={s.image} alt="" loading="lazy" />
-								{:else}
-									<svg viewBox="0 0 80 70" fill="currentColor" width="20" height="17" aria-hidden="true">
-										<path
-											fill-rule="evenodd"
-											d="M0 0H40V40H50V0H80V45H70V60H55V70H25V60H10V45H0V5ZM10 5H5V40H15V55H30V65H50V55H65V40H75V5H55V45H35V5H15Z"
-										/>
-									</svg>
-								{/if}
-							</span>
-							<span class="saved-info">
-								<span class="h-sm">{s.title}</span>
-								<span class="mono meta">Following · {fmtSaved(s.followed_at)}</span>
-							</span>
-						</a>
-					</li>
-				{/each}
-			</ul>
+			{#if data.following.length === 0}
+				<p class="muted">You're not following any shows yet.</p>
+			{:else}
+				<ul>
+					{#each data.following as s (s.id)}
+						<li>
+							<a class="saved-row" href={`/shows/${s.id}`}>
+								<span class="saved-art">
+									{#if s.image}
+										<img src={s.image} alt="" loading="lazy" />
+									{:else}
+										<svg viewBox="0 0 80 70" fill="currentColor" width="20" height="17" aria-hidden="true">
+											<path
+												fill-rule="evenodd"
+												d="M0 0H40V40H50V0H80V45H70V60H55V70H25V60H10V45H0V5ZM10 5H5V40H15V55H30V65H50V55H65V40H75V5H55V45H35V5H15Z"
+											/>
+										</svg>
+									{/if}
+								</span>
+								<span class="saved-info">
+									<span class="h-sm">{s.title}</span>
+									<span class="mono meta">Following · {fmtSaved(s.followed_at)}</span>
+								</span>
+							</a>
+						</li>
+					{/each}
+				</ul>
+			{/if}
 		</section>
 	{/if}
 
-	{#if data.saved.length > 0}
+	{#if activeTab === 'saved'}
 		<section class="card">
 			<h2 class="card-title">Saved broadcasts</h2>
-			<ul>
-				{#each data.saved as s (s.broadcast_id)}
-					<li>
-						<a class="saved-row" href={`/shows/${s.show_id}/broadcasts/${s.broadcast_id}`}>
-							<span class="saved-art">
-								{#if s.image}
-									<img src={s.image} alt="" loading="lazy" />
-								{:else}
-									<svg viewBox="0 0 80 70" fill="currentColor" width="20" height="17" aria-hidden="true">
-										<path
-											fill-rule="evenodd"
-											d="M0 0H40V40H50V0H80V45H70V60H55V70H25V60H10V45H0V5ZM10 5H5V40H15V55H30V65H50V55H65V40H75V5H55V45H35V5H15Z"
-										/>
-									</svg>
-								{/if}
-							</span>
-							<span class="saved-info">
-								<span class="h-sm">{s.title}</span>
-								<span class="mono meta">Saved {fmtSaved(s.saved_at)} · {fmtDate(s.date)}</span>
-							</span>
-						</a>
-					</li>
-				{/each}
-			</ul>
+			{#if data.saved.length === 0}
+				<p class="muted">No saved broadcasts yet.</p>
+			{:else}
+				<ul>
+					{#each data.saved as s (s.broadcast_id)}
+						<li>
+							<a class="saved-row" href={`/shows/${s.show_id}/broadcasts/${s.broadcast_id}`}>
+								<span class="saved-art">
+									{#if s.image}
+										<img src={s.image} alt="" loading="lazy" />
+									{:else}
+										<svg viewBox="0 0 80 70" fill="currentColor" width="20" height="17" aria-hidden="true">
+											<path
+												fill-rule="evenodd"
+												d="M0 0H40V40H50V0H80V45H70V60H55V70H25V60H10V45H0V5ZM10 5H5V40H15V55H30V65H50V55H65V40H75V5H55V45H35V5H15Z"
+											/>
+										</svg>
+									{/if}
+								</span>
+								<span class="saved-info">
+									<span class="h-sm">{s.title}</span>
+									<span class="mono meta">Saved {fmtSaved(s.saved_at)} · {fmtDate(s.date)}</span>
+								</span>
+							</a>
+						</li>
+					{/each}
+				</ul>
+			{/if}
 		</section>
 	{/if}
 </div>
@@ -212,6 +239,44 @@
 
 	.head h1 {
 		margin: 0;
+	}
+
+	.tabs {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+		border-bottom: 1px solid var(--vr-line);
+		padding-bottom: 0.75rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.tab {
+		background: none;
+		border: 1px solid var(--vr-line);
+		color: var(--vr-muted);
+		font-family: var(--vr-font-mono);
+		font-size: 0.72rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		padding: 0.4rem 0.9rem;
+		cursor: pointer;
+	}
+
+	.tab:hover {
+		color: var(--vr-text);
+		border-color: var(--vr-text);
+	}
+
+	.tab.active {
+		background: var(--vr-text);
+		color: var(--vr-black);
+		border-color: var(--vr-text);
+	}
+
+	.muted {
+		color: var(--vr-muted);
+		font-size: 0.9rem;
 	}
 
 	.card {
