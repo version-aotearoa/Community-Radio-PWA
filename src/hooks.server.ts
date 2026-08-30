@@ -3,6 +3,11 @@ import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { createAuth } from '$lib/server/auth';
 
 export async function handle({ event, resolve }) {
+	// Never let the browser (or edge) cache SSR responses: HTML pages and data
+	// must be fresh on every load (Safari heuristically caches responses with
+	// no Cache-Control header). Static assets bypass the worker entirely.
+	event.setHeaders({ 'cache-control': 'no-store' });
+
 	if (event.platform?.env) {
 		const auth = createAuth(event.platform.env);
 

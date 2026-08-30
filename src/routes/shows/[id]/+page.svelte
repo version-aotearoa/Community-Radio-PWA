@@ -541,22 +541,22 @@
 
 	.broadcast.past .past-art {
 		display: block;
-		width: auto;
-		height: 100%;
-		aspect-ratio: 1 / 1;
+		align-self: stretch;
 		background: var(--vr-surface-highest);
 	}
 
 	.broadcast.past .past-art img {
-		width: 100%;
 		height: 100%;
+		width: auto;
+		aspect-ratio: 1 / 1;
 		object-fit: cover;
 		display: block;
 	}
 
 	.past-art-fallback {
-		width: 100%;
 		height: 100%;
+		width: auto;
+		aspect-ratio: 1 / 1;
 		display: grid;
 		place-items: center;
 		background: #000;
