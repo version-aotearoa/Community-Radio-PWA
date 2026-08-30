@@ -24,6 +24,7 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 	const body = (await request.json()) as {
 		title?: string;
 		description?: string;
+		image?: string;
 		dayOfWeek?: number;
 		startMinutes?: number;
 		durationMinutes?: number;
@@ -53,6 +54,7 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 			djId: user.id,
 			title: body.title,
 			description: body.description,
+			image: typeof body.image === 'string' ? body.image : undefined,
 			dayOfWeek,
 			startMinutes,
 			durationMinutes,

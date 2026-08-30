@@ -197,7 +197,7 @@
 							{#if b.onair}
 								<span class="live-dot" aria-hidden="true"></span>
 							{/if}
-							{b.title}{#if b.dj_name} <span class="slot-dj">with {b.dj_name}</span>{/if}
+							{b.title}{#if b.dj_name && b.kind !== 'event'} <span class="slot-dj">with {b.dj_name}</span>{/if}
 						</span>
 					</li>
 				{:else}
@@ -461,7 +461,13 @@
 		place-items: center;
 		width: 100%;
 		height: 100%;
-		color: var(--vr-faint);
+		background: #000;
+		color: var(--vr-text);
+	}
+
+	.art-glyph svg {
+		width: 56px;
+		height: 49px;
 	}
 
 	.showcard-meta {
@@ -664,8 +670,8 @@
 		flex-shrink: 0;
 		display: grid;
 		place-items: center;
-		background: var(--vr-surface-highest);
-		color: var(--vr-muted);
+		background: #000;
+		color: var(--vr-text);
 	}
 
 	.feat-art img {

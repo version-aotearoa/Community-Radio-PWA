@@ -50,7 +50,7 @@
 		playMedia({
 			url: broadcast.replay_url,
 			title: `${show.title} — ${fmtDate(broadcast.date)}`,
-			artist: show.dj_name ?? null,
+			artist: show.kind === 'event' ? null : (show.dj_name ?? null),
 			art: replayArtFromUrl(broadcast.replay_url),
 			show: { id: show.id, title: show.title },
 			href: `/shows/${show.id}/broadcasts/${broadcast.id}`,
@@ -81,7 +81,7 @@
 		· {fmtTime(broadcast.start_minutes)}–{fmtTime(
 			broadcast.start_minutes + broadcast.duration_minutes
 		)}
-		{#if show.dj_name}· with {show.dj_name}{/if}
+		{#if show.dj_name && show.kind !== 'event'}· with {show.dj_name}{/if}
 	</p>
 
 <section class="card">
@@ -308,8 +308,8 @@
 	.replay-art-fallback {
 		display: grid;
 		place-items: center;
-		background: var(--vr-surface-highest);
-		color: var(--vr-faint);
+		background: #000;
+		color: var(--vr-text);
 	}
 
 	.replay-btn {

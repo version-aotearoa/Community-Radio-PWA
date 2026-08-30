@@ -86,7 +86,7 @@
 										{fmtTime(b.start_minutes)}–{fmtTime(b.start_minutes + b.duration_minutes)}
 									</span>
 									<span class="show-title h-sm">{b.title}</span>
-									{#if b.dj_name}
+									{#if b.dj_name && b.kind !== 'event'}
 										<span class="dj mono">{b.dj_name}</span>
 									{/if}
 								</a>

@@ -17,11 +17,14 @@
 	let notice = $state('');
 
 	let createKind = $state<'show' | 'event'>('show');
+	let showImage = $state('');
 	let evTitle = $state('');
 	let evDate = $state('');
 	let evStartHours = $state('18');
 	let evStartMinutes = $state('0');
 	let evReplay = $state('');
+	let evDescription = $state('');
+	let evImage = $state('');
 	let evSaving = $state(false);
 	let evError = $state('');
 	let evNotice = $state('');
@@ -47,7 +50,9 @@
 				date: evDate.trim(),
 				startMinutes: Number(evStartHours) * 60 + Number(evStartMinutes),
 				durationMinutes: 60,
-				replayUrl: evReplay
+				replayUrl: evReplay,
+				description: evDescription,
+				image: evImage
 			})
 		});
 		evSaving = false;
@@ -59,6 +64,8 @@
 		evTitle = '';
 		evDate = '';
 		evReplay = '';
+		evDescription = '';
+		evImage = '';
 		evNotice = 'Event created.';
 	}
 
@@ -165,6 +172,7 @@
 	let ef = $state({
 		title: '',
 		description: '',
+		image: '',
 		djId: '',
 		djHandle: '',
 		dayOfWeek: '0',
@@ -184,6 +192,7 @@
 		ef = {
 			title: show.title,
 			description: show.description ?? '',
+			image: show.image ?? '',
 			djId: show.dj_id,
 			djHandle: show.dj_handle ?? '',
 			dayOfWeek: String(show.day_of_week),
@@ -202,6 +211,7 @@
 		const body: Record<string, unknown> = {
 			title: ef.title,
 			description: ef.description,
+			image: ef.image,
 			djId: ef.djId,
 			djHandle: ef.djHandle
 		};
@@ -228,6 +238,7 @@
 		}
 		show.title = ef.title.trim() || show.title;
 		show.description = ef.description.trim();
+		show.image = ef.image.trim() || null;
 		show.dj_id = ef.djId;
 		show.dj_handle = ef.djHandle.trim();
 		if (show.kind === 'event') {
@@ -371,6 +382,7 @@
 			body: JSON.stringify({
 				title,
 				description,
+				image: showImage,
 				dayOfWeek: Number(dayOfWeek),
 				startMinutes: Number(startHours) * 60 + Number(startMinutes),
 				durationMinutes: Number(duration),
@@ -384,6 +396,7 @@
 		}
 		title = '';
 		description = '';
+		showImage = '';
 		notice = 'Show created.';
 		const showsRes = await fetch('/api/shows');
 		if (showsRes.ok) {
@@ -482,6 +495,9 @@
 			<Field label="Description">
 				<Text bind:value={description} placeholder="Short blurb (optional)" css="vr-input" />
 			</Field>
+			<Field label="Image URL (optional)">
+				<Text bind:value={showImage} placeholder="https://…" css="vr-input" />
+			</Field>
 			<div class="row">
 				<Field label="Day">
 					<Combo
@@ -516,6 +532,9 @@
 			<Field label="Event name">
 				<Text bind:value={evTitle} placeholder="e.g. HIFI SESSION" css="vr-input" />
 			</Field>
+			<Field label="Description (optional)">
+				<Text bind:value={evDescription} placeholder="Short blurb" css="vr-input" />
+			</Field>
 			<Field label="Date">
 				<Text bind:value={evDate} placeholder="YYYY-MM-DD" css="vr-input" />
 			</Field>
@@ -533,6 +552,9 @@
 					placeholder="Track id or on-demand URL"
 					css="vr-input"
 				/>
+			</Field>
+			<Field label="Image URL (optional)">
+				<Text bind:value={evImage} placeholder="https://…" css="vr-input" />
 			</Field>
 			{#if evError}
 				<div class="notice bad">{evError}</div>
@@ -743,6 +765,9 @@
 							</Field>
 							<Field label="Description">
 								<Text bind:value={ef.description} css="vr-input" />
+							</Field>
+							<Field label="Image URL (blank clears)">
+								<Text bind:value={ef.image} placeholder="https://…" css="vr-input" />
 							</Field>
 							<Field label="DJ name">
 								<Text bind:value={ef.djHandle} css="vr-input" />

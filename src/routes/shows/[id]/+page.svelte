@@ -134,7 +134,7 @@
 		playMedia({
 			url: b.replay_url,
 			title: `${show.title} — ${fmtDate(b.date)}`,
-			artist: show.dj_name ?? null,
+			artist: show.kind === 'event' ? null : (show.dj_name ?? null),
 			art: replayArtFromUrl(b.replay_url),
 			show: { id: show.id, title: show.title },
 			href: `/shows/${show.id}/broadcasts/${b.id}`,
@@ -174,7 +174,7 @@
 					</p>
 				{/if}
 			{/if}
-			{#if djName}
+			{#if djName && show.kind !== 'event'}
 				<p class="dj mono">with {djName}</p>
 			{/if}
 			{#if editing}
@@ -559,7 +559,8 @@
 		height: 100%;
 		display: grid;
 		place-items: center;
-		color: var(--vr-faint);
+		background: #000;
+		color: var(--vr-text);
 	}
 
 	.broadcast.past .past-body {

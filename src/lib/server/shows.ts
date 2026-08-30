@@ -264,6 +264,7 @@ export function cycleWeekOf(dateStr: string): number {
 export interface UpcomingBroadcast extends BroadcastRow {
 	title: string;
 	dj_name: string | null;
+	kind: string;
 }
 
 export interface AiringInfo extends UpcomingBroadcast {
@@ -340,7 +341,7 @@ export async function getUpcomingBroadcasts(
 	const to = addDays(from, days);
 	const { results } = await db
 		.prepare(
-			`SELECT b.*, s.title, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name
+			`SELECT b.*, s.title, s.kind, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name
 			 FROM broadcast b
 			 JOIN show s ON s.id = b.show_id
 			 LEFT JOIN user u ON u.id = s.dj_id
@@ -358,6 +359,7 @@ export async function createShow(
 		djId: string;
 		title: string;
 		description?: string;
+		image?: string | null;
 		dayOfWeek: number;
 		startMinutes: number;
 		durationMinutes: number;
@@ -373,16 +375,18 @@ export async function createShow(
 	const kind = input.kind === 'event' ? 'event' : 'show';
 	const intervalWeeks = Math.max(1, Math.floor(input.intervalWeeks ?? 1) || 1);
 	const anchorDate = input.anchorDate ?? input.date ?? nextDateForWeekday(input.dayOfWeek, todayStr());
+	const image = input.image?.trim().slice(0, 500) || null;
 	await db
 		.prepare(
-			`INSERT INTO show (id, dj_id, title, description, day_of_week, start_minutes, duration_minutes, interval_weeks, anchor_date, kind, active, created_at, updated_at)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
+			`INSERT INTO show (id, dj_id, title, description, image, day_of_week, start_minutes, duration_minutes, interval_weeks, anchor_date, kind, active, created_at, updated_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
 		)
 		.bind(
 			id,
 			input.djId,
 			input.title.trim(),
 			input.description?.trim() ?? '',
+			image,
 			input.dayOfWeek,
 			input.startMinutes,
 			input.durationMinutes,

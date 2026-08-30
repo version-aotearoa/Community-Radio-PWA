@@ -394,8 +394,8 @@
 		flex-shrink: 0;
 		display: grid;
 		place-items: center;
-		background: var(--vr-surface-highest);
-		color: var(--vr-muted);
+		background: #000;
+		color: var(--vr-text);
 	}
 
 	.saved-art img {

@@ -45,10 +45,10 @@
 			{#each shows as show (show.id)}
 				<li>
 					<a class="card" href={`/shows/${show.id}`}>
-						<div class="card-img" class:empty={!show.image && !show.dj_image}>
+						<div class="card-img" class:empty={!show.image && !(show.kind !== 'event' && show.dj_image)}>
 							{#if show.image}
 								<img src={show.image} alt="" loading="lazy" />
-							{:else if show.dj_image}
+							{:else if show.kind !== 'event' && show.dj_image}
 								<img src={show.dj_image} alt="" loading="lazy" />
 							{:else}
 								<svg viewBox="0 0 80 70" fill="currentColor" aria-hidden="true">
@@ -70,7 +70,7 @@
 								{/if}
 							</p>
 							<h2 class="h-md">{show.title}</h2>
-							{#if show.dj_name}
+							{#if show.dj_name && show.kind !== 'event'}
 								<p class="dj mono">{show.dj_name}</p>
 							{/if}
 							{#if show.description}
@@ -151,12 +151,13 @@
 	.card-img.empty {
 		display: grid;
 		place-items: center;
-		color: var(--vr-faint);
+		background: #000;
+		color: var(--vr-text);
 	}
 
 	.card-img.empty svg {
-		width: 48px;
-		height: 42px;
+		width: 96px;
+		height: 84px;
 	}
 
 	.card-body {

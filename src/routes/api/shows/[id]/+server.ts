@@ -26,6 +26,7 @@ export const POST: RequestHandler = async ({ request, params, locals, platform }
 	const body = (await request.json()) as {
 		title?: string;
 		description?: string;
+		image?: string;
 		djId?: string;
 		djHandle?: string;
 		dayOfWeek?: number | string;
@@ -57,6 +58,11 @@ export const POST: RequestHandler = async ({ request, params, locals, platform }
 	if (typeof body.djHandle === 'string') {
 		columns.push('dj_handle = ?');
 		values.push(body.djHandle.trim().slice(0, 100));
+	}
+
+	if (typeof body.image === 'string') {
+		columns.push('image = ?');
+		values.push(body.image.trim().slice(0, 500) || null);
 	}
 
 	if (typeof body.djId === 'string') {
