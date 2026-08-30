@@ -9,6 +9,7 @@ interface __BaseEnv_CloudflareBindings {
 	TURNSTILE_SECRET: string;
 	TURNSTILE_HOSTNAMES: string;
 	PUBLIC_TURNSTILE_SITE_KEY: string;
+	CONTACT_TO: string;
 }
 declare namespace Cloudflare {
 	interface Env extends __BaseEnv_CloudflareBindings {}
@@ -18,7 +19,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "AUTH_SECRET" | "AUTH_TRUST_HOST" | "PUBLIC_CHAT_URL" | "TURNSTILE_SECRET" | "TURNSTILE_HOSTNAMES" | "PUBLIC_TURNSTILE_SITE_KEY">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "AUTH_SECRET" | "AUTH_TRUST_HOST" | "PUBLIC_CHAT_URL" | "TURNSTILE_SECRET" | "TURNSTILE_HOSTNAMES" | "PUBLIC_TURNSTILE_SITE_KEY" | "CONTACT_TO">> {}
 }
 
 // Begin runtime types

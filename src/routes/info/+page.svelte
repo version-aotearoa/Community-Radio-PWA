@@ -1,5 +1,58 @@
 <script lang="ts">
-	// Static info page — content is placeholder until finalised.
+	import { Button, Field, Text, TextArea } from '@svar-ui/svelte-core';
+	import Turnstile from '$lib/components/Turnstile.svelte';
+
+	let { data } = $props();
+
+	let name = $state('');
+	let email = $state('');
+	let message = $state('');
+	let sending = $state(false);
+	let sent = $state(false);
+	let error = $state('');
+	let turnstileToken = $state('');
+	let turnstileExpired = $state(false);
+
+	function onTurnstileToken(token: string) {
+		turnstileToken = token;
+		turnstileExpired = false;
+	}
+
+	function onTurnstileExpire() {
+		turnstileToken = '';
+		turnstileExpired = true;
+	}
+
+	async function submit() {
+		error = '';
+		if (!email.trim()) {
+			error = 'Enter your email address.';
+			return;
+		}
+		if (!message.trim()) {
+			error = 'Enter a message.';
+			return;
+		}
+		if (data.siteKey && !turnstileToken) {
+			error = turnstileExpired
+				? 'Verification expired — please verify again.'
+				: 'Please complete the verification.';
+			return;
+		}
+		sending = true;
+		const res = await fetch('/api/contact', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ name, email, message, turnstileToken })
+		});
+		sending = false;
+		if (!res.ok) {
+			const body = (await res.json().catch(() => null)) as { error?: string } | null;
+			error = body?.error ?? 'Could not send your message. Please try again.';
+			return;
+		}
+		sent = true;
+	}
 </script>
 
 <svelte:head>
@@ -12,9 +65,45 @@
 		<p class="subtitle mono">Station information, contact, and terms.</p>
 	</header>
 
+	<section class="card" id="about">
+		<h2 class="card-title">About</h2>
+		<p>
+			Version Radio is an underground independent art-radio station from Aotearoa New Zealand
+			— a 24/7 stream of live shows, DJ tracklists, replays, and community chat.
+		</p>
+	</section>
+
 	<section class="card" id="contact">
 		<h2 class="card-title">Contact</h2>
-		<p>Email the station at <a class="mail" href="mailto:admin@version.nz">admin@version.nz</a>.</p>
+		{#if sent}
+			<p>Thanks — we'll get back to you.</p>
+		{:else}
+			<form class="contact-form" onsubmit={(e) => { e.preventDefault(); submit(); }}>
+				<Field label="Name (optional)">
+					<Text bind:value={name} placeholder="Your name" css="vr-input" />
+				</Field>
+				<Field label="Email">
+					<Text bind:value={email} placeholder="you@example.com" css="vr-input" />
+				</Field>
+				<Field label="Message">
+					<TextArea bind:value={message} placeholder="Say hi…" css="vr-input" />
+				</Field>
+				{#if data.siteKey}
+					<Turnstile
+						siteKey={data.siteKey}
+						action="contact"
+						onToken={onTurnstileToken}
+						onExpire={onTurnstileExpire}
+					/>
+				{/if}
+				{#if error}
+					<div class="notice bad">{error}</div>
+				{/if}
+				<Button css="vr-cta" type="primary" disabled={sending} onclick={submit}>
+					{sending ? 'Sending…' : 'Send message'}
+				</Button>
+			</form>
+		{/if}
 	</section>
 
 	<section class="card" id="terms">
@@ -22,14 +111,6 @@
 		<p>
 			Terms of use are being drafted. Be decent in the chat — abusive behaviour may get you
 			removed. Placeholder copy, to be finalised soon.
-		</p>
-	</section>
-
-	<section class="card" id="about">
-		<h2 class="card-title">About</h2>
-		<p>
-			Version Radio is an underground independent art-radio station from Aotearoa New Zealand
-			— a 24/7 stream of live shows, DJ tracklists, replays, and community chat.
 		</p>
 	</section>
 </div>
@@ -80,8 +161,17 @@
 		line-height: 1.55;
 	}
 
-	.mail {
-		color: var(--vr-text);
-		text-decoration: underline;
+	.contact-form {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		max-width: 28rem;
+	}
+
+	.notice {
+		padding: 0.5rem 0.8rem;
+		border: 1px solid var(--vr-line);
+		font-size: 0.85rem;
+		color: var(--vr-red);
 	}
 </style>
