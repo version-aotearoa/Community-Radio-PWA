@@ -581,8 +581,9 @@
 
 	.slot {
 		display: flex;
-		align-items: baseline;
-		gap: 1rem;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.35rem;
 		padding: 0.9rem 0;
 		border-top: 1px solid var(--vr-line-muted);
 	}
@@ -617,14 +618,6 @@
 
 	.slot.onair .slot-dj {
 		color: var(--vr-muted);
-	}
-
-	@media (max-width: 640px) {
-		.slot {
-			flex-direction: column;
-			align-items: flex-start;
-			gap: 0.35rem;
-		}
 	}
 
 	.live-dot {
