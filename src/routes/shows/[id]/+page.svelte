@@ -531,32 +531,31 @@
 	}
 
 	.broadcast.past {
-		display: grid;
-		grid-template-columns: auto 1fr;
-		gap: 1rem;
+		display: flex;
 		align-items: stretch;
+		gap: 1rem;
 		padding: 0;
 		overflow: hidden;
 	}
 
 	.broadcast.past .past-art {
-		display: block;
+		flex: 0 0 auto;
+		aspect-ratio: 1 / 1;
 		align-self: stretch;
+		display: flex;
+		align-items: stretch;
 		background: var(--vr-surface-highest);
 	}
 
 	.broadcast.past .past-art img {
-		height: 100%;
-		width: auto;
-		aspect-ratio: 1 / 1;
+		flex: 1;
+		min-width: 0;
 		object-fit: cover;
 		display: block;
 	}
 
 	.past-art-fallback {
-		height: 100%;
-		width: auto;
-		aspect-ratio: 1 / 1;
+		flex: 1;
 		display: grid;
 		place-items: center;
 		background: #000;
@@ -564,11 +563,12 @@
 	}
 
 	.broadcast.past .past-body {
+		flex: 1 1 auto;
+		min-width: 0;
 		display: flex;
 		flex-direction: column;
 		justify-content: center;
 		padding: 0.9rem 1.1rem 0.9rem 0;
-		min-width: 0;
 	}
 
 	@media (max-width: 640px) {
