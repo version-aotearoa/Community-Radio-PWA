@@ -117,8 +117,6 @@
 				<div class="showcard-art">
 					{#if show.show_image}
 						<img src={show.show_image} alt="" loading="lazy" />
-					{:else if show.dj_name}
-						<span class="art-fallback mono">{show.dj_name}</span>
 					{:else}
 						<div class="art-glyph" aria-hidden="true">
 							<svg viewBox="0 0 80 70" fill="currentColor" width="42" height="37">
@@ -458,20 +456,12 @@
 		color: #fff;
 	}
 
-	.art-glyph,
-	.art-fallback {
+	.art-glyph {
 		display: grid;
 		place-items: center;
 		width: 100%;
 		height: 100%;
 		color: var(--vr-faint);
-	}
-
-	.art-fallback {
-		text-transform: uppercase;
-		padding: 1rem;
-		text-align: center;
-		word-break: break-word;
 	}
 
 	.showcard-meta {

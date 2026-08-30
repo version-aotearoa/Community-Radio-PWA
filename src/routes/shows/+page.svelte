@@ -16,8 +16,15 @@
 		return `Every ${show.interval_weeks} weeks`;
 	}
 
-	function initial(title: string) {
-		return title.charAt(0).toUpperCase();
+	function fmtDate(dateStr: string | null) {
+		if (!dateStr) return '';
+		return new Intl.DateTimeFormat('en-NZ', {
+			weekday: 'short',
+			day: 'numeric',
+			month: 'short',
+			year: 'numeric',
+			timeZone: 'UTC'
+		}).format(new Date(`${dateStr}T00:00:00Z`));
 	}
 </script>
 
@@ -44,14 +51,23 @@
 							{:else if show.dj_image}
 								<img src={show.dj_image} alt="" loading="lazy" />
 							{:else}
-								<span>{initial(show.title)}</span>
+								<svg viewBox="0 0 80 70" fill="currentColor" aria-hidden="true">
+									<path
+										fill-rule="evenodd"
+										d="M0 0H40V40H50V0H80V45H70V60H55V70H25V60H10V45H0V5ZM10 5H5V40H15V55H30V65H50V55H65V40H75V5H55V45H35V5H15Z"
+									/>
+								</svg>
 							{/if}
 						</div>
 						<div class="card-body">
 							<p class="mono card-meta">
-								{DAY_NAMES[show.day_of_week]}s · {fmtTime(show.start_minutes)}–{fmtTime(
-									show.start_minutes + show.duration_minutes
-								)} · {cycleLabel(show)}
+								{#if show.kind === 'event'}
+									{fmtDate(show.anchor_date)}
+								{:else}
+									{DAY_NAMES[show.day_of_week]}s · {fmtTime(show.start_minutes)}–{fmtTime(
+										show.start_minutes + show.duration_minutes
+									)} · {cycleLabel(show)}
+								{/if}
 							</p>
 							<h2 class="h-md">{show.title}</h2>
 							{#if show.dj_name}
@@ -138,9 +154,9 @@
 		color: var(--vr-faint);
 	}
 
-	.card-img.empty span {
-		font-size: 2rem;
-		font-weight: 700;
+	.card-img.empty svg {
+		width: 48px;
+		height: 42px;
 	}
 
 	.card-body {

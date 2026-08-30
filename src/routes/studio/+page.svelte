@@ -161,6 +161,88 @@
 	let userFeedback = $state<Record<string, RowFeedback>>({});
 	let showFeedback = $state<Record<string, RowFeedback>>({});
 
+	let editingShowId = $state('');
+	let ef = $state({
+		title: '',
+		description: '',
+		djId: '',
+		djHandle: '',
+		dayOfWeek: '0',
+		startHours: '18',
+		startMinutes: '0',
+		duration: '60',
+		intervalWeeks: '1',
+		date: '',
+		replay: ''
+	});
+	let efSaving = $state(false);
+	let efError = $state('');
+
+	function startEditShow(show: ShowRow) {
+		editingShowId = show.id;
+		efError = '';
+		ef = {
+			title: show.title,
+			description: show.description ?? '',
+			djId: show.dj_id,
+			djHandle: show.dj_handle ?? '',
+			dayOfWeek: String(show.day_of_week),
+			startHours: String(Math.floor(show.start_minutes / 60)),
+			startMinutes: String(show.start_minutes % 60),
+			duration: String(show.duration_minutes),
+			intervalWeeks: String(show.interval_weeks),
+			date: show.anchor_date ?? '',
+			replay: ''
+		};
+	}
+
+	async function saveEditShow(show: ShowRow) {
+		efSaving = true;
+		efError = '';
+		const body: Record<string, unknown> = {
+			title: ef.title,
+			description: ef.description,
+			djId: ef.djId,
+			djHandle: ef.djHandle
+		};
+		if (show.kind === 'event') {
+			body.date = ef.date;
+			body.startMinutes = Number(ef.startHours) * 60 + Number(ef.startMinutes);
+			if (ef.replay.trim()) body.replayUrl = ef.replay;
+		} else {
+			body.dayOfWeek = Number(ef.dayOfWeek);
+			body.startMinutes = Number(ef.startHours) * 60 + Number(ef.startMinutes);
+			body.durationMinutes = Number(ef.duration);
+			body.intervalWeeks = Number(ef.intervalWeeks);
+		}
+		const res = await fetch(`/api/shows/${show.id}`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(body)
+		});
+		efSaving = false;
+		if (!res.ok) {
+			const err = (await res.json().catch(() => null)) as { error?: string } | null;
+			efError = err?.error ?? `Save failed (${res.status})`;
+			return;
+		}
+		show.title = ef.title.trim() || show.title;
+		show.description = ef.description.trim();
+		show.dj_id = ef.djId;
+		show.dj_handle = ef.djHandle.trim();
+		if (show.kind === 'event') {
+			show.anchor_date = ef.date.trim();
+			show.start_minutes = Number(ef.startHours) * 60 + Number(ef.startMinutes);
+		} else {
+			show.day_of_week = Number(ef.dayOfWeek);
+			show.start_minutes = Number(ef.startHours) * 60 + Number(ef.startMinutes);
+			show.duration_minutes = Number(ef.duration);
+			show.interval_weeks = Number(ef.intervalWeeks);
+		}
+		editingShowId = '';
+		flashFeedback(showFeedback, show.id, 'Saved', true);
+	}
+
 	function flashFeedback(
 		target: Record<string, RowFeedback>,
 		key: string,
@@ -620,7 +702,11 @@
 						<div class="user-main">
 							<strong>{show.title}</strong>
 							<span class="meta">
-								{DAYS[show.day_of_week]} · {fmtStart(show.start_minutes)}
+								{#if show.kind === 'event'}
+									Event
+								{:else}
+									{DAYS[show.day_of_week]} · {fmtStart(show.start_minutes)}
+								{/if}
 							</span>
 						</div>
 						<label class="role-label" title="DJ">
@@ -642,7 +728,84 @@
 								{showFeedback[show.id].text}
 							</span>
 						{/if}
+						<button class="mini-btn" onclick={() => startEditShow(show)}>Edit</button>
 					</div>
+					{#if editingShowId === show.id}
+						<form
+							class="show-edit"
+							onsubmit={(e) => {
+								e.preventDefault();
+								saveEditShow(show);
+							}}
+						>
+							<Field label="Title">
+								<Text bind:value={ef.title} css="vr-input" />
+							</Field>
+							<Field label="Description">
+								<Text bind:value={ef.description} css="vr-input" />
+							</Field>
+							<Field label="DJ name">
+								<Text bind:value={ef.djHandle} css="vr-input" />
+							</Field>
+							<Field label="DJ">
+								<select class="dj-select" bind:value={ef.djId}>
+									{#if !djUsers.some((d) => d.id === ef.djId)}
+										<option value={ef.djId} disabled>Unknown DJ</option>
+									{/if}
+									{#each djUsers as dj (dj.id)}
+										<option value={dj.id}>{dj.name || dj.email}</option>
+									{/each}
+								</select>
+							</Field>
+							{#if show.kind === 'event'}
+								<Field label="Date">
+									<Text bind:value={ef.date} placeholder="YYYY-MM-DD" css="vr-input" />
+								</Field>
+								<div class="row">
+									<Field label="Start hour (24h)">
+										<Text bind:value={ef.startHours} css="vr-input" />
+									</Field>
+									<Field label="Minute">
+										<Text bind:value={ef.startMinutes} css="vr-input" />
+									</Field>
+								</div>
+								<Field label="Replay link (blank keeps current)">
+									<Text bind:value={ef.replay} placeholder="Track id or on-demand URL" css="vr-input" />
+								</Field>
+							{:else}
+								<div class="row">
+									<Field label="Day">
+										<Combo
+											placeholder="Day"
+											options={DAYS.map((d, i) => ({ id: String(i), label: d }))}
+											bind:value={ef.dayOfWeek}
+										/>
+									</Field>
+									<Field label="Start hour (24h)">
+										<Text bind:value={ef.startHours} css="vr-input" />
+									</Field>
+									<Field label="Minute">
+										<Text bind:value={ef.startMinutes} css="vr-input" />
+									</Field>
+									<Field label="Duration (min)">
+										<Text bind:value={ef.duration} css="vr-input" />
+									</Field>
+									<Field label="Repeats">
+										<Combo placeholder="Repeat" options={REPEATS} bind:value={ef.intervalWeeks} />
+									</Field>
+								</div>
+							{/if}
+							{#if efError}
+								<div class="notice bad">{efError}</div>
+							{/if}
+							<div class="edit-actions">
+								<Button css="vr-cta" type="primary" disabled={efSaving} onclick={() => saveEditShow(show)}>
+									{efSaving ? 'Saving…' : 'Save'}
+								</Button>
+								<Button css="vr-cta ghost" onclick={() => (editingShowId = '')}>Cancel</Button>
+							</div>
+						</form>
+					{/if}
 				{/each}
 			</div>
 		{/if}
@@ -929,6 +1092,21 @@
 		padding: 0.4rem 0.5rem;
 		width: 100%;
 		max-width: 24rem;
+	}
+
+	.show-edit {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		border-top: 1px solid var(--vr-line);
+		margin-top: 0.5rem;
+		padding: 1rem 0 0.5rem;
+	}
+
+	.edit-actions {
+		display: flex;
+		gap: 0.6rem;
+		margin-top: 0.25rem;
 	}
 
 	.mini-btn {

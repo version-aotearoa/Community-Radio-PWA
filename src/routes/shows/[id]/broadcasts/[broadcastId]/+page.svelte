@@ -96,6 +96,15 @@
 					height="80"
 					loading="lazy"
 				/>
+			{:else}
+				<span class="replay-art replay-art-fallback" aria-hidden="true">
+					<svg viewBox="0 0 80 70" fill="currentColor" width="36" height="31">
+						<path
+							fill-rule="evenodd"
+							d="M0 0H40V40H50V0H80V45H70V60H55V70H25V60H10V45H0V5ZM10 5H5V40H15V55H30V65H50V55H65V40H75V5H55V45H35V5H15Z"
+						/>
+					</svg>
+				</span>
 			{/if}
 			<button class="replay-btn" class:playing={replayActive()} onclick={toggleReplay}>
 				{#if replayActive()}
@@ -293,6 +302,14 @@
 		height: 80px;
 		object-fit: cover;
 		border: 1px solid var(--vr-line-muted);
+		flex-shrink: 0;
+	}
+
+	.replay-art-fallback {
+		display: grid;
+		place-items: center;
+		background: var(--vr-surface-highest);
+		color: var(--vr-faint);
 	}
 
 	.replay-btn {
