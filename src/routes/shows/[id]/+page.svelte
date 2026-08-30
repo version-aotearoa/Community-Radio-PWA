@@ -289,9 +289,6 @@
 						<div class="past-body">
 							<header>
 								<strong>{fmtDate(b.date)}</strong>
-								<span class="mono">
-									{fmtTime(b.start_minutes)}–{fmtTime(b.start_minutes + b.duration_minutes)}
-								</span>
 								{#if data.canEdit}
 									<a
 										class="edit-mini"
@@ -527,15 +524,16 @@
 		display: grid;
 		grid-template-columns: auto 1fr;
 		gap: 1rem;
-		align-items: start;
+		align-items: stretch;
 		padding: 0;
 		overflow: hidden;
 	}
 
 	.broadcast.past .past-art {
 		display: block;
-		width: 96px;
-		height: 96px;
+		width: auto;
+		height: 100%;
+		aspect-ratio: 1 / 1;
 		background: var(--vr-surface-highest);
 	}
 
@@ -565,11 +563,6 @@
 	@media (max-width: 640px) {
 		.broadcast.past {
 			gap: 0.75rem;
-		}
-
-		.broadcast.past .past-art {
-			width: 84px;
-			height: 84px;
 		}
 	}
 
