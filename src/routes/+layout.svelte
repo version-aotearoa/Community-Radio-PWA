@@ -91,6 +91,7 @@
 				<a href="/shows">Shows</a>
 				<a href="/schedule">Schedule</a>
 				<a href="/chat">Chat</a>
+				<a href="/info">Info</a>
 				{#if user && (user.role === 'dj' || user.role === 'admin')}
 					<a href="/studio">Studio</a>
 				{/if}
@@ -123,6 +124,7 @@
 					<a href="/shows" onclick={closeMenu}>Shows</a>
 					<a href="/schedule" onclick={closeMenu}>Schedule</a>
 					<a href="/chat" onclick={closeMenu}>Chat</a>
+					<a href="/info" onclick={closeMenu}>Info</a>
 					<InstallPrompt variant="menu" label="Install web app" onclose={closeMenu} />
 					{#if user}
 						{#if user.role === 'dj' || user.role === 'admin'}
@@ -134,9 +136,9 @@
 					{/if}
 				</nav>
 				<div class="mobile-menu-secondary">
-					<button type="button" disabled>Contact</button>
-					<button type="button" disabled>Terms</button>
-					<button type="button" disabled>About</button>
+					<a href="/info#contact" onclick={closeMenu}>Contact</a>
+					<a href="/info#terms" onclick={closeMenu}>Terms</a>
+					<a href="/info#about" onclick={closeMenu}>About</a>
 				</div>
 			</div>
 		{/if}
@@ -151,9 +153,9 @@
 			<img class="footer-logo" src="/version-logo.svg" alt="VERSION" />
 			<span class="footer-note mono">Independent radio · Aotearoa · 24/7</span>
 			<nav class="footer-links" aria-label="Footer">
-				<button type="button" disabled>Contact</button>
-				<button type="button" disabled>Terms</button>
-				<button type="button" disabled>About</button>
+				<a href="/info#contact">Contact</a>
+				<a href="/info#terms">Terms</a>
+				<a href="/info#about">About</a>
 			</nav>
 			{#if user}
 				<button class="footer-signout" onclick={signOut}>Sign out</button>
@@ -278,7 +280,7 @@
 		margin-top: 0.4rem;
 	}
 
-	.mobile-menu-secondary button {
+	.mobile-menu-secondary a {
 		border: none;
 		background: none;
 		font-family: var(--vr-font-mono);
@@ -287,19 +289,15 @@
 		letter-spacing: 0.05em;
 		text-transform: uppercase;
 		color: var(--vr-muted);
+		text-decoration: none;
 		padding: 0.5rem 1rem 0.5rem 0;
 		margin-right: 1rem;
-		cursor: pointer;
 	}
 
-	.mobile-menu-secondary button:disabled {
-		color: var(--vr-faint);
-		cursor: default;
-	}
-
-	.mobile-menu-secondary button:not(:disabled):hover {
+	.mobile-menu-secondary a:hover {
 		color: var(--vr-text);
 		text-decoration: underline;
+		background: none;
 	}
 
 	@media (max-width: 720px) {
@@ -389,25 +387,20 @@
 		gap: 1rem;
 	}
 
-	.footer-links button {
+	.footer-links a {
 		border: none;
 		background: none;
 		color: var(--vr-muted);
+		text-decoration: none;
 		font-family: var(--vr-font-mono);
 		font-size: 0.72rem;
 		font-weight: 500;
 		letter-spacing: 0.05em;
 		text-transform: uppercase;
 		padding: 0;
-		cursor: pointer;
 	}
 
-	.footer-links button:disabled {
-		color: var(--vr-faint);
-		cursor: default;
-	}
-
-	.footer-links button:not(:disabled):hover {
+	.footer-links a:hover {
 		color: var(--vr-text);
 		text-decoration: underline;
 	}
