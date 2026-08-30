@@ -237,54 +237,94 @@
 							<span class="mono">
 								{fmtTime(b.start_minutes)}–{fmtTime(b.start_minutes + b.duration_minutes)}
 							</span>
-							{#if data.canEdit}
-								<a class="edit-mini" href={`/shows/${show.id}/broadcasts/${b.id}/tracklist`}>Edit</a>
-							{/if}
-						</header>
-					</li>
-				{/each}
-			</ul>
-		</section>
-	{/if}
+						{#if data.canEdit}
+							<a
+								class="edit-mini"
+								href={`/shows/${show.id}/broadcasts/${b.id}/tracklist`}
+								aria-label="Edit tracklist"
+								title="Edit tracklist"
+							>
+								<svg viewBox="0 0 24 24" aria-hidden="true">
+									<path
+										d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19l-4 1z"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="1.8"
+										stroke-linejoin="round"
+									/>
+								</svg>
+							</a>
+						{/if}
+					</header>
+				</li>
+			{/each}
+		</ul>
+	</section>
+{/if}
 
-	{#if past.length > 0}
+{#if past.length > 0}
 		<section class="block">
 			<h2 class="h-md">Past broadcasts</h2>
 			<ul class="broadcasts">
 				{#each past as b, i (b.id)}
-					<li class="broadcast">
-						<header>
-							<strong>{fmtDate(b.date)}</strong>
-							<span class="mono">
-								{fmtTime(b.start_minutes)}–{fmtTime(b.start_minutes + b.duration_minutes)}
-							</span>
-							{#if data.canEdit}
-								<a class="edit-mini" href={`/shows/${show.id}/broadcasts/${b.id}/tracklist`}>Edit</a>
+					<li class="broadcast past">
+						<a
+							class="past-art"
+							href={`/shows/${show.id}/broadcasts/${b.id}`}
+							aria-label={`View ${fmtDate(b.date)} episode`}
+						>
+							{#if replayArtFromUrl(b.replay_url)}
+								<img src={replayArtFromUrl(b.replay_url) ?? ''} alt="" loading="lazy" />
+							{:else}
+								<span class="past-art-fallback" aria-hidden="true">
+									<svg viewBox="0 0 80 70" fill="currentColor" width="36" height="31">
+										<path
+											fill-rule="evenodd"
+											d="M0 0H40V40H50V0H80V45H70V60H55V70H25V60H10V45H0V5ZM10 5H5V40H15V55H30V65H50V55H65V40H75V5H55V45H35V5H15Z"
+										/>
+									</svg>
+								</span>
 							{/if}
-						</header>
-						<div class="replay">
-							{#if b.replay_url}
-								{#if replayArtFromUrl(b.replay_url)}
-									<img
-										class="replay-art"
-										src={replayArtFromUrl(b.replay_url) ?? ''}
-										alt=""
-										width="40"
-										height="40"
-										loading="lazy"
-									/>
+						</a>
+						<div class="past-body">
+							<header>
+								<strong>{fmtDate(b.date)}</strong>
+								<span class="mono">
+									{fmtTime(b.start_minutes)}–{fmtTime(b.start_minutes + b.duration_minutes)}
+								</span>
+								{#if data.canEdit}
+									<a
+										class="edit-mini"
+										href={`/shows/${show.id}/broadcasts/${b.id}/tracklist`}
+										aria-label="Edit tracklist"
+										title="Edit tracklist"
+									>
+										<svg viewBox="0 0 24 24" aria-hidden="true">
+											<path
+												d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19l-4 1z"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="1.8"
+												stroke-linejoin="round"
+											/>
+										</svg>
+									</a>
 								{/if}
-								<button class="replay-btn" class:playing={replayActive(b.replay_url)} onclick={() => toggleReplay(b)}>
-									{#if replayActive(b.replay_url)}
-										<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0zM15 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0z" fill="currentColor" /></svg>
-										Pause
-									{:else}
-										<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z" fill="currentColor" /></svg>
-										Replay
-									{/if}
-								</button>
-							{/if}
-							<a class="view-show mono" href={`/shows/${show.id}/broadcasts/${b.id}`}>View show →</a>
+							</header>
+							<div class="replay">
+								{#if b.replay_url}
+									<button class="replay-btn" class:playing={replayActive(b.replay_url)} onclick={() => toggleReplay(b)}>
+										{#if replayActive(b.replay_url)}
+											<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0zM15 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0z" fill="currentColor" /></svg>
+											Pause
+										{:else}
+											<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z" fill="currentColor" /></svg>
+											Replay
+										{/if}
+									</button>
+								{/if}
+								<a class="view-show mono" href={`/shows/${show.id}/broadcasts/${b.id}`}>View →</a>
+							</div>
 						</div>
 					</li>
 				{/each}
@@ -453,13 +493,17 @@
 		margin-left: auto;
 		color: var(--vr-muted);
 		border: 1px solid var(--vr-line-muted);
-		padding: 0.15rem 0.6rem;
-		font-size: 0.72rem;
-		font-family: var(--vr-font-mono);
-		letter-spacing: 0.05em;
-		text-transform: uppercase;
+		padding: 0.3rem 0.5rem;
 		text-decoration: none;
 		white-space: nowrap;
+		display: inline-grid;
+		place-items: center;
+	}
+
+	.edit-mini svg {
+		width: 12px;
+		height: 12px;
+		display: block;
 	}
 
 	.edit-mini:hover {
@@ -483,11 +527,54 @@
 		border-top: 1px solid var(--vr-line-muted);
 	}
 
-	.replay-art {
-		width: 40px;
-		height: 40px;
+	.broadcast.past {
+		display: grid;
+		grid-template-columns: auto 1fr;
+		gap: 1rem;
+		align-items: stretch;
+		padding: 0;
+		overflow: hidden;
+	}
+
+	.broadcast.past .past-art {
+		display: block;
+		width: 96px;
+		min-height: 96px;
+		background: var(--vr-surface-highest);
+	}
+
+	.broadcast.past .past-art img {
+		width: 100%;
+		height: 100%;
 		object-fit: cover;
-		border: 1px solid var(--vr-line-muted);
+		display: block;
+	}
+
+	.past-art-fallback {
+		width: 100%;
+		height: 100%;
+		display: grid;
+		place-items: center;
+		color: var(--vr-faint);
+	}
+
+	.broadcast.past .past-body {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		padding: 0.9rem 1.1rem 0.9rem 0;
+		min-width: 0;
+	}
+
+	@media (max-width: 640px) {
+		.broadcast.past {
+			gap: 0.75rem;
+		}
+
+		.broadcast.past .past-art {
+			width: 84px;
+			min-height: 84px;
+		}
 	}
 
 	.replay-btn {
