@@ -191,16 +191,18 @@
 			</div>
 			<ul>
 				{#each data.upcoming as b (b.id)}
-					<li class="slot" class:onair={b.onair}>
-						<span class="slot-time mono" class:onair={b.onair}>
-							<span class="slot-date">{fmtDay(b.date)} · </span>{fmtTime(b.start_minutes)}–{fmtTime(b.start_minutes + b.duration_minutes)}
-						</span>
-						<span class="h-sm slot-title">
-							{#if b.onair}
-								<span class="live-dot" aria-hidden="true"></span>
-							{/if}
-							{b.title}{#if b.dj_name && b.kind !== 'event'} <span class="slot-dj">with {b.dj_name}</span>{/if}
-						</span>
+					<li class:onair={b.onair}>
+						<a class="slot" class:onair={b.onair} href={`/shows/${b.show_id}`}>
+							<span class="slot-time mono" class:onair={b.onair}>
+								<span class="slot-date">{fmtDay(b.date)} · </span>{fmtTime(b.start_minutes)}–{fmtTime(b.start_minutes + b.duration_minutes)}
+							</span>
+							<span class="h-sm slot-title">
+								{#if b.onair}
+									<span class="live-dot" aria-hidden="true"></span>
+								{/if}
+								{b.title}{#if b.dj_name && b.kind !== 'event'} <span class="slot-dj">with {b.dj_name}</span>{/if}
+							</span>
+						</a>
 					</li>
 				{:else}
 					<li class="slot"><span class="slot-dj">Nothing scheduled yet.</span></li>
@@ -584,10 +586,22 @@
 		gap: 0.35rem;
 		padding: 0.9rem 0;
 		border-top: 1px solid var(--vr-line-muted);
+		text-decoration: none;
+		color: var(--vr-text);
 	}
 
 	.slot:first-child {
 		border-top: 1px solid var(--vr-line-muted);
+	}
+
+	.slot:hover {
+		background: var(--vr-text);
+		color: var(--vr-black);
+	}
+
+	.slot:hover .slot-time,
+	.slot:hover .slot-dj {
+		color: rgba(0, 0, 0, 0.8);
 	}
 
 	.slot-time {
