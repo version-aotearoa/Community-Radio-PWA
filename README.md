@@ -2,6 +2,8 @@
 
 Independent radio PWA: live stream player, DJ tracklist editor, public schedule, and community chat.
 
+See [ROADMAP.md](ROADMAP.md) for planned features (push notifications).
+
 **Environments**
 
 - **local** — `npm run dev` on your machine; local D1 state; `.dev.vars`
