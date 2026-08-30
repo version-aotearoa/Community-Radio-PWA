@@ -25,6 +25,7 @@ export interface BroadcastRow {
 	interval_weeks: number;
 	replay_url: string | null;
 	description: string;
+	featured: number;
 	created_at: number;
 	updated_at: number;
 }

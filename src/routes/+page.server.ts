@@ -10,6 +10,7 @@ export interface LatestShow {
 	title: string;
 	show_image: string | null;
 	dj_name: string | null;
+	kind: string;
 }
 
 export interface FeaturedShow {
@@ -20,6 +21,7 @@ export interface FeaturedShow {
 	title: string;
 	image: string | null;
 	dj_name: string | null;
+	kind: string;
 }
 
 export const load: PageServerLoad = async ({ platform }) => {
@@ -28,7 +30,7 @@ export const load: PageServerLoad = async ({ platform }) => {
 
 	const { results } = await db
 		.prepare(
-			`SELECT b.id AS broadcast_id, b.show_id, b.date, b.start_minutes, b.replay_url, s.title, s.image AS show_image, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name
+			`SELECT b.id AS broadcast_id, b.show_id, b.date, b.start_minutes, b.replay_url, s.title, s.image AS show_image, s.kind, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name
 			 FROM broadcast b
 			 JOIN show s ON s.id = b.show_id
 			 LEFT JOIN user u ON u.id = s.dj_id
@@ -52,16 +54,11 @@ export const load: PageServerLoad = async ({ platform }) => {
 			now.minutes < b.start_minutes + b.duration_minutes
 	}));
 
-	// Featured: curated archive episodes, most recent first. Falls back to the
-	// three earliest-dated broadcasts if any curated row is missing.
-	const FEATURED_IDS = [
-		'prev-reasonable-dubs',
-		'version-excursions-26-8-5-2026-08-05',
-		'prev-version-excursions-26-8-5'
-	];
-
+	// Featured: admin-curated archive episodes (broadcast.featured = 1),
+	// most recent first. Falls back to the four earliest-dated broadcasts if
+	// nothing is featured.
 	const featuredSelect = (extra: string) => `
-		SELECT b.id AS broadcast_id, b.date, b.show_id, b.replay_url, s.title, s.image AS show_image, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name
+		SELECT b.id AS broadcast_id, b.date, b.show_id, b.replay_url, s.title, s.image AS show_image, s.kind, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name
 		FROM broadcast b
 		JOIN show s ON s.id = b.show_id
 		LEFT JOIN user u ON u.id = s.dj_id
@@ -75,18 +72,18 @@ export const load: PageServerLoad = async ({ platform }) => {
 		title: string;
 		show_image: string | null;
 		dj_name: string | null;
+		kind: string;
 	};
 
 	const curated = (
 		await db
-			.prepare(featuredSelect(`WHERE b.id IN (${FEATURED_IDS.map(() => '?').join(',')}) ORDER BY b.date DESC`))
-			.bind(...FEATURED_IDS)
+			.prepare(featuredSelect('WHERE b.featured = 1 AND s.active = 1 ORDER BY b.date DESC LIMIT 3'))
 			.all()
 	).results as unknown as FeaturedRow[];
 	let rows = curated;
-	if (rows.length < 3) {
+	if (rows.length === 0) {
 		const fallback = await db
-			.prepare(featuredSelect('WHERE s.active = 1 ORDER BY b.date ASC, b.start_minutes ASC LIMIT 3'))
+			.prepare(featuredSelect('WHERE s.active = 1 ORDER BY b.date ASC, b.start_minutes ASC LIMIT 4'))
 			.all();
 		rows = fallback.results as unknown as FeaturedRow[];
 	}
@@ -97,7 +94,8 @@ export const load: PageServerLoad = async ({ platform }) => {
 		replay_url: r.replay_url,
 		title: r.title,
 		image: r.show_image,
-		dj_name: r.dj_name
+		dj_name: r.dj_name,
+		kind: r.kind
 	}));
 
 	return {

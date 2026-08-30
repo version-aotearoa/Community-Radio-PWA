@@ -168,6 +168,41 @@
 	let userFeedback = $state<Record<string, RowFeedback>>({});
 	let showFeedback = $state<Record<string, RowFeedback>>({});
 
+	interface FeaturedCandidate {
+		id: string;
+		date: string;
+		featured: number;
+		title: string;
+	}
+
+	let featuredList = $state<FeaturedCandidate[]>([]);
+	let featuredLoaded = $state(false);
+	let featuredFeedback = $state('');
+
+	async function loadFeatured() {
+		const res = await fetch('/api/admin/featured');
+		if (res.ok) {
+			featuredList = await res.json();
+			featuredLoaded = true;
+		}
+	}
+
+	async function toggleFeatured(c: FeaturedCandidate) {
+		featuredFeedback = '';
+		const target = c.featured === 1 ? false : true;
+		const res = await fetch('/api/admin/featured', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ broadcastId: c.id, featured: target })
+		});
+		if (!res.ok) {
+			const body = (await res.json().catch(() => null)) as { error?: string } | null;
+			featuredFeedback = body?.error ?? `Save failed (${res.status})`;
+			return;
+		}
+		c.featured = target ? 1 : 0;
+	}
+
 	let editingShowId = $state('');
 	let ef = $state({
 		title: '',
@@ -271,6 +306,7 @@
 		const usersRes = await fetch('/api/admin/users');
 		if (usersRes.ok) adminUsers = await usersRes.json();
 		await loadChat();
+		await loadFeatured();
 	}
 
 	async function loadChat() {
@@ -427,6 +463,13 @@
 			onclick={() => (activeTab = 'add-episode')}
 		>
 			Add Episode
+		</button>
+		<button
+			class="tab"
+			class:active={activeTab === 'featured'}
+			onclick={() => (activeTab = 'featured')}
+		>
+			Featured
 		</button>
 		<button class="tab" class:active={activeTab === 'users'} onclick={() => (activeTab = 'users')}>
 			Users
@@ -620,10 +663,41 @@
 	</section>
 {/if}
 
+{#if isAdmin && activeTab === 'featured'}
+	<section class="card">
+		<h2>Admin — featured shows</h2>
+		{#if !featuredLoaded}
+			<p class="muted">Loading episodes…</p>
+		{:else if featuredList.length === 0}
+			<p class="muted">No episodes with replay links yet.</p>
+		{:else}
+			<p class="muted">
+				{featuredList.filter((c) => c.featured === 1).length} of 3 featured — toggle episodes with
+				replay links below.
+			</p>
+			{#if featuredFeedback}
+				<div class="notice bad">{featuredFeedback}</div>
+			{/if}
+			<div class="admin-table">
+				{#each featuredList as c (c.id)}
+					<div class="admin-row">
+						<div class="user-main">
+							<strong>{c.title}</strong>
+							<span class="meta">{c.date}</span>
+						</div>
+						<button class="mini-btn" class:off={c.featured === 0} onclick={() => toggleFeatured(c)}>
+							{c.featured === 1 ? 'Unfeature' : 'Feature'}
+						</button>
+					</div>
+				{/each}
+			</div>
+		{/if}
+	</section>
+{/if}
+
 {#if isAdmin && activeTab === 'users'}
 	<section class="card">
-		<h2>Admin — users</h2>
-		{#if adminUsers.length === 0}
+		<h2>Admin — users</h2>		{#if adminUsers.length === 0}
 			<p class="muted">Loading users…</p>
 		{:else}
 			<div class="user-filters">

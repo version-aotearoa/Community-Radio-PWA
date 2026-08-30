@@ -147,7 +147,9 @@
 				</div>
 				<div class="showcard-meta mono">
 					<span>{fmtBroadcastDate(show.date)}</span>
-					<span>{show.dj_name ?? 'Version Radio'}</span>
+					{#if show.kind !== 'event'}
+						<span>{show.dj_name ?? 'Version Radio'}</span>
+					{/if}
 				</div>
 				<h3 class="h-md showcard-title">{show.title}</h3>
 			</a>
@@ -228,7 +230,7 @@
 								</span>
 								<span class="feat-info">
 									<span class="h-sm">{f.title}</span>
-									{#if f.dj_name}<span class="mono feat-dj">{f.dj_name}</span>{/if}
+									{#if f.dj_name && f.kind !== 'event'}<span class="mono feat-dj">{f.dj_name}</span>{/if}
 								</span>
 								<span class="mono feat-when">{fmtBroadcastDate(f.date)}</span>
 							</a>
