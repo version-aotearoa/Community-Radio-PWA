@@ -90,6 +90,10 @@
 	);
 	const backLabel = $derived(backHref === '/schedule' ? 'Schedule' : 'Shows');
 
+	const eventDate = $derived(
+		show.kind === 'event' ? (upcoming[0]?.date ?? past[0]?.date ?? null) : null
+	);
+
 	const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 	function fmtTime(mins: number) {
@@ -154,15 +158,21 @@
 		<div>
 			<p class="mono back"><a href={backHref}>← {backLabel}</a></p>
 			<h1 class="h-lg">{title}</h1>
-			<p class="subtitle mono">
-				{DAY_NAMES[show.day_of_week]}s · {fmtTime(show.start_minutes)}–{fmtTime(
-					show.start_minutes + show.duration_minutes
-				)}{#if show.interval_weeks === 1} · Every week{/if}
-			</p>
-			{#if data.showCycleWeeks.length > 0}
-				<p class="cycle-line mono">
-					Show airs {cycleWeeksLabel()} of 4 — current cycle week {data.currentCycleWeek}
+			{#if show.kind === 'event'}
+				{#if eventDate}
+					<p class="subtitle mono">{fmtDate(eventDate)}</p>
+				{/if}
+			{:else}
+				<p class="subtitle mono">
+					{DAY_NAMES[show.day_of_week]}s · {fmtTime(show.start_minutes)}–{fmtTime(
+						show.start_minutes + show.duration_minutes
+					)}{#if show.interval_weeks === 1} · Every week{/if}
 				</p>
+				{#if data.showCycleWeeks.length > 0}
+					<p class="cycle-line mono">
+						Show airs {cycleWeeksLabel()} of 4 — current cycle week {data.currentCycleWeek}
+					</p>
+				{/if}
 			{/if}
 			{#if djName}
 				<p class="dj mono">with {djName}</p>

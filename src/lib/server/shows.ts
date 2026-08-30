@@ -2,6 +2,7 @@ export interface ShowRow {
 	id: string;
 	dj_id: string;
 	dj_handle: string | null;
+	kind: string;
 	title: string;
 	description: string;
 	image: string | null;
@@ -101,9 +102,11 @@ export function nextDateForWeekday(dayOfWeek: number, fromDate: string): string 
  */
 export async function ensureBroadcasts(
 	db: D1Database,
-	show: Pick<ShowRow, 'id' | 'interval_weeks' | 'anchor_date' | 'day_of_week' | 'start_minutes' | 'duration_minutes'>,
- weeks = 12
+	show: Pick<ShowRow, 'id' | 'interval_weeks' | 'anchor_date' | 'day_of_week' | 'start_minutes' | 'duration_minutes' | 'kind'>,
+	weeks = 12
 ): Promise<BroadcastRow[]> {
+	// One-off events never generate recurring broadcasts.
+	if (show.kind === 'event') return [];
 	const scheduleStart = show.anchor_date ?? nextDateForWeekday(show.day_of_week, todayStr());
 	const horizon = addDays(todayStr(), weeks * 7);
 	const intervalDays = show.interval_weeks * 7;
@@ -360,16 +363,20 @@ export async function createShow(
 		durationMinutes: number;
 		intervalWeeks?: number;
 		anchorDate?: string;
+		kind?: 'show' | 'event';
+		date?: string;
+		replayUrl?: string;
 	}
 ): Promise<ShowRow> {
 	const id = crypto.randomUUID();
 	const t = now();
+	const kind = input.kind === 'event' ? 'event' : 'show';
 	const intervalWeeks = Math.max(1, Math.floor(input.intervalWeeks ?? 1) || 1);
-	const anchorDate = input.anchorDate ?? nextDateForWeekday(input.dayOfWeek, todayStr());
+	const anchorDate = input.anchorDate ?? input.date ?? nextDateForWeekday(input.dayOfWeek, todayStr());
 	await db
 		.prepare(
-			`INSERT INTO show (id, dj_id, title, description, day_of_week, start_minutes, duration_minutes, interval_weeks, anchor_date, active, created_at, updated_at)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
+			`INSERT INTO show (id, dj_id, title, description, day_of_week, start_minutes, duration_minutes, interval_weeks, anchor_date, kind, active, created_at, updated_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
 		)
 		.bind(
 			id,
@@ -381,11 +388,39 @@ export async function createShow(
 			input.durationMinutes,
 			intervalWeeks,
 			anchorDate,
+			kind,
 			t,
 			t
 		)
 		.run();
 	const show = (await getShow(db, id)) as ShowRow;
+
+	if (kind === 'event') {
+		const replayRaw = input.replayUrl?.trim() ?? '';
+		const replayUrl = replayRaw ? replayPlayUrl(replayRaw) : null;
+		if (replayRaw && !replayUrl) {
+			throw new Error('Paste a track id (24 hex chars) or an on-demand download link.');
+		}
+		await db
+			.prepare(
+				`INSERT INTO broadcast (id, show_id, date, start_minutes, duration_minutes, interval_weeks, replay_url, created_at, updated_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+			)
+			.bind(
+				crypto.randomUUID(),
+				id,
+				input.date!,
+				input.startMinutes,
+				input.durationMinutes,
+				intervalWeeks,
+				replayUrl,
+				t,
+				t
+			)
+			.run();
+		return show;
+	}
+
 	await ensureBroadcasts(db, show);
 	return show;
 }

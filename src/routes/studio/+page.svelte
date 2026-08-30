@@ -16,6 +16,52 @@
 	let error = $state('');
 	let notice = $state('');
 
+	let createKind = $state<'show' | 'event'>('show');
+	let evTitle = $state('');
+	let evDate = $state('');
+	let evStartHours = $state('18');
+	let evStartMinutes = $state('0');
+	let evReplay = $state('');
+	let evSaving = $state(false);
+	let evError = $state('');
+	let evNotice = $state('');
+
+	async function createEvent() {
+		evError = '';
+		evNotice = '';
+		if (!evTitle.trim()) {
+			evError = 'Give the event a name.';
+			return;
+		}
+		if (!/^\d{4}-\d{2}-\d{2}$/.test(evDate.trim())) {
+			evError = 'Date must be YYYY-MM-DD.';
+			return;
+		}
+		evSaving = true;
+		const res = await fetch('/api/shows', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				title: evTitle,
+				kind: 'event',
+				date: evDate.trim(),
+				startMinutes: Number(evStartHours) * 60 + Number(evStartMinutes),
+				durationMinutes: 60,
+				replayUrl: evReplay
+			})
+		});
+		evSaving = false;
+		if (!res.ok) {
+			const body = (await res.json().catch(() => null)) as { error?: string } | null;
+			evError = body?.error ?? `Create failed (${res.status})`;
+			return;
+		}
+		evTitle = '';
+		evDate = '';
+		evReplay = '';
+		evNotice = 'Event created.';
+	}
+
 	const shows = $derived(data.shows);
 	const isAdmin = $derived(data.user?.role === 'admin');
 
@@ -323,49 +369,99 @@
 
 {#if isAdmin && activeTab === 'create'}
 	<section class="card">
-		<h2>Create a show</h2>
+		<h2>Create</h2>
 	<form
 		onsubmit={(e) => {
 			e.preventDefault();
-			createShow();
+			if (createKind === 'event') createEvent();
+			else createShow();
 		}}
 	>
-		<Field label="Show name">
-			<Text bind:value={title} placeholder="e.g. The Lunchtime Hour" css="vr-input" />
-		</Field>
-		<Field label="Description">
-			<Text bind:value={description} placeholder="Short blurb (optional)" css="vr-input" />
-		</Field>
-		<div class="row">
-			<Field label="Day">
-				<Combo
-					placeholder="Day"
-					options={DAYS.map((d, i) => ({ id: String(i), label: d }))}
-					bind:value={dayOfWeek}
+		<div class="filter-btns create-toggle">
+			<button
+				class="filter-btn"
+				class:active={createKind === 'show'}
+				onclick={() => (createKind = 'show')}
+			>
+				Show
+			</button>
+			<button
+				class="filter-btn"
+				class:active={createKind === 'event'}
+				onclick={() => (createKind = 'event')}
+			>
+				Event
+			</button>
+		</div>
+		{#if createKind === 'show'}
+			<Field label="Show name">
+				<Text bind:value={title} placeholder="e.g. The Lunchtime Hour" css="vr-input" />
+			</Field>
+			<Field label="Description">
+				<Text bind:value={description} placeholder="Short blurb (optional)" css="vr-input" />
+			</Field>
+			<div class="row">
+				<Field label="Day">
+					<Combo
+						placeholder="Day"
+						options={DAYS.map((d, i) => ({ id: String(i), label: d }))}
+						bind:value={dayOfWeek}
+					/>
+				</Field>
+				<Field label="Start hour (24h)">
+					<Text bind:value={startHours} placeholder="18" css="vr-input" />
+				</Field>
+				<Field label="Minute">
+					<Text bind:value={startMinutes} placeholder="0" css="vr-input" />
+				</Field>
+				<Field label="Duration (min)">
+					<Text bind:value={duration} placeholder="60" css="vr-input" />
+				</Field>
+				<Field label="Repeats">
+					<Combo placeholder="Repeat" options={REPEATS} bind:value={intervalWeeks} />
+				</Field>
+			</div>
+			{#if error}
+				<div class="notice bad">{error}</div>
+			{/if}
+			{#if notice}
+				<div class="notice ok">{notice}</div>
+			{/if}
+			<Button css="vr-cta" type="primary" disabled={saving} onclick={createShow}>
+				{saving ? 'Creating…' : 'Create show'}
+			</Button>
+		{:else}
+			<Field label="Event name">
+				<Text bind:value={evTitle} placeholder="e.g. HIFI SESSION" css="vr-input" />
+			</Field>
+			<Field label="Date">
+				<Text bind:value={evDate} placeholder="YYYY-MM-DD" css="vr-input" />
+			</Field>
+			<div class="row">
+				<Field label="Start hour (24h)">
+					<Text bind:value={evStartHours} placeholder="18" css="vr-input" />
+				</Field>
+				<Field label="Minute">
+					<Text bind:value={evStartMinutes} placeholder="0" css="vr-input" />
+				</Field>
+			</div>
+			<Field label="Replay link (optional)">
+				<Text
+					bind:value={evReplay}
+					placeholder="Track id or on-demand URL"
+					css="vr-input"
 				/>
 			</Field>
-			<Field label="Start hour (24h)">
-				<Text bind:value={startHours} placeholder="18" css="vr-input" />
-			</Field>
-			<Field label="Minute">
-				<Text bind:value={startMinutes} placeholder="0" css="vr-input" />
-			</Field>
-			<Field label="Duration (min)">
-				<Text bind:value={duration} placeholder="60" css="vr-input" />
-			</Field>
-			<Field label="Repeats">
-				<Combo placeholder="Repeat" options={REPEATS} bind:value={intervalWeeks} />
-			</Field>
-		</div>
-		{#if error}
-			<div class="notice bad">{error}</div>
+			{#if evError}
+				<div class="notice bad">{evError}</div>
+			{/if}
+			{#if evNotice}
+				<div class="notice ok">{evNotice}</div>
+			{/if}
+			<Button css="vr-cta" type="primary" disabled={evSaving} onclick={createEvent}>
+				{evSaving ? 'Creating…' : 'Create event'}
+			</Button>
 		{/if}
-		{#if notice}
-			<div class="notice ok">{notice}</div>
-		{/if}
-		<Button css="vr-cta" type="primary" disabled={saving} onclick={createShow}>
-			{saving ? 'Creating…' : 'Create show'}
-		</Button>
 	</form>
 </section>
 {/if}
@@ -778,6 +874,10 @@
 		display: flex;
 		gap: 0.4rem;
 		flex-wrap: wrap;
+	}
+
+	.create-toggle {
+		margin-bottom: 1rem;
 	}
 
 	.filter-btn {
