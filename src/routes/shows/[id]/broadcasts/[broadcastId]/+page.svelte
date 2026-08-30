@@ -327,4 +327,11 @@
 		background: var(--vr-text);
 		color: var(--vr-black);
 	}
+
+	@media (max-width: 640px) {
+		.card {
+			margin-left: -2rem;
+			margin-right: -2rem;
+		}
+	}
 </style>
