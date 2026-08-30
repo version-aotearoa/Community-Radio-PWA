@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { Button, Field, Text, Combo } from '@svar-ui/svelte-core';
 	import type { ShowRow } from '$lib/server/shows';
 
@@ -44,6 +44,50 @@
 	let purgeName = $state('');
 	let activeTab = $state('shows');
 	let adminError = $state('');
+
+	let epShowId = $state(untrack(() => data.shows[0]?.id ?? ''));
+	let epDate = $state('');
+	let epStartHours = $state('18');
+	let epStartMinutes = $state('0');
+	let epDuration = $state('60');
+	let epReplay = $state('');
+	let epSaving = $state(false);
+	let epError = $state('');
+	let epNotice = $state('');
+
+	async function addEpisode() {
+		epError = '';
+		epNotice = '';
+		if (!epShowId) {
+			epError = 'Pick a show.';
+			return;
+		}
+		if (!/^\d{4}-\d{2}-\d{2}$/.test(epDate.trim())) {
+			epError = 'Date must be YYYY-MM-DD.';
+			return;
+		}
+		epSaving = true;
+		const res = await fetch('/api/admin/broadcasts', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				showId: epShowId,
+				date: epDate.trim(),
+				startMinutes: Number(epStartHours) * 60 + Number(epStartMinutes),
+				durationMinutes: Number(epDuration),
+				replayUrl: epReplay
+			})
+		});
+		epSaving = false;
+		if (!res.ok) {
+			const body = (await res.json().catch(() => null)) as { error?: string } | null;
+			epError = body?.error ?? `Save failed (${res.status})`;
+			return;
+		}
+		epDate = '';
+		epReplay = '';
+		epNotice = 'Episode added.';
+	}
 
 	let userRoleFilter = $state<'all' | 'listener' | 'dj' | 'admin'>('all');
 	let userSearch = $state('');
@@ -236,6 +280,13 @@
 		<button class="tab" class:active={activeTab === 'create'} onclick={() => (activeTab = 'create')}>
 			Create
 		</button>
+		<button
+			class="tab"
+			class:active={activeTab === 'add-episode'}
+			onclick={() => (activeTab = 'add-episode')}
+		>
+			Add Episode
+		</button>
 		<button class="tab" class:active={activeTab === 'users'} onclick={() => (activeTab = 'users')}>
 			Users
 		</button>
@@ -317,6 +368,56 @@
 		</Button>
 	</form>
 </section>
+{/if}
+
+{#if isAdmin && activeTab === 'add-episode'}
+	<section class="card">
+		<h2>Add an episode</h2>
+		<form
+			onsubmit={(e) => {
+				e.preventDefault();
+				addEpisode();
+			}}
+		>
+			<Field label="Show">
+				<select class="dj-select" bind:value={epShowId}>
+					{#each shows as show (show.id)}
+						<option value={show.id}>{show.title}</option>
+					{/each}
+				</select>
+			</Field>
+			<Field label="Date">
+				<Text bind:value={epDate} placeholder="YYYY-MM-DD" css="vr-input" />
+			</Field>
+			<div class="row">
+				<Field label="Start hour (24h)">
+					<Text bind:value={epStartHours} placeholder="18" css="vr-input" />
+				</Field>
+				<Field label="Minute">
+					<Text bind:value={epStartMinutes} placeholder="0" css="vr-input" />
+				</Field>
+				<Field label="Duration (min)">
+					<Text bind:value={epDuration} placeholder="60" css="vr-input" />
+				</Field>
+			</div>
+			<Field label="Replay link (optional)">
+				<Text
+					bind:value={epReplay}
+					placeholder="Track id or on-demand URL"
+					css="vr-input"
+				/>
+			</Field>
+			{#if epError}
+				<div class="notice bad">{epError}</div>
+			{/if}
+			{#if epNotice}
+				<div class="notice ok">{epNotice}</div>
+			{/if}
+			<Button css="vr-cta" type="primary" disabled={epSaving} onclick={addEpisode}>
+				{epSaving ? 'Adding…' : 'Add episode'}
+			</Button>
+		</form>
+	</section>
 {/if}
 
 {#if isAdmin && activeTab === 'users'}
@@ -719,6 +820,15 @@
 		color: var(--vr-text);
 		border: 1px solid var(--vr-line);
 		padding: 0.25rem 0.4rem;
+	}
+
+	.dj-select {
+		background: var(--vr-surface-low);
+		color: var(--vr-text);
+		border: 1px solid var(--vr-line);
+		padding: 0.4rem 0.5rem;
+		width: 100%;
+		max-width: 24rem;
 	}
 
 	.mini-btn {
