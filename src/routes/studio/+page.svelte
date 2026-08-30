@@ -45,6 +45,24 @@
 	let activeTab = $state('shows');
 	let adminError = $state('');
 
+	let userRoleFilter = $state<'all' | 'listener' | 'dj' | 'admin'>('all');
+	let userSearch = $state('');
+	let userSort = $state<'newest' | 'oldest' | 'name'>('newest');
+
+	const filteredUsers = $derived.by(() => {
+		const q = userSearch.trim().toLowerCase();
+		const list = adminUsers.filter(
+			(u) =>
+				(userRoleFilter === 'all' || u.role === userRoleFilter) &&
+				(!q || `${u.name} ${u.email}`.toLowerCase().includes(q))
+		);
+		if (userSort === 'name') {
+			return [...list].sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email));
+		}
+		if (userSort === 'oldest') return [...list].reverse();
+		return list;
+	});
+
 	interface RowFeedback {
 		text: string;
 		ok: boolean;
@@ -307,39 +325,86 @@
 		{#if adminUsers.length === 0}
 			<p class="muted">Loading users…</p>
 		{:else}
-			<div class="admin-table">
-				{#each adminUsers as u (u.id)}
-					<div class="admin-row">
-						<div class="user-main">
-							<strong>{u.name || u.email}</strong>
-							<span class="meta">{u.email}</span>
-						</div>
-						<label class="role-label" title="Role">
-							<span class="meta">Role</span>
-							<select
-								value={u.role}
-								onchange={(e) => setRole(u, e.currentTarget.value as AdminUser['role'])}
-							>
-								<option value="listener">Listener</option>
-								<option value="dj">DJ</option>
-								<option value="admin">Admin</option>
-							</select>
-						</label>
-						{#if userFeedback[u.id]}
-							<span class="row-feedback" class:bad={!userFeedback[u.id].ok}>
-								{userFeedback[u.id].text}
-							</span>
-						{/if}
-						<button
-							class="mini-btn"
-							class:off={u.active === 0}
-							onclick={() => setActive(u, u.active === 0)}
-						>
-							{u.active ? 'Deactivate' : 'Activate'}
-						</button>
-					</div>
-				{/each}
+			<div class="user-filters">
+				<div class="filter-btns">
+					<button
+						class="filter-btn"
+						class:active={userRoleFilter === 'all'}
+						onclick={() => (userRoleFilter = 'all')}
+					>
+						All
+					</button>
+					<button
+						class="filter-btn"
+						class:active={userRoleFilter === 'listener'}
+						onclick={() => (userRoleFilter = 'listener')}
+					>
+						Listener
+					</button>
+					<button
+						class="filter-btn"
+						class:active={userRoleFilter === 'dj'}
+						onclick={() => (userRoleFilter = 'dj')}
+					>
+						DJ
+					</button>
+					<button
+						class="filter-btn"
+						class:active={userRoleFilter === 'admin'}
+						onclick={() => (userRoleFilter = 'admin')}
+					>
+						Admin
+					</button>
+				</div>
+				<div class="user-search">
+					<Text bind:value={userSearch} placeholder="Filter by name or email…" css="vr-input" />
+				</div>
+				<label class="sort-label" title="Sort">
+					<span class="meta">Sort</span>
+					<select bind:value={userSort}>
+						<option value="newest">Newest</option>
+						<option value="oldest">Oldest</option>
+						<option value="name">Name A–Z</option>
+					</select>
+				</label>
 			</div>
+			{#if filteredUsers.length === 0}
+				<p class="muted">No users match.</p>
+			{:else}
+				<div class="admin-table">
+					{#each filteredUsers as u (u.id)}
+						<div class="admin-row">
+							<div class="user-main">
+								<strong>{u.name || u.email}</strong>
+								<span class="meta">{u.email}</span>
+							</div>
+							<label class="role-label" title="Role">
+								<span class="meta">Role</span>
+								<select
+									value={u.role}
+									onchange={(e) => setRole(u, e.currentTarget.value as AdminUser['role'])}
+								>
+									<option value="listener">Listener</option>
+									<option value="dj">DJ</option>
+									<option value="admin">Admin</option>
+								</select>
+							</label>
+							{#if userFeedback[u.id]}
+								<span class="row-feedback" class:bad={!userFeedback[u.id].ok}>
+									{userFeedback[u.id].text}
+								</span>
+							{/if}
+							<button
+								class="mini-btn"
+								class:off={u.active === 0}
+								onclick={() => setActive(u, u.active === 0)}
+							>
+								{u.active ? 'Deactivate' : 'Activate'}
+							</button>
+						</div>
+					{/each}
+				</div>
+			{/if}
 		{/if}
 	</section>
 {/if}
@@ -598,6 +663,62 @@
 
 	.row-feedback.bad {
 		color: var(--vr-red);
+	}
+
+	.user-filters {
+		display: flex;
+		align-items: flex-end;
+		gap: 0.75rem;
+		flex-wrap: wrap;
+		margin-bottom: 1rem;
+	}
+
+	.filter-btns {
+		display: flex;
+		gap: 0.4rem;
+		flex-wrap: wrap;
+	}
+
+	.filter-btn {
+		background: none;
+		border: 1px solid var(--vr-line);
+		color: var(--vr-muted);
+		font-family: var(--vr-font-mono);
+		font-size: 0.72rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		padding: 0.35rem 0.7rem;
+		cursor: pointer;
+	}
+
+	.filter-btn:hover {
+		color: var(--vr-text);
+		border-color: var(--vr-text);
+	}
+
+	.filter-btn.active {
+		background: var(--vr-text);
+		color: var(--vr-black);
+		border-color: var(--vr-text);
+	}
+
+	.user-search {
+		flex: 1 1 12rem;
+		min-width: 0;
+	}
+
+	.sort-label {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+	}
+
+	.sort-label select {
+		background: var(--vr-surface-low);
+		color: var(--vr-text);
+		border: 1px solid var(--vr-line);
+		padding: 0.25rem 0.4rem;
 	}
 
 	.mini-btn {
