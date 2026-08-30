@@ -233,7 +233,7 @@
 		font-size: 0.9rem;
 	}
 
-	.embed-row {
+	.tracklist li.embed-row {
 		padding: 0;
 		border-bottom: none;
 		align-items: center;
