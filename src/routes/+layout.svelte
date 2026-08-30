@@ -111,11 +111,16 @@
 						{#if user.role === 'dj' || user.role === 'admin'}
 							<a href="/studio" onclick={closeMenu}>DJ Studio</a>
 						{/if}
-						<a href="/account" onclick={closeMenu}>Account</a>
+						<a href="/account" onclick={closeMenu}>My Version</a>
 					{:else}
-						<a href="/login" onclick={closeMenu}>Sign in</a>
+						<a href="/login" onclick={closeMenu}>Sign in > My Version</a>
 					{/if}
 				</nav>
+				<div class="mobile-menu-secondary">
+					<button type="button" onclick={closeMenu}>Contact</button>
+					<button type="button" onclick={closeMenu}>Terms</button>
+					<button type="button" onclick={closeMenu}>About</button>
+				</div>
 			</div>
 		{/if}
 
@@ -128,6 +133,11 @@
 		<footer class="site-footer">
 			<img class="footer-logo" src="/version-logo.svg" alt="VERSION" />
 			<span class="footer-note mono">Independent radio · Aotearoa · 24/7</span>
+			<nav class="footer-links" aria-label="Footer">
+				<button type="button">Contact</button>
+				<button type="button">Terms</button>
+				<button type="button">About</button>
+			</nav>
 			{#if user}
 				<button class="footer-signout" onclick={signOut}>Sign out</button>
 			{/if}
@@ -243,6 +253,33 @@
 		color: var(--vr-black);
 	}
 
+	.mobile-menu-secondary {
+		display: flex;
+		gap: 0;
+		padding: 0.5rem 2rem;
+		border-top: 1px solid var(--vr-line);
+		margin-top: 0.4rem;
+	}
+
+	.mobile-menu-secondary button {
+		border: none;
+		background: none;
+		font-family: var(--vr-font-mono);
+		font-size: 0.72rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		color: var(--vr-muted);
+		padding: 0.5rem 1rem 0.5rem 0;
+		margin-right: 1rem;
+		cursor: pointer;
+	}
+
+	.mobile-menu-secondary button:hover {
+		color: var(--vr-text);
+		text-decoration: underline;
+	}
+
 	@media (max-width: 720px) {
 		.menu-toggle {
 			display: block;
@@ -325,6 +362,29 @@
 		margin-left: auto;
 	}
 
+	.footer-links {
+		display: flex;
+		gap: 1rem;
+	}
+
+	.footer-links button {
+		border: none;
+		background: none;
+		color: var(--vr-muted);
+		font-family: var(--vr-font-mono);
+		font-size: 0.72rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		padding: 0;
+		cursor: pointer;
+	}
+
+	.footer-links button:hover {
+		color: var(--vr-text);
+		text-decoration: underline;
+	}
+
 	.footer-signout {
 		background: none;
 		border: 1px solid var(--vr-line-muted);
@@ -349,7 +409,8 @@
 			padding: 0.75rem 1rem;
 		}
 
-		.footer-note {
+		.footer-note,
+		.footer-links {
 			display: none;
 		}
 
