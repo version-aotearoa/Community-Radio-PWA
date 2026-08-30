@@ -2,6 +2,16 @@
 
 ## NEW (2026-08-30 session) — see "Parked: autoplay/phantom loading" below before continuing player work.
 
+## 2026-08-30 end of session — revisit tomorrow: slug confirmation
+
+- **Pending (user-approved plan, NOT implemented):** tracklist-editor slug rename confirmation, styled like the existing confirmations:
+  - Renamed → `goto('/shows/[id]/[slug]/edit?renamed=1', { invalidateAll: true })`; on mount read `page.url.searchParams.get('renamed')` → show green "Episode ID updated." with ~4s auto-clear (Studio `flashFeedback` feel, editor `.replay-msg ok` styling).
+  - No-change save → inline "Episode ID saved." (same ~4s auto-clear).
+  - Errors keep the red `.replay-msg bad` line.
+  - Optional nit to settle: strip `?renamed=1` via `history.replaceState` after reading (otherwise a refresh re-shows the notice).
+- **Shipped this session (30 Aug), all in prod `41d495ac` / commit `88026f9`:** episode URL flattening (`/shows/[id]/[broadcastId]` + `/edit` editor; legacy `/shows/[id]/tracklist` route removed; no redirects — site not live), slug rename working via D1 `PRAGMA defer_foreign_keys` (NOT `foreign_keys = OFF` — D1 rejects that), auto-slugs `<show>-<date>`, cycle-week selector (2/4-week shows), overlap warnings, Featured admin tab (flag + oldest-4 fallback), events (kind column, description, paste-URL images, V-on-black fallbacks everywhere), per-episode descriptions, admin show/event editing with diff-based schedule regen + `fromDate` phase anchoring, Beats Reality anchor corrected to week 1 (2026-09-16), `Cache-Control: no-store` in hooks, square archive art via ResizeObserver (Chrome+Safari safe).
+- **Protocol reminder:** AGENTS.md (project + global) — never push to GitHub or deploy prod without an explicit instruction; "push prod" ≠ GitHub push. GitHub is PUBLIC.
+
 ## State
 
 Clean tree, prod `version-radio.pages.dev` live at **`beece22`** (deploy `ff640ff2`). `npm run check` 0 errors. Critical feature (iOS lock-screen background audio) **restored and verified**; player restored to last-known-good; everything else today is safe.
