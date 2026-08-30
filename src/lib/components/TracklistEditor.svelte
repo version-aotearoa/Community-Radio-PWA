@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { Grid, WillowDark } from '@svar-ui/svelte-grid';
 	import { Button } from '@svar-ui/svelte-core';
 	import { parseTracksCsv } from '$lib/csv';
@@ -41,6 +42,9 @@
 	let descSaving = $state(false);
 	let descError = $state('');
 	let descNotice = $state('');
+	let slugInput = $state(untrack(() => broadcast.id));
+	let slugSaving = $state(false);
+	let slugError = $state('');
 	let fileInput: HTMLInputElement | undefined = $state();
 
 	const GRID_EVENTS = [
@@ -264,6 +268,27 @@
 		descNotice = 'Description cleared.';
 	}
 
+	async function saveSlug() {
+		slugError = '';
+		slugSaving = true;
+		const res = await fetch(`/api/shows/${show.id}/broadcasts/${broadcast.id}/slug`, {
+			method: 'PUT',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ slug: slugInput })
+		});
+		slugSaving = false;
+		if (!res.ok) {
+			slugError = await readErrorMessage(res);
+			return;
+		}
+		const saved = (await res.json()) as { id: string };
+		if (saved.id !== broadcast.id) {
+			// Renamed: navigate to the new episode editor URL.
+			await goto(`/shows/${show.id}/broadcasts/${saved.id}/tracklist`, { invalidateAll: true });
+			return;
+		}
+	}
+
 	async function save() {
 		error = '';
 		notice = '';
@@ -360,6 +385,23 @@
 	{/if}
 	{#if descNotice}
 		<p class="replay-msg ok">{descNotice}</p>
+	{/if}
+</div>
+
+<div class="desc-row">
+	<label for="episode-slug">Episode ID</label>
+	<input
+		id="episode-slug"
+		type="text"
+		placeholder="lowercase-slug"
+		bind:value={slugInput}
+		onkeydown={(e) => e.key === 'Enter' && saveSlug()}
+	/>
+	<Button css="vr-cta ghost" disabled={slugSaving} onclick={saveSlug}>
+		{slugSaving ? 'Saving…' : 'Save'}
+	</Button>
+	{#if slugError}
+		<p class="replay-msg bad">{slugError}</p>
 	{/if}
 </div>
 
@@ -494,9 +536,20 @@
 		resize: vertical;
 	}
 
-	.desc-row textarea:focus {
+	.desc-row textarea:focus,
+	.desc-row input:focus {
 		outline: none;
 		border-color: var(--vr-line);
+	}
+
+	.desc-row input {
+		flex: 1;
+		min-width: 200px;
+		background: transparent;
+		color: var(--vr-text);
+		border: 1px solid var(--vr-line-muted);
+		padding: 0.4rem 0.6rem;
+		font-size: 0.85rem;
 	}
 
 	.replay-row label {

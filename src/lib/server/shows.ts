@@ -425,21 +425,29 @@ export async function findOverlappingShows(
 	}
 
 	if (typeof input.dayOfWeek === 'number') {
-		const { results } = await db
-			.prepare(
-				`SELECT s.id, s.title
-				 FROM show s
-				 WHERE s.day_of_week = ? AND s.active = 1
-				   AND s.start_minutes + s.duration_minutes > ? AND s.start_minutes < ?
-				   AND (? IS NULL OR s.id != ?)
-				 LIMIT 5`
-			)
-			.bind(input.dayOfWeek, input.startMinutes, end, input.excludeShowId ?? null, input.excludeShowId ?? '')
-			.all();
-		for (const r of results as unknown as OverlapInfo[]) {
-			if (!seen.has(r.id)) {
-				seen.add(r.id);
-				overlaps.push(r);
+		// Same-weekday fallback only matters for the near-future window where
+		// broadcast rows may not exist yet. Past (and far-future) dates rely
+		// solely on the exact-date broadcast check — historical truth.
+		const horizon = addDays(todayStr(), 84);
+		const inWindow =
+			!input.date || (input.date >= todayStr() && input.date <= horizon);
+		if (inWindow) {
+			const { results } = await db
+				.prepare(
+					`SELECT s.id, s.title
+					 FROM show s
+					 WHERE s.day_of_week = ? AND s.active = 1
+					   AND s.start_minutes + s.duration_minutes > ? AND s.start_minutes < ?
+					   AND (? IS NULL OR s.id != ?)
+					 LIMIT 5`
+				)
+				.bind(input.dayOfWeek, input.startMinutes, end, input.excludeShowId ?? null, input.excludeShowId ?? '')
+				.all();
+			for (const r of results as unknown as OverlapInfo[]) {
+				if (!seen.has(r.id)) {
+					seen.add(r.id);
+					overlaps.push(r);
+				}
 			}
 		}
 	}
@@ -505,7 +513,7 @@ export async function createShow(
 				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 			)
 			.bind(
-				crypto.randomUUID(),
+				`${id}-${input.date!}`,
 				id,
 				input.date!,
 				input.startMinutes,

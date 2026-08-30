@@ -51,7 +51,9 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 	}
 
 	const t = Math.floor(Date.now() / 1000);
-	const id = crypto.randomUUID();
+	// Friendly slug: <show-id>-<date> — unique per show+date (UNIQUE constraint),
+	// so no collision; keeps episode URLs readable.
+	const id = `${showId}-${date}`;
 	await db
 		.prepare(
 			`INSERT INTO broadcast (id, show_id, date, start_minutes, duration_minutes, interval_weeks, replay_url, created_at, updated_at)
