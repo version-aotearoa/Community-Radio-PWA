@@ -36,23 +36,21 @@ export const PUT: RequestHandler = async ({ request, params, locals, platform })
 
 	const t = Math.floor(Date.now() / 1000);
 	// saved_episode.broadcast_id references broadcast.id (FK, ON UPDATE NO
-	// ACTION) — renaming the parent key while bookmarks exist violates the
-	// constraint. Close the FK window for the rename, re-enable immediately.
-	await db.exec('PRAGMA foreign_keys = OFF');
+	// ACTION). D1 forbids `PRAGMA foreign_keys = OFF`, but supports
+	// `PRAGMA defer_foreign_keys = on`: checks are deferred to the end of
+	// this (single implicit) transaction, by which point the bookmark rows
+	// point at the renamed id. All three statements must share one exec.
+	const esc = (s: string) => s.replace(/'/g, "''");
 	try {
-		await db.batch([
-			db
-				.prepare('UPDATE broadcast SET id = ?, updated_at = ? WHERE id = ?')
-				.bind(slug, t, broadcast.id),
-			db
-				.prepare('UPDATE track SET broadcast_id = ? WHERE broadcast_id = ?')
-				.bind(slug, broadcast.id),
-			db
-				.prepare('UPDATE saved_episode SET broadcast_id = ? WHERE broadcast_id = ?')
-				.bind(slug, broadcast.id)
-		]);
-	} finally {
-		await db.exec('PRAGMA foreign_keys = ON');
+		await db.exec(`
+			PRAGMA defer_foreign_keys = on;
+			UPDATE broadcast SET id = '${esc(slug)}', updated_at = ${t} WHERE id = '${esc(broadcast.id)}';
+			UPDATE track SET broadcast_id = '${esc(slug)}' WHERE broadcast_id = '${esc(broadcast.id)}';
+			UPDATE saved_episode SET broadcast_id = '${esc(slug)}' WHERE broadcast_id = '${esc(broadcast.id)}';
+		`);
+	} catch (e) {
+		console.error('[slug] rename failed:', e);
+		return json({ error: 'Could not rename episode' }, { status: 500 });
 	}
 
 	return json({ id: slug });
