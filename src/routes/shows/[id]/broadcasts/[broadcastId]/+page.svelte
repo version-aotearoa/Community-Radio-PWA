@@ -121,6 +121,7 @@
 			{#each tracks as t, i (t.id)}
 				{#if t.embed_id}
 					<li class="embed-row">
+						<span class="num">{i + 1}</span>
 						<iframe
 							class="bc-embed"
 							src={bandcampEmbed(t)}
@@ -234,6 +235,7 @@
 
 	.embed-row {
 		padding: 0.85rem 0;
+		align-items: center;
 	}
 
 	.bc-embed {
