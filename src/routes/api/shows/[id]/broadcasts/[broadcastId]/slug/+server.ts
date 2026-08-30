@@ -35,15 +35,25 @@ export const PUT: RequestHandler = async ({ request, params, locals, platform })
 	if (existing) return json({ error: 'That ID is already in use.' }, { status: 409 });
 
 	const t = Math.floor(Date.now() / 1000);
-	await db.batch([
-		db.prepare('UPDATE broadcast SET id = ?, updated_at = ? WHERE id = ?').bind(slug, t, broadcast.id),
-		db
-			.prepare('UPDATE track SET broadcast_id = ? WHERE broadcast_id = ?')
-			.bind(slug, broadcast.id),
-		db
-			.prepare('UPDATE saved_episode SET broadcast_id = ? WHERE broadcast_id = ?')
-			.bind(slug, broadcast.id)
-	]);
+	// saved_episode.broadcast_id references broadcast.id (FK, ON UPDATE NO
+	// ACTION) — renaming the parent key while bookmarks exist violates the
+	// constraint. Close the FK window for the rename, re-enable immediately.
+	await db.exec('PRAGMA foreign_keys = OFF');
+	try {
+		await db.batch([
+			db
+				.prepare('UPDATE broadcast SET id = ?, updated_at = ? WHERE id = ?')
+				.bind(slug, t, broadcast.id),
+			db
+				.prepare('UPDATE track SET broadcast_id = ? WHERE broadcast_id = ?')
+				.bind(slug, broadcast.id),
+			db
+				.prepare('UPDATE saved_episode SET broadcast_id = ? WHERE broadcast_id = ?')
+				.bind(slug, broadcast.id)
+		]);
+	} finally {
+		await db.exec('PRAGMA foreign_keys = ON');
+	}
 
 	return json({ id: slug });
 };
