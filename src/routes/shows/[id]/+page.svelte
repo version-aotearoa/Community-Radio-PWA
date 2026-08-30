@@ -147,6 +147,26 @@
 		const current = $playback;
 		return current.kind === 'media' && current.url === url && $streamPlaying;
 	}
+
+	/** Keep each archive row's art a square matching its content column height. */
+	function squareToBody(node: HTMLElement) {
+		const art = node.querySelector<HTMLElement>('.past-art');
+		const body = node.querySelector<HTMLElement>('.past-body');
+		if (!art || !body) return;
+		const sync = () => {
+			const h = body.offsetHeight;
+			art.style.width = `${h}px`;
+			art.style.height = `${h}px`;
+		};
+		const ro = new ResizeObserver(sync);
+		ro.observe(body);
+		sync();
+		return {
+			destroy() {
+				ro.disconnect();
+			}
+		};
+	}
 </script>
 
 <svelte:head>
@@ -277,7 +297,7 @@
 			<h2 class="h-md">{show.kind === 'event' ? 'Broadcast recording' : 'Past broadcasts'}</h2>
 			<ul class="broadcasts">
 				{#each past as b, i (b.id)}
-					<li class="broadcast past">
+					<li class="broadcast past" use:squareToBody>
 						<a
 							class="past-art"
 							href={`/shows/${show.id}/broadcasts/${b.id}`}
@@ -540,22 +560,22 @@
 
 	.broadcast.past .past-art {
 		flex: 0 0 auto;
-		aspect-ratio: 1 / 1;
-		align-self: stretch;
-		display: flex;
-		align-items: stretch;
+		width: 96px;
+		height: 96px;
+		display: block;
 		background: var(--vr-surface-highest);
 	}
 
 	.broadcast.past .past-art img {
-		flex: 1;
-		min-width: 0;
+		width: 100%;
+		height: 100%;
 		object-fit: cover;
 		display: block;
 	}
 
 	.past-art-fallback {
-		flex: 1;
+		width: 100%;
+		height: 100%;
 		display: grid;
 		place-items: center;
 		background: #000;
