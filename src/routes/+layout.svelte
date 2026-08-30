@@ -117,9 +117,9 @@
 					{/if}
 				</nav>
 				<div class="mobile-menu-secondary">
-					<button type="button" onclick={closeMenu}>Contact</button>
-					<button type="button" onclick={closeMenu}>Terms</button>
-					<button type="button" onclick={closeMenu}>About</button>
+					<button type="button" disabled>Contact</button>
+					<button type="button" disabled>Terms</button>
+					<button type="button" disabled>About</button>
 				</div>
 			</div>
 		{/if}
@@ -134,9 +134,9 @@
 			<img class="footer-logo" src="/version-logo.svg" alt="VERSION" />
 			<span class="footer-note mono">Independent radio · Aotearoa · 24/7</span>
 			<nav class="footer-links" aria-label="Footer">
-				<button type="button">Contact</button>
-				<button type="button">Terms</button>
-				<button type="button">About</button>
+				<button type="button" disabled>Contact</button>
+				<button type="button" disabled>Terms</button>
+				<button type="button" disabled>About</button>
 			</nav>
 			{#if user}
 				<button class="footer-signout" onclick={signOut}>Sign out</button>
@@ -275,7 +275,12 @@
 		cursor: pointer;
 	}
 
-	.mobile-menu-secondary button:hover {
+	.mobile-menu-secondary button:disabled {
+		color: var(--vr-faint);
+		cursor: default;
+	}
+
+	.mobile-menu-secondary button:not(:disabled):hover {
 		color: var(--vr-text);
 		text-decoration: underline;
 	}
@@ -380,7 +385,12 @@
 		cursor: pointer;
 	}
 
-	.footer-links button:hover {
+	.footer-links button:disabled {
+		color: var(--vr-faint);
+		cursor: default;
+	}
+
+	.footer-links button:not(:disabled):hover {
 		color: var(--vr-text);
 		text-decoration: underline;
 	}
