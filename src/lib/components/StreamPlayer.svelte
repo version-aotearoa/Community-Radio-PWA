@@ -5,6 +5,7 @@
 	import {
 		autoplay,
 		playback,
+		playerCollapse,
 		playerRequest,
 		playerToggle,
 		requestPlay,
@@ -45,6 +46,12 @@
 		// React to a requestTogglePlay() signal (play/pause flip from external buttons).
 		if ($playerToggle.n === 0) return;
 		togglePlay();
+	});
+
+	$effect(() => {
+		// React to a requestCollapsePlayer() signal (e.g. logo click on home).
+		if ($playerCollapse.n === 0) return;
+		expanded = false;
 	});
 
 	let lastPath = '';

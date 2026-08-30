@@ -39,11 +39,19 @@ export const playerRequest = writable<PlayerRequest>({ n: 0 });
 /** Play/pause toggle signal: asks the player to flip its current state. */
 export const playerToggle = writable<PlayerRequest>({ n: 0 });
 
+/** Minimise-the-player signal (e.g. clicking the home logo while on /). */
+export const playerCollapse = writable<PlayerRequest>({ n: 0 });
+
 /** Whether audio is currently playing (live or recording). */
 export const streamPlaying = writable(false);
 
 export function requestTogglePlay() {
 	playerToggle.update((p) => ({ n: p.n + 1 }));
+}
+
+/** Ask the global stream player to collapse/minimise its max sheet. */
+export function requestCollapsePlayer() {
+	playerCollapse.update((p) => ({ n: p.n + 1 }));
 }
 
 /** What the global stream player is currently playing (live or a recording). */
