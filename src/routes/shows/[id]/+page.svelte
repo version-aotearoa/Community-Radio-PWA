@@ -444,23 +444,19 @@
 		padding-bottom: 0.5rem;
 	}
 
+	.broadcast {
+		border: 1px solid var(--vr-line-muted);
+		background: var(--vr-surface-low);
+		padding: 1rem 1.25rem 1.1rem;
+	}
+
 	.broadcasts {
 		list-style: none;
 		margin: 0;
 		padding: 0;
 		display: flex;
 		flex-direction: column;
-	}
-
-	.broadcast {
-		border: 1px solid var(--vr-line-muted);
-		border-bottom: none;
-		background: var(--vr-surface-low);
-		padding: 1rem 1.25rem 1.1rem;
-	}
-
-	.broadcast:last-child {
-		border-bottom: 1px solid var(--vr-line-muted);
+		gap: 0.75rem;
 	}
 
 	.broadcast.today {
@@ -531,7 +527,7 @@
 		display: grid;
 		grid-template-columns: auto 1fr;
 		gap: 1rem;
-		align-items: stretch;
+		align-items: start;
 		padding: 0;
 		overflow: hidden;
 	}
@@ -539,7 +535,7 @@
 	.broadcast.past .past-art {
 		display: block;
 		width: 96px;
-		min-height: 96px;
+		height: 96px;
 		background: var(--vr-surface-highest);
 	}
 
@@ -573,7 +569,7 @@
 
 		.broadcast.past .past-art {
 			width: 84px;
-			min-height: 84px;
+			height: 84px;
 		}
 	}
 
