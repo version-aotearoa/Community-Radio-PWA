@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import {
 	ensureBroadcasts,
+	findOverlappingShows,
 	getShow,
 	nextDateForWeekday,
 	replayPlayUrl,
@@ -67,16 +68,20 @@ export const POST: RequestHandler = async ({ request, params, locals, platform }
 
 	if (typeof body.djId === 'string') {
 		if (!isAdmin) return json({ error: 'Forbidden' }, { status: 403 });
-		const dj = await db
-			.prepare(`SELECT id FROM user WHERE id = ? AND role IN ('dj', 'admin')`)
-			.bind(body.djId)
-			.first();
-		if (!dj) return json({ error: 'Not a DJ account' }, { status: 400 });
-		columns.push('dj_id = ?');
-		values.push(body.djId);
+		// Unchanged DJ is a no-op — placeholder ids (e.g. 'dj-station') must
+		// not block unrelated edits.
+		if (body.djId !== show.dj_id) {
+			const dj = await db
+				.prepare(`SELECT id FROM user WHERE id = ? AND role IN ('dj', 'admin')`)
+				.bind(body.djId)
+				.first();
+			if (!dj) return json({ error: 'Not a DJ account' }, { status: 400 });
+			columns.push('dj_id = ?');
+			values.push(body.djId);
+		}
 	}
 
-	// ---- admin-only schedule / event fields ----
+	// ---- admin-only schedule / event fields (diff-based: only real changes) ----
 	let scheduleChanged = false;
 	let newDow: number | null = null;
 	let eventDate: string | null = null;
@@ -89,10 +94,12 @@ export const POST: RequestHandler = async ({ request, params, locals, platform }
 			if (!Number.isInteger(dow) || dow < 0 || dow > 6) {
 				return json({ error: 'Day must be 0–6' }, { status: 400 });
 			}
-			columns.push('day_of_week = ?');
-			values.push(dow);
-			scheduleChanged = true;
-			newDow = dow;
+			if (dow !== show.day_of_week) {
+				columns.push('day_of_week = ?');
+				values.push(dow);
+				scheduleChanged = true;
+				newDow = dow;
+			}
 		}
 
 		if (body.startMinutes !== undefined) {
@@ -100,10 +107,12 @@ export const POST: RequestHandler = async ({ request, params, locals, platform }
 			if (!Number.isInteger(sm) || sm < 0 || sm >= 1440) {
 				return json({ error: 'Start time must be within a day' }, { status: 400 });
 			}
-			columns.push('start_minutes = ?');
-			values.push(sm);
-			scheduleChanged = true;
-			eventStart = sm;
+			if (sm !== show.start_minutes) {
+				columns.push('start_minutes = ?');
+				values.push(sm);
+				scheduleChanged = true;
+				eventStart = sm;
+			}
 		}
 
 		if (body.durationMinutes !== undefined) {
@@ -111,9 +120,11 @@ export const POST: RequestHandler = async ({ request, params, locals, platform }
 			if (!Number.isInteger(dm) || dm <= 0 || dm > 1440) {
 				return json({ error: 'Duration must be a positive number of minutes' }, { status: 400 });
 			}
-			columns.push('duration_minutes = ?');
-			values.push(dm);
-			scheduleChanged = true;
+			if (dm !== show.duration_minutes) {
+				columns.push('duration_minutes = ?');
+				values.push(dm);
+				scheduleChanged = true;
+			}
 		}
 
 		if (body.intervalWeeks !== undefined) {
@@ -121,9 +132,11 @@ export const POST: RequestHandler = async ({ request, params, locals, platform }
 			if (![1, 2, 4].includes(iw)) {
 				return json({ error: 'Repeats must be 1, 2 or 4' }, { status: 400 });
 			}
-			columns.push('interval_weeks = ?');
-			values.push(iw);
-			scheduleChanged = true;
+			if (iw !== show.interval_weeks) {
+				columns.push('interval_weeks = ?');
+				values.push(iw);
+				scheduleChanged = true;
+			}
 		}
 
 		if (body.date !== undefined) {
@@ -132,11 +145,13 @@ export const POST: RequestHandler = async ({ request, params, locals, platform }
 			if (!DATE_RE.test(d)) {
 				return json({ error: 'Events need a valid date (YYYY-MM-DD)' }, { status: 400 });
 			}
-			columns.push('anchor_date = ?');
-			values.push(d);
-			columns.push('day_of_week = ?');
-			values.push(weekdayOf(d));
-			eventDate = d;
+			if (d !== show.anchor_date) {
+				columns.push('anchor_date = ?');
+				values.push(d);
+				columns.push('day_of_week = ?');
+				values.push(weekdayOf(d));
+				eventDate = d;
+			}
 		}
 
 		if (body.replayUrl !== undefined) {
@@ -160,6 +175,7 @@ export const POST: RequestHandler = async ({ request, params, locals, platform }
 	const t = Math.floor(Date.now() / 1000);
 	if (columns.length > 0) {
 		if (scheduleChanged && !isEvent && newDow !== null) {
+			// Real day change: re-phase the schedule to the next occurrence.
 			columns.push('anchor_date = ?');
 			values.push(nextDateForWeekday(newDow, todayStr()));
 		}
@@ -194,14 +210,27 @@ export const POST: RequestHandler = async ({ request, params, locals, platform }
 				.run();
 		}
 	} else if (scheduleChanged) {
-		// Regenerate future broadcasts from the (possibly new) schedule.
+		// Regenerate future broadcasts, anchored at the first phase date on or
+		// after today so the cycle week can never drift.
 		await db
 			.prepare('DELETE FROM broadcast WHERE show_id = ? AND date >= ?')
 			.bind(show.id, todayStr())
 			.run();
 		const fresh = await getShow(db, show.id);
-		if (fresh) await ensureBroadcasts(db, fresh);
+		if (fresh) await ensureBroadcasts(db, fresh, 12, todayStr());
 	}
 
-	return json({ ok: true });
+	const fresh = await getShow(db, show.id);
+	let overlap: { id: string; title: string }[] = [];
+	if (fresh && (scheduleChanged || eventDate !== null || eventStart !== null)) {
+		overlap = await findOverlappingShows(db, {
+			date: isEvent ? (eventDate ?? show.anchor_date) ?? undefined : undefined,
+			dayOfWeek: fresh.day_of_week,
+			startMinutes: fresh.start_minutes,
+			durationMinutes: fresh.duration_minutes,
+			excludeShowId: show.id
+		});
+	}
+
+	return json({ ok: true, overlap });
 };

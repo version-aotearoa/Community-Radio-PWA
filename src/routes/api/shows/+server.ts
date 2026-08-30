@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { createShow, getAllShows, getShowsForDj, weekdayOf } from '$lib/server/shows';
+import { createShow, findOverlappingShows, getAllShows, getShowsForDj, weekdayOf } from '$lib/server/shows';
 import type { RequestHandler } from './$types';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -63,7 +63,14 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 			date: isEvent ? body.date : undefined,
 			replayUrl: body.replayUrl
 		});
-		return json(show, { status: 201 });
+		const overlap = await findOverlappingShows(platform!.env.DB, {
+			date: isEvent ? body.date : undefined,
+			dayOfWeek,
+			startMinutes,
+			durationMinutes,
+			excludeShowId: show.id
+		});
+		return json({ ...show, overlap }, { status: 201 });
 	} catch (e) {
 		return json(
 			{ error: e instanceof Error ? e.message : 'Could not create show' },

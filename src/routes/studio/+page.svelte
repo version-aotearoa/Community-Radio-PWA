@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
+	import { invalidateAll } from '$app/navigation';
 	import { Button, Field, Text, Combo } from '@svar-ui/svelte-core';
 	import type { ShowRow } from '$lib/server/shows';
 
@@ -15,6 +16,7 @@
 	let saving = $state(false);
 	let error = $state('');
 	let notice = $state('');
+	let showOverlap = $state('');
 
 	let createKind = $state<'show' | 'event'>('show');
 	let showImage = $state('');
@@ -28,10 +30,12 @@
 	let evSaving = $state(false);
 	let evError = $state('');
 	let evNotice = $state('');
+	let evOverlap = $state('');
 
 	async function createEvent() {
 		evError = '';
 		evNotice = '';
+		evOverlap = '';
 		if (!evTitle.trim()) {
 			evError = 'Give the event a name.';
 			return;
@@ -61,6 +65,8 @@
 			evError = body?.error ?? `Create failed (${res.status})`;
 			return;
 		}
+		const saved = (await res.json()) as { overlap?: { title: string }[] };
+		evOverlap = overlapText(saved.overlap);
 		evTitle = '';
 		evDate = '';
 		evReplay = '';
@@ -107,10 +113,12 @@
 	let epSaving = $state(false);
 	let epError = $state('');
 	let epNotice = $state('');
+	let epOverlap = $state('');
 
 	async function addEpisode() {
 		epError = '';
 		epNotice = '';
+		epOverlap = '';
 		if (!epShowId) {
 			epError = 'Pick a show.';
 			return;
@@ -137,6 +145,8 @@
 			epError = body?.error ?? `Save failed (${res.status})`;
 			return;
 		}
+		const saved = (await res.json()) as { overlap?: { title: string }[] };
+		epOverlap = overlapText(saved.overlap);
 		epDate = '';
 		epReplay = '';
 		epNotice = 'Episode added.';
@@ -220,22 +230,39 @@
 	});
 	let efSaving = $state(false);
 	let efError = $state('');
+	let efOverlap = $state('');
 
-	function startEditShow(show: ShowRow) {
+	async function startEditShow(show: ShowRow) {
 		editingShowId = show.id;
 		efError = '';
+		efOverlap = '';
+		// Seed from a fresh fetch — never trust the (possibly stale) snapshot.
+		let fresh = show;
+		try {
+			const res = await fetch('/api/shows');
+			if (res.ok) {
+				const list = (await res.json()) as ShowRow[];
+				const match = list.find((s) => s.id === show.id);
+				if (match) {
+					fresh = match;
+					Object.assign(show, match);
+				}
+			}
+		} catch {
+			// fall back to the current row
+		}
 		ef = {
-			title: show.title,
-			description: show.description ?? '',
-			image: show.image ?? '',
-			djId: show.dj_id,
-			djHandle: show.dj_handle ?? '',
-			dayOfWeek: String(show.day_of_week),
-			startHours: String(Math.floor(show.start_minutes / 60)),
-			startMinutes: String(show.start_minutes % 60),
-			duration: String(show.duration_minutes),
-			intervalWeeks: String(show.interval_weeks),
-			date: show.anchor_date ?? '',
+			title: fresh.title,
+			description: fresh.description ?? '',
+			image: fresh.image ?? '',
+			djId: fresh.dj_id,
+			djHandle: fresh.dj_handle ?? '',
+			dayOfWeek: String(fresh.day_of_week),
+			startHours: String(Math.floor(fresh.start_minutes / 60)),
+			startMinutes: String(fresh.start_minutes % 60),
+			duration: String(fresh.duration_minutes),
+			intervalWeeks: String(fresh.interval_weeks),
+			date: fresh.anchor_date ?? '',
 			replay: ''
 		};
 	}
@@ -243,6 +270,7 @@
 	async function saveEditShow(show: ShowRow) {
 		efSaving = true;
 		efError = '';
+		efOverlap = '';
 		const body: Record<string, unknown> = {
 			title: ef.title,
 			description: ef.description,
@@ -271,22 +299,20 @@
 			efError = err?.error ?? `Save failed (${res.status})`;
 			return;
 		}
-		show.title = ef.title.trim() || show.title;
-		show.description = ef.description.trim();
-		show.image = ef.image.trim() || null;
-		show.dj_id = ef.djId;
-		show.dj_handle = ef.djHandle.trim();
-		if (show.kind === 'event') {
-			show.anchor_date = ef.date.trim();
-			show.start_minutes = Number(ef.startHours) * 60 + Number(ef.startMinutes);
-		} else {
-			show.day_of_week = Number(ef.dayOfWeek);
-			show.start_minutes = Number(ef.startHours) * 60 + Number(ef.startMinutes);
-			show.duration_minutes = Number(ef.duration);
-			show.interval_weeks = Number(ef.intervalWeeks);
+		const saved = (await res.json()) as { ok: boolean; overlap?: { id: string; title: string }[] };
+		efOverlap = overlapText(saved.overlap);
+		// Refresh the list from the DB (single source of truth).
+		const showsRes = await fetch('/api/shows');
+		if (showsRes.ok) {
+			data.shows = (await showsRes.json()) as ShowRow[];
 		}
 		editingShowId = '';
 		flashFeedback(showFeedback, show.id, 'Saved', true);
+	}
+
+	function overlapText(overlap: { id?: string; title: string }[] | undefined): string {
+		if (!overlap || overlap.length === 0) return '';
+		return overlap.map((o) => o.title).join(', ');
 	}
 
 	function flashFeedback(
@@ -389,7 +415,12 @@
 		return new Date(ts).toLocaleTimeString('en-NZ', { hour: '2-digit', minute: '2-digit' });
 	}
 
-	onMount(loadAdmin);
+	onMount(() => {
+		loadAdmin();
+		// Fresh server data on every visit — the DB is the source of truth
+		// (SPA navigation otherwise reuses the initial SSR snapshot).
+		void invalidateAll();
+	});
 
 	const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 	const REPEATS = [
@@ -407,6 +438,7 @@
 	async function createShow() {
 		error = '';
 		notice = '';
+		showOverlap = '';
 		if (!title.trim()) {
 			error = 'Give your show a name.';
 			return;
@@ -430,6 +462,8 @@
 			error = 'Could not create the show.';
 			return;
 		}
+		const created = (await res.json()) as { overlap?: { title: string }[] };
+		showOverlap = overlapText(created.overlap);
 		title = '';
 		description = '';
 		showImage = '';
@@ -568,6 +602,9 @@
 			{#if notice}
 				<div class="notice ok">{notice}</div>
 			{/if}
+			{#if showOverlap}
+				<div class="notice warn">⚠ Overlaps with: {showOverlap}</div>
+			{/if}
 			<Button css="vr-cta" type="primary" disabled={saving} onclick={createShow}>
 				{saving ? 'Creating…' : 'Create show'}
 			</Button>
@@ -604,6 +641,9 @@
 			{/if}
 			{#if evNotice}
 				<div class="notice ok">{evNotice}</div>
+			{/if}
+			{#if evOverlap}
+				<div class="notice warn">⚠ Overlaps with: {evOverlap}</div>
 			{/if}
 			<Button css="vr-cta" type="primary" disabled={evSaving} onclick={createEvent}>
 				{evSaving ? 'Creating…' : 'Create event'}
@@ -655,6 +695,9 @@
 			{/if}
 			{#if epNotice}
 				<div class="notice ok">{epNotice}</div>
+			{/if}
+			{#if epOverlap}
+				<div class="notice warn">⚠ Overlaps with: {epOverlap}</div>
 			{/if}
 			<Button css="vr-cta" type="primary" disabled={epSaving} onclick={addEpisode}>
 				{epSaving ? 'Adding…' : 'Add episode'}
@@ -897,6 +940,9 @@
 							{#if efError}
 								<div class="notice bad">{efError}</div>
 							{/if}
+							{#if efOverlap}
+								<div class="notice warn">⚠ Overlaps with: {efOverlap}</div>
+							{/if}
 							<div class="edit-actions">
 								<Button css="vr-cta" type="primary" disabled={efSaving} onclick={() => saveEditShow(show)}>
 									{efSaving ? 'Saving…' : 'Save'}
@@ -1066,6 +1112,11 @@
 
 	.notice.bad {
 		color: var(--vr-text);
+	}
+
+	.notice.warn {
+		color: var(--vr-text);
+		background: var(--vr-surface-low);
 	}
 
 	.muted {

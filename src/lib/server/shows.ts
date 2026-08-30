@@ -105,11 +105,19 @@ export function nextDateForWeekday(dayOfWeek: number, fromDate: string): string 
 export async function ensureBroadcasts(
 	db: D1Database,
 	show: Pick<ShowRow, 'id' | 'interval_weeks' | 'anchor_date' | 'day_of_week' | 'start_minutes' | 'duration_minutes' | 'kind'>,
-	weeks = 12
+	weeks = 12,
+	fromDate?: string
 ): Promise<BroadcastRow[]> {
 	// One-off events never generate recurring broadcasts.
 	if (show.kind === 'event') return [];
-	const scheduleStart = show.anchor_date ?? nextDateForWeekday(show.day_of_week, todayStr());
+	let scheduleStart = fromDate ?? show.anchor_date ?? nextDateForWeekday(show.day_of_week, todayStr());
+	if (fromDate && show.anchor_date) {
+		// Keep the anchor's cycle phase: walk forward to the first phase date
+		// on/after `fromDate` so regeneration never shifts the cycle week.
+		scheduleStart = show.anchor_date;
+		const intervalDays = show.interval_weeks * 7;
+		while (scheduleStart < fromDate) scheduleStart = addDays(scheduleStart, intervalDays);
+	}
 	const horizon = addDays(todayStr(), weeks * 7);
 	const intervalDays = show.interval_weeks * 7;
 
@@ -353,6 +361,74 @@ export async function getUpcomingBroadcasts(
 		.bind(from, to)
 		.all();
 	return results as unknown as UpcomingBroadcast[];
+}
+
+export interface OverlapInfo {
+	id: string;
+	title: string;
+}
+
+/**
+ * Shows whose slot intersects the given one. Recurring slots match on
+ * day_of_week; date-based slots (events/episodes) additionally match
+ * broadcasts on that exact date. Touching boundaries do not overlap.
+ */
+export async function findOverlappingShows(
+	db: D1Database,
+	input: {
+		date?: string;
+		dayOfWeek?: number;
+		startMinutes: number;
+		durationMinutes: number;
+		excludeShowId?: string;
+	}
+): Promise<OverlapInfo[]> {
+	const end = input.startMinutes + input.durationMinutes;
+	const overlaps: OverlapInfo[] = [];
+	const seen = new Set<string>();
+
+	if (input.date) {
+		const { results } = await db
+			.prepare(
+				`SELECT DISTINCT s.id, s.title
+				 FROM broadcast b
+				 JOIN show s ON s.id = b.show_id
+				 WHERE b.date = ?
+				   AND b.start_minutes + b.duration_minutes > ? AND b.start_minutes < ?
+				   AND (? IS NULL OR s.id != ?)
+				 LIMIT 5`
+			)
+			.bind(input.date, input.startMinutes, end, input.excludeShowId ?? null, input.excludeShowId ?? '')
+			.all();
+		for (const r of results as unknown as OverlapInfo[]) {
+			if (!seen.has(r.id)) {
+				seen.add(r.id);
+				overlaps.push(r);
+			}
+		}
+	}
+
+	if (typeof input.dayOfWeek === 'number') {
+		const { results } = await db
+			.prepare(
+				`SELECT s.id, s.title
+				 FROM show s
+				 WHERE s.day_of_week = ? AND s.active = 1
+				   AND s.start_minutes + s.duration_minutes > ? AND s.start_minutes < ?
+				   AND (? IS NULL OR s.id != ?)
+				 LIMIT 5`
+			)
+			.bind(input.dayOfWeek, input.startMinutes, end, input.excludeShowId ?? null, input.excludeShowId ?? '')
+			.all();
+		for (const r of results as unknown as OverlapInfo[]) {
+			if (!seen.has(r.id)) {
+				seen.add(r.id);
+				overlaps.push(r);
+			}
+		}
+	}
+
+	return overlaps;
 }
 
 export async function createShow(
