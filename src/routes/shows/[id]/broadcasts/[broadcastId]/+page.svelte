@@ -92,8 +92,8 @@
 					class="replay-art"
 					src={replayArtFromUrl(broadcast.replay_url) ?? ''}
 					alt=""
-					width="40"
-					height="40"
+					width="80"
+					height="80"
 					loading="lazy"
 				/>
 			{/if}
@@ -289,8 +289,8 @@
 	}
 
 	.replay-art {
-		width: 40px;
-		height: 40px;
+		width: 80px;
+		height: 80px;
 		object-fit: cover;
 		border: 1px solid var(--vr-line-muted);
 	}
