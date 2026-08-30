@@ -4,11 +4,13 @@
 	let {
 		variant,
 		onclose,
-		label
+		label,
+		dismissable = true
 	}: {
 		variant: 'banner' | 'menu';
 		onclose?: () => void;
 		label?: string;
+		dismissable?: boolean;
 	} = $props();
 
 	const deferred = $derived($installEvent);
@@ -51,7 +53,7 @@
 </script>
 
 {#if variant === 'banner'}
-	{#if visible && !dismissed && !done}
+	{#if visible && (dismissable ? !dismissed : true) && !done}
 		<div class="install-banner">
 			<div class="install-copy">
 				<strong>Get the Version Radio app</strong>
@@ -62,7 +64,9 @@
 				{/if}
 			</div>
 			<button class="install-btn" onclick={promptInstall}>{deferred ? 'Install' : 'How to'}</button>
-			<button class="install-close" onclick={closeBanner} aria-label="Dismiss">×</button>
+			{#if dismissable}
+				<button class="install-close" onclick={closeBanner} aria-label="Dismiss">×</button>
+			{/if}
 		</div>
 	{/if}
 {:else}

@@ -125,7 +125,6 @@
 					<a href="/schedule" onclick={closeMenu}>Schedule</a>
 					<a href="/chat" onclick={closeMenu}>Chat</a>
 					<a href="/info" onclick={closeMenu}>Info</a>
-					<InstallPrompt variant="menu" label="Install web app" onclose={closeMenu} />
 					{#if user}
 						{#if user.role === 'dj' || user.role === 'admin'}
 							<a href="/studio" onclick={closeMenu}>DJ Studio</a>
@@ -140,10 +139,11 @@
 					<a href="/info#terms" onclick={closeMenu}>Terms</a>
 					<a href="/info#about" onclick={closeMenu}>About</a>
 				</div>
+				<div class="menu-install">
+					<InstallPrompt variant="banner" dismissable={false} />
+				</div>
 			</div>
 		{/if}
-
-		<InstallPrompt variant="banner" />
 
 		<main class="site-main">
 			{@render children()}
@@ -298,6 +298,13 @@
 		color: var(--vr-text);
 		text-decoration: underline;
 		background: none;
+	}
+
+	.menu-install :global(.install-banner) {
+		border: none;
+		border-top: 1px solid var(--vr-line);
+		background: var(--vr-surface);
+		padding: 0.8rem 2rem;
 	}
 
 	@media (max-width: 720px) {
