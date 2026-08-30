@@ -73,12 +73,12 @@
 			stopLive();
 			audioEl.src = p.url;
 			loading = true;
-			audioEl.play().catch(() => {});
+			audioEl.play().catch(() => (loading = false));
 		} else {
 			stopMedia();
 			initLiveEngine();
 			loading = true;
-			audioEl.play().catch(() => {});
+			audioEl.play().catch(() => (loading = false));
 		}
 	});
 
@@ -150,7 +150,7 @@
 		if (mediaMode) {
 			if (audioEl.paused) {
 				loading = true;
-				await audioEl.play().catch(() => {});
+				await audioEl.play().catch(() => (loading = false));
 			} else {
 				audioEl.pause();
 			}
@@ -159,7 +159,7 @@
 		await initLiveEngine();
 		if (audioEl.paused) {
 			loading = true;
-			await audioEl.play().catch(() => {});
+			await audioEl.play().catch(() => (loading = false));
 		} else {
 			audioEl.pause();
 		}
@@ -178,12 +178,19 @@
 				streamPlaying.set(true);
 				loading = false;
 			});
-			audioEl.addEventListener('pause', () => streamPlaying.set(false));
+			audioEl.addEventListener('pause', () => {
+				streamPlaying.set(false);
+				loading = false;
+			});
 			audioEl.addEventListener('canplay', () => (loading = false));
+			audioEl.addEventListener('seeked', () => (loading = false));
 			audioEl.addEventListener('waiting', () => (loading = true));
 			audioEl.addEventListener('stalled', () => (loading = true));
 			audioEl.addEventListener('loadstart', () => (loading = true));
-			audioEl.addEventListener('timeupdate', () => (currentTime = audioEl?.currentTime ?? 0));
+			audioEl.addEventListener('timeupdate', () => {
+				currentTime = audioEl?.currentTime ?? 0;
+				loading = false;
+			});
 			audioEl.addEventListener('loadedmetadata', () => (duration = audioEl?.duration ?? NaN));
 			audioEl.addEventListener('durationchange', () => (duration = audioEl?.duration ?? NaN));
 		}
