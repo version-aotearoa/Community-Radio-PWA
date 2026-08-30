@@ -1,5 +1,7 @@
 # Handover — 2026-08-29 end of day (resume tomorrow)
 
+## NEW (2026-08-30 session) — see "Parked: autoplay/phantom loading" below before continuing player work.
+
 ## State
 
 Clean tree, prod `version-radio.pages.dev` live at **`beece22`** (deploy `ff640ff2`). `npm run check` 0 errors. Critical feature (iOS lock-screen background audio) **restored and verified**; player restored to last-known-good; everything else today is safe.
@@ -16,6 +18,21 @@ Clean tree, prod `version-radio.pages.dev` live at **`beece22`** (deploy `ff640f
 ## Parked (recoverable from `29d613e`)
 
 - Live-stream-archive time/seek (API clock via nowplaying `duration`/`elapsed`, `reairNow`/`archiveLike`, ±30 + window-clamped seek + "Seek unavailable", media-session gating + `__vrms`, debug strip, TLEN probe, `durationMinutes` plumbing). Non-critical per user; restore via cherry-picking from `29d613e`, and re-verify lock after any media-session re-enable.
+
+## Parked: autoplay / phantom loading spinner (2026-08-30, needs more consideration)
+
+- **Symptom (user-reported):** loading trace spins indefinitely "for no apparent reason"; seen in Safari (desktop + iOS), not Chrome. Safari shows constant network activity (native-HLS live-edge polling, normal).
+- **Root cause found:** autoplay ON at page load → `onMount` calls `togglePlay()` without a user gesture → Safari blocks `play()` → engine setup events (`loadstart`/`waiting`/`stalled`) fire **while the element is paused** → `loading=true` never cleared → constant spinner instead of autoplay. (Autoplay is already opt-in default-off via `vr-autoplay` localStorage; prod browser had a persisted `on` from an earlier manual toggle.)
+- **Debug instrumentation IN TREE:** `StreamPlayer.svelte` has a temp `setLoading(reason)` + `window.__vrPlayerDebug` event ring (commit `77397eb`, local-only, not deployed). `[vr]` console lines log every transition with paused/readyState/networkState/currentTime. Strip once resolved.
+- **Proposed fix bundle (NOT applied — revisit):**
+  1. Drop `loadstart` as a set-true (explicit sets in `togglePlay`/switch effect cover it).
+  2. Paused-invariant: `waiting`/`stalled` handlers ignore events when `audioEl.paused`.
+  3. `stalled` extra gate: ignore when `readyState >= 3` (Safari mid-playback phantom).
+  4. ~1.5s watchdog on `waiting`/`stalled` set-true: clear if `currentTime` advanced or `readyState >= 3` (real stalls freeze time/drain buffer).
+  5. `visibilitychange` → visible guard: clear when `!paused && readyState >= 3`.
+  6. Autoplay hardening: bump key `vr-autoplay` → `vr-autoplay-v2` (force-reset all persisted opt-ins to off — "strictly opt-in"), and only auto-start when `document.visibilityState === 'visible'`.
+- **Open decisions:** key bump yes/no; readyState gate yes/no; strip ring after local verify or after a prod cycle.
+- **Repro:** LAN dev (`npm run dev -- --host 0.0.0.0`) in Safari, toggle player Autoplay ON, reload page.
 
 ## NEXT SESSION — queued: account refresh staleness
 
