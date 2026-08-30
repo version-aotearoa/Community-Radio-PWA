@@ -37,6 +37,10 @@
 	let replaySaving = $state(false);
 	let replayError = $state('');
 	let replayNotice = $state('');
+	let descInput = $state(untrack(() => broadcast.description ?? ''));
+	let descSaving = $state(false);
+	let descError = $state('');
+	let descNotice = $state('');
 	let fileInput: HTMLInputElement | undefined = $state();
 
 	const GRID_EVENTS = [
@@ -225,6 +229,41 @@
 		replayNotice = 'Replay link cleared.';
 	}
 
+	async function saveDescription() {
+		descError = '';
+		descNotice = '';
+		descSaving = true;
+		const res = await fetch(`/api/shows/${show.id}/broadcasts/${broadcast.id}/description`, {
+			method: 'PUT',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ description: descInput })
+		});
+		descSaving = false;
+		if (!res.ok) {
+			descError = await readErrorMessage(res);
+			return;
+		}
+		const saved = (await res.json()) as { description: string };
+		descInput = saved.description;
+		descNotice = 'Description saved.';
+	}
+
+	async function clearDescription() {
+		descError = '';
+		descNotice = '';
+		descSaving = true;
+		const res = await fetch(`/api/shows/${show.id}/broadcasts/${broadcast.id}/description`, {
+			method: 'DELETE'
+		});
+		descSaving = false;
+		if (!res.ok) {
+			descError = await readErrorMessage(res);
+			return;
+		}
+		descInput = '';
+		descNotice = 'Description cleared.';
+	}
+
 	async function save() {
 		error = '';
 		notice = '';
@@ -301,6 +340,26 @@
 	{/if}
 	{#if replayNotice}
 		<p class="replay-msg ok">{replayNotice}</p>
+	{/if}
+</div>
+
+<div class="desc-row">
+	<label for="broadcast-desc">Description</label>
+	<textarea
+		id="broadcast-desc"
+		rows={3}
+		placeholder="Episode description"
+		bind:value={descInput}
+	></textarea>
+	<Button css="vr-cta ghost" disabled={descSaving} onclick={saveDescription}>
+		{descSaving ? 'Saving…' : 'Save'}
+	</Button>
+	<Button css="vr-cta ghost" disabled={descSaving} onclick={clearDescription}>Clear</Button>
+	{#if descError}
+		<p class="replay-msg bad">{descError}</p>
+	{/if}
+	{#if descNotice}
+		<p class="replay-msg ok">{descNotice}</p>
 	{/if}
 </div>
 
@@ -403,6 +462,41 @@
 		padding: 0.75rem 0.85rem;
 		border: 1px solid var(--vr-line);
 		background: var(--vr-surface);
+	}
+
+	.desc-row {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+		margin: 0 0 1rem;
+		padding: 0.75rem 0.85rem;
+		border: 1px solid var(--vr-line);
+		background: var(--vr-surface);
+	}
+
+	.desc-row label {
+		font-size: 0.85rem;
+		color: var(--vr-muted);
+		font-family: var(--vr-font-mono);
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+	}
+
+	.desc-row textarea {
+		flex: 1;
+		min-width: 200px;
+		background: transparent;
+		color: var(--vr-text);
+		border: 1px solid var(--vr-line-muted);
+		padding: 0.4rem 0.6rem;
+		font-size: 0.85rem;
+		resize: vertical;
+	}
+
+	.desc-row textarea:focus {
+		outline: none;
+		border-color: var(--vr-line);
 	}
 
 	.replay-row label {

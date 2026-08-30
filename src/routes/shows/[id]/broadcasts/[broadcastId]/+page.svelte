@@ -133,6 +133,9 @@
 			</div>
 		{/if}
 	</div>
+	{#if broadcast.description}
+		<p class="episode-desc">{broadcast.description}</p>
+	{/if}
 	<h2>Tracklist</h2>
 	{#if tracks.length}
 		<ol class="tracklist">
@@ -276,6 +279,12 @@
 		gap: 0.75rem;
 		flex-wrap: wrap;
 		margin-bottom: 0.25rem;
+	}
+
+	.episode-desc {
+		margin: 0 0 1rem;
+		color: var(--vr-muted);
+		line-height: 1.55;
 	}
 
 	.hint-row {

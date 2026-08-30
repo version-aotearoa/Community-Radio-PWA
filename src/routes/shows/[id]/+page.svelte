@@ -272,9 +272,9 @@
 	</section>
 {/if}
 
-{#if past.length > 0}
+	{#if past.length > 0}
 		<section class="block">
-			<h2 class="h-md">Past broadcasts</h2>
+			<h2 class="h-md">{show.kind === 'event' ? 'Broadcast recording' : 'Past broadcasts'}</h2>
 			<ul class="broadcasts">
 				{#each past as b, i (b.id)}
 					<li class="broadcast past">
