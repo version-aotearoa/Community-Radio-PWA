@@ -53,7 +53,7 @@
 			artist: show.kind === 'event' ? null : (show.dj_name ?? null),
 			art: replayArtFromUrl(broadcast.replay_url),
 			show: { id: show.id, title: show.title },
-			href: `/shows/${show.id}/broadcasts/${broadcast.id}`,
+			href: `/shows/${show.id}/${broadcast.id}`,
 			broadcastId: broadcast.id
 		});
 	}

@@ -54,7 +54,7 @@
 			artist: show.dj_name ?? null,
 			art: replayArtFromUrl(show.replay_url),
 			show: { id: show.show_id, title: show.title },
-			href: `/shows/${show.show_id}/broadcasts/${show.broadcast_id}`,
+			href: `/shows/${show.show_id}/${show.broadcast_id}`,
 			broadcastId: show.broadcast_id
 		});
 	}
@@ -113,7 +113,7 @@
 	</div>
 	<div class="shows-grid">
 		{#each data.latest as show (show.show_id)}
-			<a class="showcard" href={`/shows/${show.show_id}/broadcasts/${show.broadcast_id}`}>
+			<a class="showcard" href={`/shows/${show.show_id}/${show.broadcast_id}`}>
 				<div class="showcard-art">
 					{#if show.show_image}
 						<img src={show.show_image} alt="" loading="lazy" />
@@ -217,7 +217,7 @@
 				<ul>
 					{#each data.featured as f (f.broadcast_id)}
 						<li>
-							<a class="feat-row" href={`/shows/${f.show_id}/broadcasts/${f.broadcast_id}`}>
+							<a class="feat-row" href={`/shows/${f.show_id}/${f.broadcast_id}`}>
 								<span class="feat-art">
 									{#if featArt(f)}
 										<img src={featArt(f)} alt="" loading="lazy" />

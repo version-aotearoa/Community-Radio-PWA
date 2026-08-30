@@ -137,7 +137,7 @@
 			artist: show.kind === 'event' ? null : (show.dj_name ?? null),
 			art: replayArtFromUrl(b.replay_url),
 			show: { id: show.id, title: show.title },
-			href: `/shows/${show.id}/broadcasts/${b.id}`,
+			href: `/shows/${show.id}/${b.id}`,
 			broadcastId: b.id
 		});
 	}
@@ -270,7 +270,7 @@
 						{#if data.canEdit}
 							<a
 								class="edit-mini"
-								href={`/shows/${show.id}/broadcasts/${b.id}/tracklist`}
+								href={`/shows/${show.id}/${b.id}/edit`}
 								aria-label="Edit tracklist"
 								title="Edit tracklist"
 							>
@@ -292,7 +292,7 @@
 	</section>
 {/if}
 
-	{#if past.length > 0}
+{#if past.length > 0}
 		<section class="block">
 			<h2 class="h-md">{show.kind === 'event' ? 'Broadcast recording' : 'Past broadcasts'}</h2>
 			<ul class="broadcasts">
@@ -300,7 +300,7 @@
 					<li class="broadcast past" use:squareToBody>
 						<a
 							class="past-art"
-							href={`/shows/${show.id}/broadcasts/${b.id}`}
+							href={`/shows/${show.id}/${b.id}`}
 							aria-label={`View ${fmtDate(b.date)} episode`}
 						>
 							{#if replayArtFromUrl(b.replay_url)}
@@ -322,7 +322,7 @@
 								{#if data.canEdit}
 									<a
 										class="edit-mini"
-										href={`/shows/${show.id}/broadcasts/${b.id}/tracklist`}
+										href={`/shows/${show.id}/${b.id}/edit`}
 										aria-label="Edit tracklist"
 										title="Edit tracklist"
 									>
@@ -350,7 +350,7 @@
 										{/if}
 									</button>
 								{/if}
-								<a class="view-show mono" href={`/shows/${show.id}/broadcasts/${b.id}`}>View →</a>
+								<a class="view-show mono" href={`/shows/${show.id}/${b.id}`}>View →</a>
 							</div>
 						</div>
 					</li>

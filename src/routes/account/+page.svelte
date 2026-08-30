@@ -199,7 +199,7 @@
 				<ul>
 					{#each data.saved as s (s.broadcast_id)}
 						<li>
-							<a class="saved-row" href={`/shows/${s.show_id}/broadcasts/${s.broadcast_id}`}>
+							<a class="saved-row" href={`/shows/${s.show_id}/${s.broadcast_id}`}>
 								<span class="saved-art">
 									{#if s.image}
 										<img src={s.image} alt="" loading="lazy" />

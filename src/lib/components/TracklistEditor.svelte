@@ -284,7 +284,7 @@
 		const saved = (await res.json()) as { id: string };
 		if (saved.id !== broadcast.id) {
 			// Renamed: navigate to the new episode editor URL.
-			await goto(`/shows/${show.id}/broadcasts/${saved.id}/tracklist`, { invalidateAll: true });
+			await goto(`/shows/${show.id}/${saved.id}/edit`, { invalidateAll: true });
 			return;
 		}
 	}
