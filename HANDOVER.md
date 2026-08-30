@@ -32,6 +32,7 @@ Clean tree, prod `version-radio.pages.dev` live at **`beece22`** (deploy `ff640f
   5. `visibilitychange` → visible guard: clear when `!paused && readyState >= 3`.
   6. Autoplay hardening: bump key `vr-autoplay` → `vr-autoplay-v2` (force-reset all persisted opt-ins to off — "strictly opt-in"), and only auto-start when `document.visibilityState === 'visible'`.
 - **Open decisions:** key bump yes/no; readyState gate yes/no; strip ring after local verify or after a prod cycle.
+- **Reconsider autoplay as a feature** (user explicitly flagged): autoplay must be strictly opt-in, legally and in UX — revisit whether it should exist at all, whether the opt-in should persist, and whether load-time auto-start (even with a persisted opt-in) should be dropped entirely in favour of always requiring a user gesture. The phantom-spinner bug is a symptom of the load-time autoplay path.
 - **Repro:** LAN dev (`npm run dev -- --host 0.0.0.0`) in Safari, toggle player Autoplay ON, reload page.
 
 ## NEXT SESSION — queued: account refresh staleness
