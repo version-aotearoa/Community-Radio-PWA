@@ -25,6 +25,38 @@
 	let currentTime = $state(0);
 	let duration = $state(NaN);
 
+	// TEMPORARY loading-trace debug ring (Safari phantom-stall investigation).
+	// Exposed as window.__vrPlayerDebug; strip once the culprit is confirmed.
+	const VR_DEBUG: {
+		events: string[];
+		snapshot: () => Record<string, unknown>;
+	} = {
+		events: [],
+		snapshot() {
+			return {
+				paused: audioEl?.paused ?? null,
+				readyState: audioEl?.readyState ?? null,
+				networkState: audioEl?.networkState ?? null,
+				currentTime: audioEl?.currentTime ?? null,
+				duration: audioEl?.duration ?? null,
+				src: audioEl?.currentSrc ?? null,
+				loading,
+				streamPlaying: $streamPlaying,
+				mediaMode,
+				events: [...VR_DEBUG.events]
+			};
+		}
+	};
+
+	function setLoading(v: boolean, reason: string) {
+		if (loading === v) return;
+		loading = v;
+		const line = `${new Date().toLocaleTimeString('en-NZ', { hour12: false })} loading→${v} (${reason}) paused=${audioEl?.paused} ready=${audioEl?.readyState} net=${audioEl?.networkState} t=${(audioEl?.currentTime ?? 0).toFixed(1)}`;
+		VR_DEBUG.events.push(line);
+		if (VR_DEBUG.events.length > 200) VR_DEBUG.events.splice(0, VR_DEBUG.events.length - 200);
+		console.info(`[vr] ${line}`);
+	}
+
 	const livePayload = $derived($live);
 	const media = $derived($playback.kind === 'media' ? $playback : null);
 	const mediaMode = $derived(media !== null);
@@ -79,13 +111,13 @@
 		if (p.kind === 'media') {
 			stopLive();
 			audioEl.src = p.url;
-			loading = true;
-			audioEl.play().catch(() => (loading = false));
+			setLoading(true, 'switch:media');
+			audioEl.play().catch(() => setLoading(false, 'play-rejected:switch-media'));
 		} else {
 			stopMedia();
 			initLiveEngine();
-			loading = true;
-			audioEl.play().catch(() => (loading = false));
+			setLoading(true, 'switch:live');
+			audioEl.play().catch(() => setLoading(false, 'play-rejected:switch-live'));
 		}
 	});
 
@@ -156,8 +188,8 @@
 		if (!audioEl) return;
 		if (mediaMode) {
 			if (audioEl.paused) {
-				loading = true;
-				await audioEl.play().catch(() => (loading = false));
+				setLoading(true, 'play-start:media');
+				await audioEl.play().catch(() => setLoading(false, 'play-rejected:media'));
 			} else {
 				audioEl.pause();
 			}
@@ -165,8 +197,8 @@
 		}
 		await initLiveEngine();
 		if (audioEl.paused) {
-			loading = true;
-			await audioEl.play().catch(() => (loading = false));
+			setLoading(true, 'play-start:live');
+			await audioEl.play().catch(() => setLoading(false, 'play-rejected:live'));
 		} else {
 			audioEl.pause();
 		}
@@ -178,25 +210,28 @@
 
 	onMount(() => {
 		startLivePolling();
+		if (typeof window !== 'undefined') {
+			(window as unknown as Record<string, unknown>).__vrPlayerDebug = VR_DEBUG;
+		}
 		if (audioEl) {
 			// streamPlaying flips on `playing` (post-buffering) so the loading
 			// trace stays visible across the load; `play` fires far too early.
 			audioEl.addEventListener('playing', () => {
 				streamPlaying.set(true);
-				loading = false;
+				setLoading(false, 'event:playing');
 			});
 			audioEl.addEventListener('pause', () => {
 				streamPlaying.set(false);
-				loading = false;
+				setLoading(false, 'event:pause');
 			});
-			audioEl.addEventListener('canplay', () => (loading = false));
-			audioEl.addEventListener('seeked', () => (loading = false));
-			audioEl.addEventListener('waiting', () => (loading = true));
-			audioEl.addEventListener('stalled', () => (loading = true));
-			audioEl.addEventListener('loadstart', () => (loading = true));
+			audioEl.addEventListener('canplay', () => setLoading(false, 'event:canplay'));
+			audioEl.addEventListener('seeked', () => setLoading(false, 'event:seeked'));
+			audioEl.addEventListener('waiting', () => setLoading(true, 'event:waiting'));
+			audioEl.addEventListener('stalled', () => setLoading(true, 'event:stalled'));
+			audioEl.addEventListener('loadstart', () => setLoading(true, 'event:loadstart'));
 			audioEl.addEventListener('timeupdate', () => {
 				currentTime = audioEl?.currentTime ?? 0;
-				loading = false;
+				setLoading(false, 'event:timeupdate');
 			});
 			audioEl.addEventListener('loadedmetadata', () => (duration = audioEl?.duration ?? NaN));
 			audioEl.addEventListener('durationchange', () => (duration = audioEl?.duration ?? NaN));
@@ -208,7 +243,10 @@
 	onDestroy(() => {
 		hls?.destroy();
 		audioEl?.pause();
-		if (typeof window !== 'undefined') window.removeEventListener('keydown', onKey);
+		if (typeof window !== 'undefined') {
+			window.removeEventListener('keydown', onKey);
+			delete (window as unknown as Record<string, unknown>).__vrPlayerDebug;
+		}
 	});
 
 	function fmtTime(mins: number) {
