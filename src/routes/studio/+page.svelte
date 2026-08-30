@@ -17,6 +17,7 @@
 	let error = $state('');
 	let notice = $state('');
 	let showOverlap = $state('');
+	let cycleWeekSel = $state('');
 
 	let createKind = $state<'show' | 'event'>('show');
 	let showImage = $state('');
@@ -225,6 +226,7 @@
 		startMinutes: '0',
 		duration: '60',
 		intervalWeeks: '1',
+		cycleWeek: '',
 		date: '',
 		replay: ''
 	});
@@ -262,6 +264,7 @@
 			startMinutes: String(fresh.start_minutes % 60),
 			duration: String(fresh.duration_minutes),
 			intervalWeeks: String(fresh.interval_weeks),
+			cycleWeek: fresh.cycleWeek != null ? String(fresh.cycleWeek) : '',
 			date: fresh.anchor_date ?? '',
 			replay: ''
 		};
@@ -287,6 +290,14 @@
 			body.startMinutes = Number(ef.startHours) * 60 + Number(ef.startMinutes);
 			body.durationMinutes = Number(ef.duration);
 			body.intervalWeeks = Number(ef.intervalWeeks);
+			if (
+				(show.interval_weeks === 2 || show.interval_weeks === 4) &&
+				show.cycleWeek != null &&
+				ef.cycleWeek &&
+				Number(ef.cycleWeek) !== show.cycleWeek
+			) {
+				body.cycleWeek = Number(ef.cycleWeek);
+			}
 		}
 		const res = await fetch(`/api/shows/${show.id}`, {
 			method: 'POST',
@@ -444,18 +455,22 @@
 			return;
 		}
 		saving = true;
+		const body: Record<string, unknown> = {
+			title,
+			description,
+			image: showImage,
+			dayOfWeek: Number(dayOfWeek),
+			startMinutes: Number(startHours) * 60 + Number(startMinutes),
+			durationMinutes: Number(duration),
+			intervalWeeks: Number(intervalWeeks)
+		};
+		if ((Number(intervalWeeks) === 2 || Number(intervalWeeks) === 4) && cycleWeekSel) {
+			body.cycleWeek = Number(cycleWeekSel);
+		}
 		const res = await fetch('/api/shows', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({
-				title,
-				description,
-				image: showImage,
-				dayOfWeek: Number(dayOfWeek),
-				startMinutes: Number(startHours) * 60 + Number(startMinutes),
-				durationMinutes: Number(duration),
-				intervalWeeks: Number(intervalWeeks)
-			})
+			body: JSON.stringify(body)
 		});
 		saving = false;
 		if (!res.ok) {
@@ -467,6 +482,7 @@
 		title = '';
 		description = '';
 		showImage = '';
+		cycleWeekSel = '';
 		notice = 'Show created.';
 		const showsRes = await fetch('/api/shows');
 		if (showsRes.ok) {
@@ -595,6 +611,22 @@
 				<Field label="Repeats">
 					<Combo placeholder="Repeat" options={REPEATS} bind:value={intervalWeeks} />
 				</Field>
+				{#if Number(intervalWeeks) === 2 || Number(intervalWeeks) === 4}
+					<Field label="Cycle week">
+						<select class="dj-select" bind:value={cycleWeekSel}>
+							<option value="">Auto</option>
+							{#if Number(intervalWeeks) === 4}
+								<option value="1">Week 1</option>
+								<option value="2">Week 2</option>
+								<option value="3">Week 3</option>
+								<option value="4">Week 4</option>
+							{:else}
+								<option value="1">Weeks 1 &amp; 3</option>
+								<option value="2">Weeks 2 &amp; 4</option>
+							{/if}
+						</select>
+					</Field>
+				{/if}
 			</div>
 			{#if error}
 				<div class="notice bad">{error}</div>
@@ -935,6 +967,21 @@
 									<Field label="Repeats">
 										<Combo placeholder="Repeat" options={REPEATS} bind:value={ef.intervalWeeks} />
 									</Field>
+									{#if show.interval_weeks === 2 || show.interval_weeks === 4}
+										<Field label="Cycle week">
+											<select class="dj-select" bind:value={ef.cycleWeek}>
+												{#if show.interval_weeks === 4}
+													<option value="1">Week 1</option>
+													<option value="2">Week 2</option>
+													<option value="3">Week 3</option>
+													<option value="4">Week 4</option>
+												{:else}
+													<option value="1">Weeks 1 &amp; 3</option>
+													<option value="2">Weeks 2 &amp; 4</option>
+												{/if}
+											</select>
+										</Field>
+									{/if}
 								</div>
 							{/if}
 							{#if efError}

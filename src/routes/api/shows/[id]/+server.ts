@@ -1,8 +1,10 @@
 import { json } from '@sveltejs/kit';
 import {
+	cycleWeekOf,
 	ensureBroadcasts,
 	findOverlappingShows,
 	getShow,
+	nextCycleWeekDate,
 	nextDateForWeekday,
 	replayPlayUrl,
 	todayStr,
@@ -34,6 +36,7 @@ export const POST: RequestHandler = async ({ request, params, locals, platform }
 		startMinutes?: number | string;
 		durationMinutes?: number | string;
 		intervalWeeks?: number | string;
+		cycleWeek?: number | string;
 		date?: string;
 		replayUrl?: string | null;
 	};
@@ -135,6 +138,25 @@ export const POST: RequestHandler = async ({ request, params, locals, platform }
 			if (iw !== show.interval_weeks) {
 				columns.push('interval_weeks = ?');
 				values.push(iw);
+				scheduleChanged = true;
+			}
+		}
+
+		if (body.cycleWeek !== undefined) {
+			if (isEvent) return json({ error: 'cycleWeek is show-only' }, { status: 400 });
+			if (show.interval_weeks !== 2 && show.interval_weeks !== 4) {
+				return json({ error: 'cycleWeek only applies to shows repeating every 2 or 4 weeks' }, { status: 400 });
+			}
+			const cw = Number(body.cycleWeek);
+			if (!Number.isInteger(cw) || cw < 1 || cw > 4) {
+				return json({ error: 'cycleWeek must be 1–4' }, { status: 400 });
+			}
+			const current = cycleWeekOf(
+				show.anchor_date ?? nextDateForWeekday(show.day_of_week, todayStr())
+			);
+			if (cw !== current) {
+				columns.push('anchor_date = ?');
+				values.push(nextCycleWeekDate(show.day_of_week, cw, todayStr()));
 				scheduleChanged = true;
 			}
 		}

@@ -11,6 +11,7 @@ export interface ShowRow {
 	duration_minutes: number;
 	interval_weeks: number;
 	anchor_date: string | null;
+	cycleWeek?: number;
 	active: number;
 	created_at: number;
 	updated_at: number;
@@ -238,7 +239,10 @@ export async function getAllShows(db: D1Database): Promise<ShowRow[]> {
 	const { results } = await db
 		.prepare('SELECT * FROM show WHERE active = 1 ORDER BY day_of_week, start_minutes')
 		.all();
-	return results as unknown as ShowRow[];
+	return (results as unknown as ShowRow[]).map((s) => ({
+		...s,
+		cycleWeek: cycleWeekOf(s.anchor_date ?? nextDateForWeekday(s.day_of_week, todayStr()))
+	}));
 }
 
 export interface ScheduleShow extends ShowRow {
@@ -261,6 +265,18 @@ export async function getSchedule(db: D1Database): Promise<ScheduleShow[]> {
 
 /** Station-wide 4-week cycle anchor (Monday). */
 export const CYCLE_ANCHOR = '2026-01-05';
+
+/**
+ * The first date on/after `fromDate` whose weekday is `dayOfWeek` and whose
+ * cycle week is `targetWeek` (1-4). Used to re-phase a show's anchor.
+ */
+export function nextCycleWeekDate(dayOfWeek: number, targetWeek: number, fromDate: string): string {
+	let date = nextDateForWeekday(dayOfWeek, fromDate);
+	for (let i = 0; i < 4 && cycleWeekOf(date) !== targetWeek; i++) {
+		date = addDays(date, 7);
+	}
+	return date;
+}
 
 /** 1-4: which week of the 4-week station cycle contains `dateStr`. */
 export function cycleWeekOf(dateStr: string): number {

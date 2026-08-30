@@ -1,5 +1,13 @@
 import { json } from '@sveltejs/kit';
-import { createShow, findOverlappingShows, getAllShows, getShowsForDj, weekdayOf } from '$lib/server/shows';
+import {
+	createShow,
+	findOverlappingShows,
+	getAllShows,
+	getShowsForDj,
+	nextCycleWeekDate,
+	todayStr,
+	weekdayOf
+} from '$lib/server/shows';
 import type { RequestHandler } from './$types';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -29,6 +37,7 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 		startMinutes?: number;
 		durationMinutes?: number;
 		intervalWeeks?: number;
+		cycleWeek?: number;
 		kind?: string;
 		date?: string;
 		replayUrl?: string;
@@ -40,6 +49,7 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 		: Number(body.dayOfWeek);
 	const startMinutes = Number(body.startMinutes);
 	const durationMinutes = Number(body.durationMinutes) || 60;
+	const intervalWeeks = Number(body.intervalWeeks) || 1;
 
 	if (!body.title) return json({ error: 'title is required' }, { status: 400 });
 	if (isEvent && (typeof body.date !== 'string' || !DATE_RE.test(body.date))) {
@@ -47,6 +57,18 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 	}
 	if (!Number.isInteger(dayOfWeek) || !Number.isInteger(startMinutes)) {
 		return json({ error: 'title, dayOfWeek and startMinutes are required' }, { status: 400 });
+	}
+
+	let anchorDate: string | undefined;
+	if (!isEvent && body.cycleWeek !== undefined) {
+		const cw = Number(body.cycleWeek);
+		if (!Number.isInteger(cw) || cw < 1 || cw > 4) {
+			return json({ error: 'cycleWeek must be 1–4' }, { status: 400 });
+		}
+		if (intervalWeeks !== 2 && intervalWeeks !== 4) {
+			return json({ error: 'cycleWeek only applies to shows repeating every 2 or 4 weeks' }, { status: 400 });
+		}
+		anchorDate = nextCycleWeekDate(dayOfWeek, cw, todayStr());
 	}
 
 	try {
@@ -58,7 +80,8 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 			dayOfWeek,
 			startMinutes,
 			durationMinutes,
-			intervalWeeks: Number(body.intervalWeeks) || 1,
+			intervalWeeks,
+			anchorDate,
 			kind: isEvent ? 'event' : 'show',
 			date: isEvent ? body.date : undefined,
 			replayUrl: body.replayUrl
