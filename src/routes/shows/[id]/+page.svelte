@@ -115,9 +115,10 @@
 		}).format(new Date(`${dateStr}T00:00:00Z`));
 	}
 
-	function cycleLabel(show: { interval_weeks: number }) {
-		if (show.interval_weeks === 1) return 'Every week';
-		return `Every ${show.interval_weeks} weeks`;
+	function cycleWeeksLabel(): string {
+		const weeks = data.showCycleWeeks;
+		if (weeks.length === 1) return `week ${weeks[0]}`;
+		return `weeks ${weeks.join(' & ')}`;
 	}
 
 	function toggleReplay(b: { id: string; replay_url: string | null; date: string }) {
@@ -156,8 +157,13 @@
 			<p class="subtitle mono">
 				{DAY_NAMES[show.day_of_week]}s · {fmtTime(show.start_minutes)}–{fmtTime(
 					show.start_minutes + show.duration_minutes
-				)} · {cycleLabel(show)}
+				)}{#if show.interval_weeks === 1} · Every week{/if}
 			</p>
+			{#if data.showCycleWeeks.length > 0}
+				<p class="cycle-line mono">
+					Show airs {cycleWeeksLabel()} of 4 — current cycle week {data.currentCycleWeek}
+				</p>
+			{/if}
 			{#if djName}
 				<p class="dj mono">with {djName}</p>
 			{/if}
@@ -337,6 +343,11 @@
 	}
 
 	.dj {
+		margin: 0.4rem 0 0;
+		color: var(--vr-faint);
+	}
+
+	.cycle-line {
 		margin: 0.4rem 0 0;
 		color: var(--vr-faint);
 	}

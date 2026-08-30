@@ -1,9 +1,11 @@
 import { error } from '@sveltejs/kit';
 import {
+	cycleWeekOf,
 	ensureBroadcasts,
 	getBroadcastTracksMap,
 	getBroadcasts,
 	getShowWithDj,
+	nextDateForWeekday,
 	todayStr
 } from '$lib/server/shows';
 import type { PageServerLoad } from './$types';
@@ -30,6 +32,15 @@ export const load: PageServerLoad = async ({ params, locals, platform }) => {
 					.first()
 			)
 		: false;
+
+	// Cycle weeks the show airs on (station's 4-week cycle). Interval 1 airs
+	// every week, interval 2 on two weeks, interval 4 on a single week.
+	const anchor = show.anchor_date ?? nextDateForWeekday(show.day_of_week, today);
+	const baseWeek = cycleWeekOf(anchor);
+	const showCycleWeeks =
+		show.interval_weeks === 4 ? [baseWeek] : show.interval_weeks === 2 ? [baseWeek, ((baseWeek + 1) % 4) + 1] : [];
+	const currentCycleWeek = cycleWeekOf(today);
+
 	return {
 		show,
 		broadcasts,
@@ -37,6 +48,8 @@ export const load: PageServerLoad = async ({ params, locals, platform }) => {
 		canEdit,
 		today,
 		followed,
+		showCycleWeeks,
+		currentCycleWeek,
 		upcoming: broadcasts.filter((b) => b.date >= today).slice(0, 1),
 		past: broadcasts.filter((b) => b.date < today).reverse()
 	};
