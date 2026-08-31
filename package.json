@@ -21,6 +21,7 @@
 		"@sveltejs/adapter-cloudflare": "^7.2.9",
 		"@sveltejs/kit": "^2.63.0",
 		"@sveltejs/vite-plugin-svelte": "^7.1.2",
+		"@types/sanitize-html": "^2.16.1",
 		"svelte": "^5.56.1",
 		"svelte-check": "^4.6.0",
 		"typescript": "^6.0.3",
@@ -31,10 +32,12 @@
 		"@fontsource/anton": "^5.3.0",
 		"@fontsource/hanken-grotesk": "^5.3.0",
 		"@fontsource/jetbrains-mono": "^5.3.0",
+		"@friendofsvelte/tipex": "^0.2.0",
 		"@svar-ui/svelte-core": "^2.6.0",
 		"@svar-ui/svelte-grid": "^2.7.2",
 		"better-auth": "^1.7.1",
 		"hls.js": "^1.7.1",
+		"sanitize-html": "^2.17.7",
 		"sharp": "^0.35.2"
 	}
 }

@@ -5,15 +5,13 @@
 
 	const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-	function fmtTime(mins: number) {
-		const h = Math.floor(mins / 60);
-		const m = mins % 60;
-		return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-	}
+	const ORDINALS = ['1st', '2nd', '3rd', '4th'];
 
-	function cycleLabel(show: { interval_weeks: number }) {
-		if (show.interval_weeks === 1) return 'Every week';
-		return `Every ${show.interval_weeks} weeks`;
+	function airLabel(show: { day_of_week: number; showCycleWeeks: number[] }) {
+		const day = DAY_NAMES[show.day_of_week];
+		const weeks = show.showCycleWeeks;
+		if (weeks.length === 0) return `Every ${day}`;
+		return `Every ${weeks.map((w) => ORDINALS[w - 1]).join(' & ')} ${day}`;
 	}
 
 	function fmtDate(dateStr: string | null) {
@@ -64,23 +62,24 @@
 								{#if show.kind === 'event'}
 									{fmtDate(show.anchor_date)}
 								{:else}
-									{DAY_NAMES[show.day_of_week]}s · {fmtTime(show.start_minutes)}–{fmtTime(
-										show.start_minutes + show.duration_minutes
-									)} · {cycleLabel(show)}
+									{airLabel(show)}{#if show.showCycleWeeks.length > 0}<span class="asterisk" aria-hidden="true">*</span>{/if}
 								{/if}
 							</p>
 							<h2 class="h-md">{show.title}</h2>
 							{#if show.dj_name && show.kind !== 'event'}
 								<p class="dj mono">{show.dj_name}</p>
+							{:else}
+								<span class="dj-spacer" aria-hidden="true"></span>
 							{/if}
 							{#if show.description}
-								<p class="desc">{show.description}</p>
+								<p class="desc">{show.descriptionText}</p>
 							{/if}
 						</div>
 					</a>
 				</li>
 			{/each}
 		</ul>
+		<p class="cycle-foot mono"><span aria-hidden="true">*</span> of 4 week cycle</p>
 	{/if}
 </div>
 
@@ -171,8 +170,23 @@
 		font-variant-numeric: tabular-nums;
 	}
 
+	.asterisk {
+		color: var(--vr-green);
+		margin-left: 0.25rem;
+	}
+
 	.card:hover .card-meta {
 		color: rgba(0, 0, 0, 0.75);
+	}
+
+	.cycle-foot {
+		margin: 1rem 0 0;
+		color: var(--vr-faint);
+		font-size: 0.8rem;
+	}
+
+	.cycle-foot span {
+		color: var(--vr-green);
 	}
 
 	.card-body h2 {
@@ -182,6 +196,14 @@
 	.dj {
 		margin: 0.6rem 0 0;
 		color: var(--vr-muted);
+	}
+
+	/* Reserves the DJ line's vertical space on cards without one so every
+	   card in a grid row is equal height. 0.82rem (mono) × 1.15 (line-height). */
+	.dj-spacer {
+		display: block;
+		height: 0.94rem;
+		margin-top: 0.6rem;
 	}
 
 	.desc {

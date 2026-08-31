@@ -10,7 +10,13 @@ export default defineConfig({
 				runes: ({ filename }) =>
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
-			adapter: adapter()
+			adapter: adapter(),
+			version: {
+				// Detect new deploys so open tabs reload fresh content instead of
+				// running the previous build. version.json is served no-cache and
+				// excluded from the worker, so polling always sees the latest.
+				pollInterval: 60000
+			}
 		})
 	]
 });

@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { Grid, WillowDark } from '@svar-ui/svelte-grid';
 	import { Button } from '@svar-ui/svelte-core';
+	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
 	import { parseTracksCsv } from '$lib/csv';
 	import type { ShowRow, BroadcastRow, TrackRow } from '$lib/server/shows';
 
@@ -370,16 +371,13 @@
 
 <div class="desc-row">
 	<label for="broadcast-desc">Description</label>
-	<textarea
-		id="broadcast-desc"
-		rows={3}
-		placeholder="Episode description"
-		bind:value={descInput}
-	></textarea>
-	<Button css="vr-cta ghost" disabled={descSaving} onclick={saveDescription}>
-		{descSaving ? 'Saving…' : 'Save'}
-	</Button>
-	<Button css="vr-cta ghost" disabled={descSaving} onclick={clearDescription}>Clear</Button>
+	<RichTextEditor bind:value={descInput} placeholder="Episode description" />
+	<div class="desc-actions">
+		<Button css="vr-cta ghost" disabled={descSaving} onclick={saveDescription}>
+			{descSaving ? 'Saving…' : 'Save'}
+		</Button>
+		<Button css="vr-cta ghost" disabled={descSaving} onclick={clearDescription}>Clear</Button>
+	</div>
 	{#if descError}
 		<p class="replay-msg bad">{descError}</p>
 	{/if}
@@ -508,9 +506,8 @@
 
 	.desc-row {
 		display: flex;
-		align-items: flex-start;
+		flex-direction: column;
 		gap: 0.5rem;
-		flex-wrap: wrap;
 		margin: 0 0 1rem;
 		padding: 0.75rem 0.85rem;
 		border: 1px solid var(--vr-line);
@@ -525,26 +522,12 @@
 		text-transform: uppercase;
 	}
 
-	.desc-row textarea {
-		flex: 1;
-		min-width: 200px;
-		background: transparent;
-		color: var(--vr-text);
-		border: 1px solid var(--vr-line-muted);
-		padding: 0.4rem 0.6rem;
-		font-size: 0.85rem;
-		resize: vertical;
-	}
-
-	.desc-row textarea:focus,
-	.desc-row input:focus {
-		outline: none;
-		border-color: var(--vr-line);
+	.desc-actions {
+		display: flex;
+		gap: 0.5rem;
 	}
 
 	.desc-row input {
-		flex: 1;
-		min-width: 200px;
 		background: transparent;
 		color: var(--vr-text);
 		border: 1px solid var(--vr-line-muted);

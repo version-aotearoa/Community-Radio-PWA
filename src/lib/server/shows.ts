@@ -32,6 +32,7 @@ export interface BroadcastRow {
 }
 
 import { extractReplayTrackId, replayPlayUrl as azReplayPlayUrl } from '$lib/azuracast';
+import { DESCRIPTION_MAX, descriptionToText, sanitizeDescription } from '$lib/server/sanitize';
 
 export interface TrackRow {
 	id: string;
@@ -59,6 +60,19 @@ export interface TrackInput {
 }
 
 const now = () => Math.floor(Date.now() / 1000);
+
+/**
+ * Rich-text descriptions are stored as sanitized HTML. Re-sanitize on every
+ * read so anything rendered via `{@html}` is safe even if it predates the
+ * sanitizer (legacy plain-text rows) or slips through a future write path.
+ */
+function sanitizeShowRow<T extends ShowRow>(row: T): T {
+	return { ...row, description: sanitizeDescription(row.description) };
+}
+
+function sanitizeBroadcastRow<T extends BroadcastRow>(row: T): T {
+	return { ...row, description: sanitizeDescription(row.description) };
+}
 
 /* ------------------------------------------------------------------ */
 /* Date helpers (calendar-date only; safe across TZ/DST)               */
@@ -155,7 +169,7 @@ export async function getBroadcasts(db: D1Database, showId: string): Promise<Bro
 		.prepare('SELECT * FROM broadcast WHERE show_id = ? ORDER BY date')
 		.bind(showId)
 		.all();
-	return results as unknown as BroadcastRow[];
+	return (results as unknown as BroadcastRow[]).map(sanitizeBroadcastRow);
 }
 
 /** The show's current broadcast: next upcoming, or latest past if nothing upcoming. */
@@ -164,16 +178,19 @@ export async function getActiveBroadcast(db: D1Database, showId: string): Promis
 		.prepare('SELECT * FROM broadcast WHERE show_id = ? AND date >= ? ORDER BY date LIMIT 1')
 		.bind(showId, todayStr())
 		.first();
-	if (upcoming) return upcoming as unknown as BroadcastRow;
+	if (upcoming) return sanitizeBroadcastRow(upcoming as unknown as BroadcastRow);
 	const last = await db
 		.prepare('SELECT * FROM broadcast WHERE show_id = ? ORDER BY date DESC LIMIT 1')
 		.bind(showId)
 		.first();
-	return (last as unknown as BroadcastRow) ?? null;
+	return (last ? sanitizeBroadcastRow(last as unknown as BroadcastRow) : null) as BroadcastRow | null;
 }
 
 export async function getBroadcast(db: D1Database, id: string): Promise<BroadcastRow | null> {
-	return db.prepare('SELECT * FROM broadcast WHERE id = ?').bind(id).first() as Promise<BroadcastRow | null>;
+	const row = (await db.prepare('SELECT * FROM broadcast WHERE id = ?').bind(id).first()) as
+		| BroadcastRow
+		| null;
+	return row ? sanitizeBroadcastRow(row) : null;
 }
 
 /**
@@ -205,7 +222,10 @@ export function replayPlayUrl(input: string): string | null {
 /* ------------------------------------------------------------------ */
 
 export async function getShow(db: D1Database, id: string): Promise<ShowRow | null> {
-	return db.prepare('SELECT * FROM show WHERE id = ?').bind(id).first() as Promise<ShowRow | null>;
+	const row = (await db.prepare('SELECT * FROM show WHERE id = ?').bind(id).first()) as
+		| ShowRow
+		| null;
+	return row ? sanitizeShowRow(row) : null;
 }
 
 export interface ShowWithDj extends ShowRow {
@@ -214,7 +234,7 @@ export interface ShowWithDj extends ShowRow {
 }
 
 export async function getShowWithDj(db: D1Database, id: string): Promise<ShowWithDj | null> {
-	return db
+	const row = (await db
 		.prepare(
 			`SELECT s.*, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name, u.image AS dj_image
 			 FROM show s
@@ -222,7 +242,8 @@ export async function getShowWithDj(db: D1Database, id: string): Promise<ShowWit
 			 WHERE s.id = ?`
 		)
 		.bind(id)
-		.first() as Promise<ShowWithDj | null>;
+		.first()) as ShowWithDj | null;
+	return row ? sanitizeShowRow(row) : null;
 }
 
 export async function getShowsForDj(db: D1Database, djId: string): Promise<ShowRow[]> {
@@ -232,22 +253,28 @@ export async function getShowsForDj(db: D1Database, djId: string): Promise<ShowR
 		)
 		.bind(djId)
 		.all();
-	return results as unknown as ShowRow[];
+	return (results as unknown as ShowRow[]).map(sanitizeShowRow);
 }
 
 export async function getAllShows(db: D1Database): Promise<ShowRow[]> {
 	const { results } = await db
 		.prepare('SELECT * FROM show WHERE active = 1 ORDER BY day_of_week, start_minutes')
 		.all();
-	return (results as unknown as ShowRow[]).map((s) => ({
-		...s,
-		cycleWeek: cycleWeekOf(s.anchor_date ?? nextDateForWeekday(s.day_of_week, todayStr()))
-	}));
+	return (results as unknown as ShowRow[]).map((s) =>
+		sanitizeShowRow({
+			...s,
+			cycleWeek: cycleWeekOf(s.anchor_date ?? nextDateForWeekday(s.day_of_week, todayStr()))
+		})
+	);
 }
 
 export interface ScheduleShow extends ShowRow {
 	dj_name: string | null;
 	dj_image: string | null;
+	/** Plain-text teaser for list cards (no markup → no nested-anchor breakage). */
+	descriptionText: string;
+	/** Station-cycle weeks the show airs on (1-4). Empty for weekly shows. */
+	showCycleWeeks: number[];
 }
 
 export async function getSchedule(db: D1Database): Promise<ScheduleShow[]> {
@@ -260,7 +287,19 @@ export async function getSchedule(db: D1Database): Promise<ScheduleShow[]> {
 			 ORDER BY s.day_of_week, s.start_minutes`
 		)
 		.all();
-	return results as unknown as ScheduleShow[];
+	return (results as unknown as ScheduleShow[]).map((s) => {
+		const clean = sanitizeShowRow(s);
+		const baseWeek = cycleWeekOf(
+			clean.anchor_date ?? nextDateForWeekday(clean.day_of_week, todayStr())
+		);
+		const showCycleWeeks =
+			clean.interval_weeks === 4
+				? [baseWeek]
+				: clean.interval_weeks === 2
+					? [baseWeek, ((baseWeek + 1) % 4) + 1]
+					: [];
+		return { ...clean, descriptionText: descriptionToText(clean.description), showCycleWeeks };
+	});
 }
 
 /** Station-wide 4-week cycle anchor (Monday). */
@@ -487,7 +526,7 @@ export async function createShow(
 			id,
 			input.djId,
 			input.title.trim(),
-			input.description?.trim() ?? '',
+			sanitizeDescription(input.description).slice(0, DESCRIPTION_MAX),
 			image,
 			input.dayOfWeek,
 			input.startMinutes,

@@ -134,7 +134,7 @@
 		{/if}
 	</div>
 	{#if broadcast.description}
-		<p class="episode-desc">{broadcast.description}</p>
+		<div class="episode-desc">{@html broadcast.description}</div>
 	{/if}
 	<h2>Tracklist</h2>
 	{#if tracks.length}
@@ -285,6 +285,52 @@
 		margin: 0 0 1rem;
 		color: var(--vr-muted);
 		line-height: 1.55;
+	}
+
+	.episode-desc :global(p) {
+		margin: 0 0 0.5rem;
+	}
+
+	.episode-desc :global(p:last-child) {
+		margin-bottom: 0;
+	}
+
+	.episode-desc :global(a) {
+		color: var(--vr-green);
+		text-decoration: underline;
+	}
+
+	.episode-desc :global(ul),
+	.episode-desc :global(ol) {
+		margin: 0 0 0.5rem;
+		padding-left: 1.25rem;
+	}
+
+	.episode-desc :global(h1),
+	.episode-desc :global(h2),
+	.episode-desc :global(h3),
+	.episode-desc :global(h4) {
+		color: var(--vr-text);
+		margin: 0.75rem 0 0.4rem;
+		font-size: 1.1rem;
+	}
+
+	.episode-desc :global(code) {
+		font-family: var(--vr-font-mono);
+		background: var(--vr-surface-high);
+		padding: 0.1rem 0.3rem;
+	}
+
+	.episode-desc :global(pre) {
+		background: var(--vr-surface-high);
+		padding: 0.75rem;
+		overflow-x: auto;
+	}
+
+	.episode-desc :global(blockquote) {
+		margin: 0.5rem 0;
+		padding-left: 0.75rem;
+		border-left: 2px solid var(--vr-line);
 	}
 
 	.hint-row {

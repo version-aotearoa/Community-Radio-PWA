@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack, onDestroy } from 'svelte';
+	import { invalidateAll } from '$app/navigation';
 
 	let {
 		showId,
@@ -52,6 +53,10 @@
 			return;
 		}
 		if (!res.ok) followed = prev;
+		// Re-validate after the write commits so any follow-up navigation (e.g.
+		// to the account page) loads the fresh persisted state, not a snapshot
+		// that raced the POST.
+		await invalidateAll();
 	}
 
 	async function toggleEpisodeSaved() {
@@ -74,6 +79,7 @@
 			return;
 		}
 		if (!res.ok) episodeSaved = prev;
+		await invalidateAll();
 	}
 
 	async function share() {

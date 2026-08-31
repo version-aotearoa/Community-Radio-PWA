@@ -2,8 +2,9 @@
 	import { page } from '$app/state';
 	import { invalidateAll } from '$app/navigation';
 	import { untrack } from 'svelte';
-	import { Text, TextArea, Field, Button } from '@svar-ui/svelte-core';
+	import { Text, Field, Button } from '@svar-ui/svelte-core';
 	import ShowActions from '$lib/components/ShowActions.svelte';
+	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
 	import { playback, playMedia, requestTogglePlay, streamPlaying } from '$lib/stores/player';
 	import { replayArtFromUrl } from '$lib/azuracast';
 
@@ -222,7 +223,7 @@
 						</Field>
 					{/if}
 					<Field label="Description">
-						<TextArea bind:value={description} css="vr-input" />
+						<RichTextEditor bind:value={description} placeholder="Show description" />
 					</Field>
 					{#if editError}
 						<div class="notice bad">{editError}</div>
@@ -236,7 +237,7 @@
 				</form>
 			{:else}
 				{#if description}
-					<p class="desc">{description}</p>
+					<div class="desc">{@html description}</div>
 				{/if}
 				{#if editSaved}
 					<div class="notice ok">Saved</div>
@@ -423,6 +424,52 @@
 		margin: 0.85rem 0 0;
 		color: var(--vr-muted);
 		max-width: 44rem;
+	}
+
+	.desc :global(p) {
+		margin: 0 0 0.5rem;
+	}
+
+	.desc :global(p:last-child) {
+		margin-bottom: 0;
+	}
+
+	.desc :global(a) {
+		color: var(--vr-green);
+		text-decoration: underline;
+	}
+
+	.desc :global(ul),
+	.desc :global(ol) {
+		margin: 0 0 0.5rem;
+		padding-left: 1.25rem;
+	}
+
+	.desc :global(h1),
+	.desc :global(h2),
+	.desc :global(h3),
+	.desc :global(h4) {
+		color: var(--vr-text);
+		margin: 0.75rem 0 0.4rem;
+		font-size: 1.1rem;
+	}
+
+	.desc :global(code) {
+		font-family: var(--vr-font-mono);
+		background: var(--vr-surface-high);
+		padding: 0.1rem 0.3rem;
+	}
+
+	.desc :global(pre) {
+		background: var(--vr-surface-high);
+		padding: 0.75rem;
+		overflow-x: auto;
+	}
+
+	.desc :global(blockquote) {
+		margin: 0.5rem 0;
+		padding-left: 0.75rem;
+		border-left: 2px solid var(--vr-line);
 	}
 
 	.edit-form {

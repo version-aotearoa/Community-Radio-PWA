@@ -11,6 +11,10 @@
 	// Revalidate on mount so the lists always settle to the persisted state.
 	onMount(() => {
 		void invalidateAll();
+		// The POST can still be in flight when the mount-time revalidation
+		// runs, so re-check once more shortly after — belt and suspenders.
+		const t = setTimeout(() => void invalidateAll(), 800);
+		return () => clearTimeout(t);
 	});
 
 	const user = $derived(data.user);

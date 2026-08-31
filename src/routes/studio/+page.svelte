@@ -2,6 +2,7 @@
 	import { onMount, untrack } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { Button, Field, Text, Combo } from '@svar-ui/svelte-core';
+	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
 	import type { ShowRow } from '$lib/server/shows';
 
 	let { data } = $props();
@@ -586,7 +587,7 @@
 				<Text bind:value={title} placeholder="e.g. The Lunchtime Hour" css="vr-input" />
 			</Field>
 			<Field label="Description">
-				<Text bind:value={description} placeholder="Short blurb (optional)" css="vr-input" />
+				<RichTextEditor bind:value={description} placeholder="Short blurb (optional)" />
 			</Field>
 			<Field label="Image URL (optional)">
 				<Text bind:value={showImage} placeholder="https://…" css="vr-input" />
@@ -645,7 +646,7 @@
 				<Text bind:value={evTitle} placeholder="e.g. HIFI SESSION" css="vr-input" />
 			</Field>
 			<Field label="Description (optional)">
-				<Text bind:value={evDescription} placeholder="Short blurb" css="vr-input" />
+				<RichTextEditor bind:value={evDescription} placeholder="Short blurb" />
 			</Field>
 			<Field label="Date">
 				<Text bind:value={evDate} placeholder="YYYY-MM-DD" css="vr-input" />
@@ -913,7 +914,7 @@
 								<Text bind:value={ef.title} css="vr-input" />
 							</Field>
 							<Field label="Description">
-								<Text bind:value={ef.description} css="vr-input" />
+								<RichTextEditor bind:value={ef.description} placeholder="Short blurb" />
 							</Field>
 							<Field label="Image URL (blank clears)">
 								<Text bind:value={ef.image} placeholder="https://…" css="vr-input" />

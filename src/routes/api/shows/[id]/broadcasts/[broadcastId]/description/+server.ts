@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { DESCRIPTION_MAX, sanitizeDescription } from '$lib/server/sanitize';
 import { getBroadcast, getShow } from '$lib/server/shows';
 import type { RequestHandler } from './$types';
 
@@ -31,7 +32,7 @@ export const PUT: RequestHandler = async ({ request, params, locals, platform })
 	if (typeof body.description !== 'string') {
 		return json({ error: 'description must be a string' }, { status: 400 });
 	}
-	const description = body.description.trim().slice(0, 2000);
+	const description = sanitizeDescription(body.description).slice(0, DESCRIPTION_MAX);
 	await db
 		.prepare('UPDATE broadcast SET description = ?, updated_at = ? WHERE id = ?')
 		.bind(description, Math.floor(Date.now() / 1000), auth.broadcastId)

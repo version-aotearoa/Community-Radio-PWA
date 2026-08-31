@@ -10,6 +10,7 @@ import {
 	todayStr,
 	weekdayOf
 } from '$lib/server/shows';
+import { DESCRIPTION_MAX, sanitizeDescription } from '$lib/server/sanitize';
 import type { RequestHandler } from './$types';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -56,7 +57,7 @@ export const POST: RequestHandler = async ({ request, params, locals, platform }
 
 	if (typeof body.description === 'string') {
 		columns.push('description = ?');
-		values.push(body.description.trim().slice(0, 2000));
+		values.push(sanitizeDescription(body.description).slice(0, DESCRIPTION_MAX));
 	}
 
 	if (typeof body.djHandle === 'string') {
