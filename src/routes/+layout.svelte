@@ -181,7 +181,7 @@
 
 		<footer class="site-footer">
 			<img class="footer-logo" src="/version-logo.svg" alt="VERSION" />
-			<span class="footer-note mono">Independent radio · Aotearoa · 24/7</span>
+			<span class="footer-note mono">Version Radio · Aotearoa</span>
 			<nav class="footer-links" aria-label="Footer">
 				<a href="/info#contact">Contact</a>
 				<a href="/info#terms">Terms</a>

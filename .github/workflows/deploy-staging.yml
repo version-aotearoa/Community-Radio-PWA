@@ -1,0 +1,35 @@
+name: Deploy staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch to deploy
+        required: true
+        default: main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Svelte check
+        run: npm run check
+      - name: Build app
+        run: npm run build
+      - name: Deploy app to Pages (staging)
+        working-directory: deploy/staging
+        run: npx wrangler pages deploy ../../.svelte-kit/cloudflare --project-name version-radio-staging --branch main
+      - name: Deploy chat worker (staging)
+        working-directory: workers/chat-worker
+        run: npx wrangler deploy --name chat-worker-staging

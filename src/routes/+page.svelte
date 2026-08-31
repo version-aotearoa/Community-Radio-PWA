@@ -87,7 +87,7 @@
 		<div>
 			<span class="sticker hero-sticker">{isLiveNow ? 'On air now' : 'Streaming now'}</span>
 			<h1 class="hero-title">{heroTitle}</h1>
-			<p class="hero-meta mono">Independent radio · Aotearoa · 24/7</p>
+			<p class="hero-meta mono">Version Radio · Aotearoa</p>
 		</div>
 		<button class="btn-block hero-play" onclick={requestTogglePlay}>
 			{#if isPlaying}
