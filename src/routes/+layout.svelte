@@ -19,6 +19,10 @@
 	const user = $derived(page.data.user);
 	let menuOpen = $state(false);
 
+	// Current path for highlighting the active nav link (prefix match so
+	// sub-pages keep their parent item highlighted).
+	const path = $derived(page.url.pathname);
+
 	// A new deploy was published while this tab was open — reload so we run the
 	// fresh build instead of the stale one. SvelteKit polls /_app/version.json
 	// (see `version.pollInterval` in vite.config.ts) and flips `updated.current`.
@@ -95,14 +99,16 @@
 				{/if}
 			</button>
 			<nav class="site-nav" aria-label="Primary">
-				<a href="/shows">Shows</a>
-				<a href="/schedule">Schedule</a>
-				<a href="/chat">Chat</a>
-				<a href="/info">Info</a>
+				<a href="/shows" class:active={path.startsWith('/shows')}>Shows</a>
+				<a href="/schedule" class:active={path.startsWith('/schedule')}>Schedule</a>
+				<a href="/chat" class:active={path.startsWith('/chat')}>Chat</a>
+				<a href="/info" class:active={path.startsWith('/info')}>Info</a>
 				{#if user && (user.role === 'dj' || user.role === 'admin')}
-					<a href="/studio">Studio</a>
+					<a href="/studio" class:active={path.startsWith('/studio')}>Studio</a>
 				{/if}
+				<!-- Install prompt disabled for now
 				<InstallPrompt variant="menu" />
+				-->
 			</nav>
 			{#if user}
 				<div class="account">
@@ -146,9 +152,11 @@
 					<a href="/info#terms" onclick={closeMenu}>Terms</a>
 					<a href="/info#about" onclick={closeMenu}>About</a>
 				</div>
+				<!-- Install banner hidden for now
 				<div class="menu-install">
 					<InstallPrompt variant="banner" dismissable={false} />
 				</div>
+				-->
 			</div>
 		{/if}
 
@@ -212,7 +220,7 @@
 	.site-nav {
 		display: flex;
 		align-items: center;
-		gap: 1rem;
+		gap: 0.5rem;
 		margin-left: auto;
 	}
 
@@ -222,14 +230,15 @@
 		line-height: 1.2;
 		text-transform: uppercase;
 		letter-spacing: 0.02em;
-		color: var(--vr-faint);
+		color: var(--vr-text);
 		text-decoration: none;
-		padding: 0.2rem 0.1rem;
+		padding: 0.5rem 1.25rem;
 		border-bottom: 2px solid transparent;
 		transition: color 150ms, background-color 150ms;
 	}
 
-	.site-nav a:hover {
+	.site-nav a:hover,
+	.site-nav a.active {
 		color: var(--vr-black);
 		background: var(--vr-text);
 	}
@@ -305,13 +314,6 @@
 		color: var(--vr-text);
 		text-decoration: underline;
 		background: none;
-	}
-
-	.menu-install :global(.install-banner) {
-		border: none;
-		border-top: 1px solid var(--vr-line);
-		background: var(--vr-surface);
-		padding: 0.8rem 2rem;
 	}
 
 	@media (max-width: 720px) {

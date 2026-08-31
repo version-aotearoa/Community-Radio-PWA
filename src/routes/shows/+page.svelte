@@ -1,7 +1,17 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
+	import { invalidateAll } from '$app/navigation';
+
 	let { data } = $props();
 
 	const shows = $derived([...data.shows].sort((a, b) => a.title.localeCompare(b.title)));
+
+	// Fresh server data on every visit — the DB is the source of truth
+	// (SPA navigation otherwise reuses the initial SSR snapshot, so edited
+	// show cards stay stale until a full reload).
+	onMount(() => {
+		void invalidateAll();
+	});
 
 	const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 

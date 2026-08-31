@@ -12,8 +12,8 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"cf:types": "wrangler types --env-interface CloudflareBindings",
 		"pages:dev": "npm run build && wrangler pages dev .svelte-kit/cloudflare",
-		"pages:deploy": "npm run build && cd deploy/staging && wrangler pages deploy ../../.svelte-kit/cloudflare --project-name version-radio-staging",
-		"pages:deploy:prod": "npm run build && wrangler pages deploy .svelte-kit/cloudflare --project-name version-radio"
+		"pages:deploy": "npm run build && cd deploy/staging && wrangler pages deploy ../../.svelte-kit/cloudflare --project-name version-radio-staging --branch main",
+		"pages:deploy:prod": "npm run build && wrangler pages deploy .svelte-kit/cloudflare --project-name version-radio --branch main"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^5.20260826.1",
