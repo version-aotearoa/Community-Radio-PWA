@@ -494,6 +494,26 @@ export async function findOverlappingShows(
 	return overlaps;
 }
 
+/** URL-safe slug from a title (lowercase, spaces/others → hyphens). */
+export function slugify(title: string): string {
+	return (
+		title
+			.trim()
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, '-')
+			.replace(/^-+|-+$/g, '') || 'show'
+	);
+}
+
+/** Unique slug id: base, then base-2, base-3, … until unused. */
+async function uniqueShowId(db: D1Database, base: string): Promise<string> {
+	if (!(await db.prepare('SELECT id FROM show WHERE id = ?').bind(base).first())) return base;
+	for (let n = 2; ; n++) {
+		const candidate = `${base}-${n}`;
+		if (!(await db.prepare('SELECT id FROM show WHERE id = ?').bind(candidate).first())) return candidate;
+	}
+}
+
 export async function createShow(
 	db: D1Database,
 	input: {
@@ -511,12 +531,15 @@ export async function createShow(
 		replayUrl?: string;
 	}
 ): Promise<ShowRow> {
-	const id = crypto.randomUUID();
 	const t = now();
 	const kind = input.kind === 'event' ? 'event' : 'show';
 	const intervalWeeks = Math.max(1, Math.floor(input.intervalWeeks ?? 1) || 1);
 	const anchorDate = input.anchorDate ?? input.date ?? nextDateForWeekday(input.dayOfWeek, todayStr());
 	const image = input.image?.trim().slice(0, 500) || null;
+	// Friendly slug id: shows slugify the title; events append the date so the
+	// URL is stable and descriptive (matches the seeded show ids).
+	const base = kind === 'event' ? `${slugify(input.title)}-${input.date ?? ''}` : slugify(input.title);
+	const id = await uniqueShowId(db, base);
 	await db
 		.prepare(
 			`INSERT INTO show (id, dj_id, title, description, image, day_of_week, start_minutes, duration_minutes, interval_weeks, anchor_date, kind, active, created_at, updated_at)
