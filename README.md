@@ -47,7 +47,21 @@ Copy `.dev.vars.example` → `.dev.vars` (app) and `.dev.vars.turnstile.example`
 
 Local magic links are logged to the console (`[dev-email] To: ...`) instead of sent.
 
-## Deployment (prod)
+## Deployment
+
+### CI/CD pipeline (recommended)
+
+Deploys are automated via GitHub Actions (see `.github/workflows/`):
+
+- **`pr-checks`** — runs `npm run check` on every PR. Required status check on `main` (bad code can't merge).
+- **`Deploy prod`** — runs on merge to `main` (PR-gated): D1 migrations → Pages deploy (`version-radio`) → chat worker.
+- **`Deploy staging`** — manual (`workflow_dispatch`, pick a branch): Pages deploy (`version-radio-staging`) → staging chat worker.
+
+Setup (one-time): add GitHub secrets `CLOUDFLARE_API_TOKEN` (Pages:Edit, D1:Edit, Workers Scripts:Edit) and `CLOUDFLARE_ACCOUNT_ID` (`6f00a3bc33382599b284ed7a623807d9`). `main` is branch-protected (`pr-checks`, `enforce_admins`); a human review gate (PR + 1 approval) can be added for major updates by requiring reviews on `main`.
+
+### Manual (local fallback)
+
+Prod (only if the pipeline can't be used — normally CI handles it):
 
 ```sh
 # 1. Migrations
@@ -58,19 +72,14 @@ cd workers/chat-worker && npx wrangler deploy   # prints https://chat-worker.<su
 
 # 3. App
 npm run build
-npx wrangler pages project create version-radio --production-branch main
-npx wrangler pages deploy .svelte-kit/cloudflare --project-name version-radio
-
-# 4. Secrets
-printf '%s' "$AUTH_SECRET" | npx wrangler pages secret put AUTH_SECRET --project-name version-radio
-printf '%s' "https://chat-worker.<sub>.workers.dev" | npx wrangler pages secret put PUBLIC_CHAT_URL --project-name version-radio
+npx wrangler pages deploy .svelte-kit/cloudflare --project-name version-radio --branch main
 ```
 
 Prod URL: `https://versionradio.live`.
 
 ## Staging (dev) deployment
 
-Deploy to staging with `npm run pages:deploy` (builds and uploads to the `version-radio-staging` Pages project, using `deploy/staging/wrangler.jsonc` for the staging D1 binding). One-time setup:
+Deploy to staging with `npm run pages:deploy` (local, any branch) **or** the CI `Deploy staging` workflow (pick a branch in GitHub Actions). Both build and upload to the `version-radio-staging` Pages project using `deploy/staging/wrangler.jsonc` for the staging D1 binding. One-time setup:
 
 1. **Pages project** — create `version-radio-staging` (same build output: `.svelte-kit/cloudflare`).
 2. **D1** — create a separate database and apply migrations:

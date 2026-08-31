@@ -9,10 +9,16 @@
 - **Never deploy to prod** without explicit confirmation. Default workflow:
   commit locally → user tests (local/LAN) → explicit instruction to push
   and/or deploy.
-- **Deploys default to STAGING** (`npm run pages:deploy` → `version-radio-staging`,
-  staging D1 + staging chat worker). Prod requires `npm run pages:deploy:prod`
-  after a reviewed PR merges to `main` (branch-protected: PR + 1 review required).
-  Say "push staging" and we action exactly that target.
+- **Deploys default to STAGING**: local `npm run pages:deploy` (any branch) or the
+  CI `Deploy staging` workflow → `version-radio-staging` (staging D1 + staging
+  chat worker).
+- **Prod is PR-gated via CI**: merging a PR to `main` (branch-protected:
+  `pr-checks` status required, `enforce_admins: true`) auto-deploys prod —
+  app + D1 migrations + chat worker. Never run `pages:deploy:prod` locally
+  as a substitute for the pipeline. A human review gate (PR + 1 approval) can
+  be re-enabled for major updates by requiring reviews on `main` and inviting
+  a collaborator.
+- Say "push staging" and we action exactly that target.
 - When the user says "push", "deploy", or similar, action exactly
   that target and nothing more. If the target is ambiguous, ask one short
   question.
