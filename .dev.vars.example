@@ -8,9 +8,9 @@ AUTH_TRUST_HOST=true
 # Resend (transactional email for magic links). With the key present in
 # .dev.vars, local dev sends real links; without it, links log to the console.
 RESEND_API_KEY=
-RESEND_FROM=Version Radio <noreply@radio.version.nz>
+RESEND_FROM=Version Radio <noreply@versionradio.live>
 
-# Contact form recipient (fallback: EMAIL_FROM, then admin@version.nz)
+# Contact form recipient (fallback: EMAIL_FROM, then admin@versionradio.live)
 CONTACT_TO=
 
 # OAuth providers (optional until configured)

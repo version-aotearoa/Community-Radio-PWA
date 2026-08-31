@@ -42,7 +42,7 @@ Second session on the same day. Topic (explicitly scoped by the user): **live-st
 npm run check                       # svelte-check
 npm run pages:dev                   # :8788 production-build preview
 npm run dev -- --host 0.0.0.0       # :5173 LAN (phone testing)
-npm run pages:deploy                # prod
+npm run pages:deploy                # staging (default)
 npx wrangler d1 execute version-radio-db --local|--remote --file migrations/00XX_*.sql
 ```
 
