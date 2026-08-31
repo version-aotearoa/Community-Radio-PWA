@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button, Field, Text, TextArea } from '@svar-ui/svelte-core';
+	import { invalidateAll } from '$app/navigation';
 	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
 	import Turnstile from '$lib/components/Turnstile.svelte';
 
@@ -54,8 +55,9 @@
 			return;
 		}
 		const saved = (await res.json()) as { body: string };
-		if (editingKey === 'about') data.about = saved.body;
-		else data.terms = saved.body;
+		// Re-run the server load so `data.about`/`data.terms` become fresh props
+		// (directly mutating `data.*` does not trigger reactivity in Svelte 5).
+		await invalidateAll();
 		contentSaved = editingKey === 'about' ? 'About saved.' : 'Terms saved.';
 		editingKey = null;
 		setTimeout(() => (contentSaved = ''), 4000);

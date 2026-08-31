@@ -1,0 +1,15 @@
+{
+	"$schema": "../../node_modules/wrangler/config-schema.json",
+	"name": "version-radio",
+	"compatibility_date": "2026-08-01",
+	"compatibility_flags": ["nodejs_compat", "nodejs_als"],
+	"pages_build_output_dir": "../../.svelte-kit/cloudflare",
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "version-radio-db-staging",
+			"database_id": "cdb965d1-ac77-414f-a6cf-c4828e4feb31",
+			"migrations_dir": "../../migrations"
+		}
+	]
+}

@@ -4,12 +4,16 @@
 
 - **Never `git push` to any remote** — and never change repository visibility —
   without an explicit instruction in the current user message. A request to
-  deploy to prod ("push prod", "deploy") is **not** authorisation to push to
-  GitHub; prod deploy and GitHub push are separate authorisations.
+  deploy ("push", "deploy") is **not** authorisation to push to
+  GitHub; deploy and GitHub push are separate authorisations.
 - **Never deploy to prod** without explicit confirmation. Default workflow:
   commit locally → user tests (local/LAN) → explicit instruction to push
   and/or deploy.
-- When the user says "push", "deploy", "push prod", or similar, action exactly
+- **Deploys default to STAGING** (`npm run pages:deploy` → `version-radio-staging`,
+  staging D1 + staging chat worker). Prod requires `npm run pages:deploy:prod`
+  after a reviewed PR merges to `main` (branch-protected: PR + 1 review required).
+  Say "push staging" and we action exactly that target.
+- When the user says "push", "deploy", or similar, action exactly
   that target and nothing more. If the target is ambiguous, ask one short
   question.
 - **The repository is PUBLIC.** History is permanent. Never commit secrets

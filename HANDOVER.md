@@ -10,7 +10,7 @@
   - Errors keep the red `.replay-msg bad` line.
   - Optional nit to settle: strip `?renamed=1` via `history.replaceState` after reading (otherwise a refresh re-shows the notice).
 - **Shipped this session (30 Aug), all in prod `41d495ac` / commit `88026f9`:** episode URL flattening (`/shows/[id]/[broadcastId]` + `/edit` editor; legacy `/shows/[id]/tracklist` route removed; no redirects — site not live), slug rename working via D1 `PRAGMA defer_foreign_keys` (NOT `foreign_keys = OFF` — D1 rejects that), auto-slugs `<show>-<date>`, cycle-week selector (2/4-week shows), overlap warnings, Featured admin tab (flag + oldest-4 fallback), events (kind column, description, paste-URL images, V-on-black fallbacks everywhere), per-episode descriptions, admin show/event editing with diff-based schedule regen + `fromDate` phase anchoring, Beats Reality anchor corrected to week 1 (2026-09-16), `Cache-Control: no-store` in hooks, square archive art via ResizeObserver (Chrome+Safari safe).
-- **Protocol reminder:** AGENTS.md (project + global) — never push to GitHub or deploy prod without an explicit instruction; "push prod" ≠ GitHub push. GitHub is PUBLIC.
+- **Protocol reminder:** AGENTS.md (project + global) — never push to GitHub or deploy without an explicit instruction; deploy ≠ GitHub push. Deploys default to staging. GitHub is PUBLIC.
 
 ## State
 
@@ -63,6 +63,7 @@ Clean tree, prod `version-radio.pages.dev` live at **`beece22`** (deploy `ff640f
 
 ```sh
 npm run check                       # svelte-check
-npm run pages:deploy                # prod
+npm run pages:deploy                # staging (default)
+npm run pages:deploy:prod           # prod (after reviewed PR to main)
 cd workers/chat-worker && npx wrangler deploy   # chat worker
 ```

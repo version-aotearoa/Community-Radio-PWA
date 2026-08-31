@@ -70,10 +70,12 @@
 			{#each days as day (day.date)}
 				<section class="day" class:today={day.today}>
 					<h2 class="day-head">
-						{day.label}
-						{#if day.today}
-							<span class="sticker">Today</span>
-						{/if}
+						<span class="day-label">
+							{day.label}
+							{#if day.today}
+								<span class="sticker">Today</span>
+							{/if}
+						</span>
 					</h2>
 					<ul>
 						{#each day.items as b (b.id)}
@@ -182,6 +184,13 @@
 		color: var(--vr-text);
 	}
 
+	.day-label {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.75rem;
+		min-width: 0;
+	}
+
 	.day-head .sticker {
 		padding: 0.3rem 0.45rem;
 	}
@@ -220,7 +229,6 @@
 		align-items: center;
 		gap: 0.5rem;
 		flex-shrink: 0;
-		width: 7.5rem;
 		color: var(--vr-muted);
 		font-variant-numeric: tabular-nums;
 	}
@@ -237,12 +245,6 @@
 		animation: live-pulse 1.6s ease-in-out infinite;
 	}
 
-	.slot:hover .live-dot {
-		background: var(--vr-black);
-		animation: none;
-	}
-
-	.slot:hover .time,
 	.slot:hover .dj {
 		color: rgba(0, 0, 0, 0.8);
 	}
@@ -252,11 +254,16 @@
 	}
 
 	.dj {
-		margin-left: auto;
 		color: var(--vr-faint);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+
+	@media (max-width: 720px) {
+		.slot .dj {
+			display: none;
+		}
 	}
 
 	@keyframes live-pulse {

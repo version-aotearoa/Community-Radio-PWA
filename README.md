@@ -7,8 +7,8 @@ See [ROADMAP.md](ROADMAP.md) for planned features (push notifications).
 **Environments**
 
 - **local** — `npm run dev` on your machine; local D1 state; `.dev.vars`
-- **dev (staging)** — `version-radio-staging` Pages project at `https://dev.radio.version.nz`; separate `version-radio-db-staging`; preview before prod
-- **prod** — `version-radio` Pages project at `https://radio.version.nz` (`version-radio.pages.dev`); `version-radio-db`
+- **dev (staging)** — `version-radio-staging` Pages project at `https://dev.versionradio.live` (`version-radio-staging.pages.dev`); separate `version-radio-db-staging` + `chat-worker-staging`; preview before prod
+- **prod** — `version-radio` Pages project at `https://versionradio.live` (`version-radio.pages.dev`); `version-radio-db`
 
 ## Stack
 
@@ -66,32 +66,33 @@ printf '%s' "$AUTH_SECRET" | npx wrangler pages secret put AUTH_SECRET --project
 printf '%s' "https://chat-worker.<sub>.workers.dev" | npx wrangler pages secret put PUBLIC_CHAT_URL --project-name version-radio
 ```
 
-Prod URL: `https://radio.version.nz`.
+Prod URL: `https://versionradio.live`.
 
 ## Staging (dev) deployment
 
-Deploy to staging with `npm run pages:deploy:dev` (builds and uploads to the `version-radio-staging` Pages project). One-time setup:
+Deploy to staging with `npm run pages:deploy` (builds and uploads to the `version-radio-staging` Pages project, using `deploy/staging/wrangler.jsonc` for the staging D1 binding). One-time setup:
 
 1. **Pages project** — create `version-radio-staging` (same build output: `.svelte-kit/cloudflare`).
 2. **D1** — create a separate database and apply migrations:
    ```sh
    npx wrangler d1 create version-radio-db-staging
-   npx wrangler d1 migrations apply version-radio-db-staging --remote
+   npx wrangler d1 migrations apply version-radio-db-staging --remote -c deploy/staging/wrangler.jsonc
    ```
    Staging starts fresh (no prod data copy).
-3. **Custom domain** — Pages dashboard → `version-radio-staging` → Custom domains → Set up a domain → `dev.radio.version.nz`, then at your DNS provider add `CNAME dev → version-radio-staging.pages.dev`. Associate in the dashboard first (CNAME-only setup causes a 522). Registrar-hosted DNS is fine — subdomains don't require the zone on Cloudflare.
-4. **Secrets (staging project)** — `AUTH_SECRET` (new value, not prod's), `GITHUB_ID/GITHUB_SECRET`, `GOOGLE_ID/GOOGLE_SECRET`, `EMAIL_FROM`, `PUBLIC_CHAT_URL` (prod chat worker URL for now — chats in staging share prod rooms), `TURNSTILE_SECRET`, `TURNSTILE_HOSTNAMES=dev.radio.version.nz`, `PUBLIC_TURNSTILE_SITE_KEY` (Turnstile widget must allow the `dev.radio.version.nz` hostname), `BETTER_AUTH_URL=https://dev.radio.version.nz/api/auth`.
-5. **OAuth** — add `https://dev.radio.version.nz/api/auth/callback/*` callback URLs to the GitHub/Google OAuth apps.
+3. **Custom domain** — Pages dashboard → `version-radio-staging` → Custom domains → Set up a domain → `dev.versionradio.live`, then at your DNS provider add `CNAME dev → version-radio-staging.pages.dev`. Associate in the dashboard first (CNAME-only setup causes a 522).
+4. **Secrets (staging project)** — `AUTH_SECRET` (new value, not prod's), `GOOGLE_ID/GOOGLE_SECRET` (reuse prod), `RESEND_API_KEY/RESEND_FROM` (reuse prod), `PUBLIC_CHAT_URL` (staging chat worker URL), `TURNSTILE_SECRET`/`TURNSTILE_HOSTNAMES`/`PUBLIC_TURNSTILE_SITE_KEY` (test keys), `BETTER_AUTH_URL=https://dev.versionradio.live`.
+5. **Chat worker** — from `workers/chat-worker`: `npx wrangler deploy --name chat-worker-staging`, then set `CHAT_IDENTITY_SECRET` + `CHAT_ADMIN_TOKEN` (shared values with the staging app).
+6. **OAuth** — add `https://dev.versionradio.live/api/auth/callback/*` callback URLs to the GitHub/Google OAuth apps.
 
-Staging URL: `https://dev.radio.version.nz` (also reachable via `https://version-radio-staging.pages.dev`).
+Staging URL: `https://dev.versionradio.live` (also reachable via `https://version-radio-staging.pages.dev`).
 
 ## Custom domains (all environments)
 
-Subdomains work without moving the zone: associate the hostname in the Pages dashboard first (CNAME-only setup causes a 522), then add a CNAME at your DNS provider. No nameserver move is needed for a subdomain — only apex domains (`version.nz`) require the zone on Cloudflare. Check for CAA records at your zone if certificate issuance fails.
+`versionradio.live` is an apex domain — it requires the zone on Cloudflare (full setup, nameservers moved from the registrar). Subdomains (`dev.versionradio.live`) work without moving the zone: associate the hostname in the Pages dashboard first (CNAME-only setup causes a 522), then add a CNAME at your DNS provider. Check for CAA records at your zone if certificate issuance fails.
 
 ## Before going live
 
-- Create real Turnstile widget (account-level) for the production hostname; set `PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET`, `TURNSTILE_HOSTNAMES` (add `dev.radio.version.nz` too). Test keys are in `.dev.vars` today.
+- Create real Turnstile widget (account-level) for the production hostname `versionradio.live`; set `PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET`, `TURNSTILE_HOSTNAMES` (add `dev.versionradio.live` too). Test keys are in `.dev.vars` today and on staging.
 - Onboard a sending domain for Cloudflare Email Service; add the `EMAIL` binding via the Pages dashboard (config-file `send_email` is rejected for Pages) and set `EMAIL_FROM`. Until then magic links log to the console.
 - Set `BETTER_AUTH_URL` (or `baseURL`) once a stable production hostname exists.
 - Add GitHub/Google OAuth client IDs as `GITHUB_ID/GITHUB_SECRET/GOOGLE_ID/GOOGLE_SECRET` secrets.

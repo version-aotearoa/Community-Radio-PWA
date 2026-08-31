@@ -313,11 +313,10 @@
 		}
 		const saved = (await res.json()) as { ok: boolean; overlap?: { id: string; title: string }[] };
 		efOverlap = overlapText(saved.overlap);
-		// Refresh the list from the DB (single source of truth).
-		const showsRes = await fetch('/api/shows');
-		if (showsRes.ok) {
-			data.shows = (await showsRes.json()) as ShowRow[];
-		}
+		// Refresh the list from the DB (single source of truth). Re-run the
+		// server load so `data.shows` updates reactively (direct mutation of the
+		// `data` prop object does not trigger re-render in Svelte 5).
+		await invalidateAll();
 		editingShowId = '';
 		flashFeedback(showFeedback, show.id, 'Saved', true);
 	}
@@ -485,11 +484,10 @@
 		showImage = '';
 		cycleWeekSel = '';
 		notice = 'Show created.';
-		const showsRes = await fetch('/api/shows');
-		if (showsRes.ok) {
-			const list = (await showsRes.json()) as ShowRow[];
-			data.shows = list;
-		}
+		// Refresh the list from the DB (single source of truth). Re-run the
+		// server load so `data.shows` updates reactively (direct mutation of the
+		// `data` prop object does not trigger re-render in Svelte 5).
+		await invalidateAll();
 	}
 </script>
 
