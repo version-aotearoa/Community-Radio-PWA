@@ -6,7 +6,11 @@ export async function handle({ event, resolve }) {
 	// Never let the browser (or edge) cache SSR responses: HTML pages and data
 	// must be fresh on every load (Safari heuristically caches responses with
 	// no Cache-Control header). Static assets bypass the worker entirely.
-	event.setHeaders({ 'cache-control': 'no-store' });
+	// Asset proxies (/media) set their own long-lived cache headers, so exempt
+	// them here or the edge cache never engages.
+	if (!event.url.pathname.startsWith('/media/')) {
+		event.setHeaders({ 'cache-control': 'no-store' });
+	}
 
 	if (event.platform?.env) {
 		const auth = createAuth(event.platform.env);

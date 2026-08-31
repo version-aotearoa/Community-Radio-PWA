@@ -2,7 +2,11 @@ import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 const UPSTREAM_BASE = 'https://stream.version.nz/api/station/version_radio/art';
+// Accepts timestamped (<24hex>-<ts>.jpg, as stored for show images) AND bare
+// (<24hex>.jpg, as emitted for replay/live art). The upstream rejects a bare id
+// with a .jpg extension (405), so we strip it before the upstream call.
 const FILE_RE = /^[a-z0-9]{24}(?:-\d+)?\.(?:jpg|jpeg|png|webp|avif)$/i;
+const BARE_RE = /^[a-z0-9]{24}$/i;
 
 /**
  * Edge-cached art proxy: /media/<art-file>.jpg
@@ -13,7 +17,9 @@ export const GET: RequestHandler = async ({ params, fetch: cfFetch }) => {
 	const file = params.file;
 	if (!file || !FILE_RE.test(file)) error(404, 'Not found');
 
-	const upstream = await cfFetch(`${UPSTREAM_BASE}/${file}`);
+	// Bare track ids upstream need no extension (the .jpg form 405s).
+	const upstreamFile = BARE_RE.test(file.replace(/\.\w+$/, '')) ? file.replace(/\.\w+$/, '') : file;
+	const upstream = await cfFetch(`${UPSTREAM_BASE}/${upstreamFile}`);
 	if (!upstream.ok) error(404, 'Not found');
 
 	return new Response(upstream.body, {
