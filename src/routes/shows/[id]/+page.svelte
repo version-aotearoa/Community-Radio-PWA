@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { invalidateAll } from '$app/navigation';
-	import { untrack } from 'svelte';
+	import { onMount } from 'svelte';
 	import { Text, Field, Button } from '@svar-ui/svelte-core';
 	import ShowActions from '$lib/components/ShowActions.svelte';
 	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
@@ -14,11 +14,29 @@
 	const upcoming = $derived(data.upcoming);
 	const past = $derived(data.past);
 
-	let title = $state(untrack(() => data.show.title));
-	let description = $state(untrack(() => data.show.description ?? ''));
-	let djName = $state(untrack(() => data.show.dj_name));
-	let djId = $state(untrack(() => data.show.dj_id));
-	let djHandle = $state(untrack(() => data.show.dj_handle ?? ''));
+	// Fresh server data on every visit — the DB is the source of truth
+	// (back/forward navigation can otherwise restore a stale load snapshot,
+	// e.g. a follow that was toggled then left the page).
+	onMount(() => {
+		void invalidateAll();
+	});
+
+	let title = $state('');
+	let description = $state('');
+	let djName = $state<string | null>('');
+	let djId = $state('');
+	let djHandle = $state('');
+
+	// Seed + sync the edit/display buffer from the server show data. Reading
+	// `data.show` here (inside the effect) keeps the state reactive to fresh
+	// loads without a stale untrack snapshot.
+	$effect(() => {
+		title = data.show.title;
+		description = data.show.description ?? '';
+		djName = data.show.dj_name ?? '';
+		djId = data.show.dj_id;
+		djHandle = data.show.dj_handle ?? '';
+	});
 
 	let editing = $state(false);
 	let saving = $state(false);

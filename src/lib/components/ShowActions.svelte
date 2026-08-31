@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { untrack, onDestroy } from 'svelte';
+	import { onDestroy } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 
 	let {
@@ -24,12 +24,21 @@
 		onHintChange?: (hint: { show: boolean; kind: 'follow' | 'save' } | null) => void;
 	} = $props();
 
-	let followed = $state(untrack(() => initialFollowed));
-	let episodeSaved = $state(untrack(() => initialEpisodeSaved));
+	let followed = $state(false);
+	let episodeSaved = $state(false);
 	let loginHint = $state(false);
 	let hintKind = $state<'follow' | 'save'>('follow');
 	let copied = $state(false);
 	let copyTimer: ReturnType<typeof setTimeout> | null = null;
+
+	// Sync from props whenever the server re-fetches fresh state (invalidateAll
+	// after a toggle, or navigating back). The optimistic flip in the toggle
+	// still lands first; this keeps the display pinned to the persisted source
+	// of truth.
+	$effect(() => {
+		followed = initialFollowed;
+		episodeSaved = initialEpisodeSaved;
+	});
 
 	$effect(() => {
 		if (!hintExternal) return;
@@ -52,10 +61,16 @@
 			loginHint = true;
 			return;
 		}
-		if (!res.ok) followed = prev;
-		// Re-validate after the write commits so any follow-up navigation (e.g.
-		// to the account page) loads the fresh persisted state, not a snapshot
-		// that raced the POST.
+		if (!res.ok) {
+			followed = prev;
+			await invalidateAll();
+			return;
+		}
+		// Server is the source of truth: adopt the persisted state from the
+		// response, then re-validate so any follow-up navigation (e.g. to the
+		// account page) loads the fresh persisted state.
+		const body = (await res.json().catch(() => null)) as { following?: boolean } | null;
+		followed = body?.following ?? !prev;
 		await invalidateAll();
 	}
 
@@ -78,7 +93,13 @@
 			loginHint = true;
 			return;
 		}
-		if (!res.ok) episodeSaved = prev;
+		if (!res.ok) {
+			episodeSaved = prev;
+			await invalidateAll();
+			return;
+		}
+		const body = (await res.json().catch(() => null)) as { saved?: boolean } | null;
+		episodeSaved = body?.saved ?? !prev;
 		await invalidateAll();
 	}
 

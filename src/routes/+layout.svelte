@@ -2,7 +2,7 @@
 	import { WillowDark } from '@svar-ui/svelte-core';
 	import { onMount } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
-	import { page, updated } from '$app/state';
+	import { page } from '$app/state';
 	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
 	import InstallPrompt from '$lib/components/InstallPrompt.svelte';
 	import { initBannerDismissed, initPwa, registerServiceWorker } from '$lib/pwa';
@@ -22,13 +22,6 @@
 	// Current path for highlighting the active nav link (prefix match so
 	// sub-pages keep their parent item highlighted).
 	const path = $derived(page.url.pathname);
-
-	// A new deploy was published while this tab was open — reload so we run the
-	// fresh build instead of the stale one. SvelteKit polls /_app/version.json
-	// (see `version.pollInterval` in vite.config.ts) and flips `updated.current`.
-	$effect(() => {
-		if (updated.current) window.location.reload();
-	});
 
 	function closeMenu() {
 		menuOpen = false;

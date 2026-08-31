@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { Grid, WillowDark } from '@svar-ui/svelte-grid';
 	import { Button } from '@svar-ui/svelte-core';
@@ -24,29 +23,48 @@
 	let saving = $state(false);
 	let error = $state('');
 	let notice = $state('');
-	let tracks = $state<TrackRow[]>(untrack(() => initialTracks));
+	let tracks = $state<TrackRow[]>([]);
 	// Live mirror of the grid contents. The grid's internal store is controlled
 	// by the `data` prop (resets on reinit), so the mirror is the save source.
 	// NOTE: positions in the mirror/grid are 1-based (display numbers); the DB
 	// stores 0-based (converted at the boundaries below).
-	let editable = $state<TrackRow[]>(untrack(() => toDisplayPos(initialTracks)));
+	let editable = $state<TrackRow[]>([]);
+	let prevBroadcastId = $state('');
 
 	function toDisplayPos(rows: TrackRow[]): TrackRow[] {
 		return rows.map((t) => ({ ...t, position: t.position + 1 }));
 	}
 
-	let replayInput = $state(untrack(() => broadcast.replay_url ?? ''));
+	// Re-seed the tracklist when the broadcast changes (navigation between
+	// episodes). In-progress grid edits on the current broadcast are never
+	// stomped by unrelated re-renders.
+	$effect(() => {
+		if (broadcast.id === prevBroadcastId) return;
+		prevBroadcastId = broadcast.id;
+		tracks = initialTracks;
+		editable = toDisplayPos(initialTracks);
+	});
+
+	let replayInput = $state('');
 	let replaySaving = $state(false);
 	let replayError = $state('');
 	let replayNotice = $state('');
-	let descInput = $state(untrack(() => broadcast.description ?? ''));
+	let descInput = $state('');
 	let descSaving = $state(false);
 	let descError = $state('');
 	let descNotice = $state('');
-	let slugInput = $state(untrack(() => broadcast.id));
+	let slugInput = $state('');
 	let slugSaving = $state(false);
 	let slugError = $state('');
 	let fileInput: HTMLInputElement | undefined = $state();
+
+	// Sync the replay/description/slug form fields whenever the broadcast prop
+	// changes (fresh server data after a save or navigation).
+	$effect(() => {
+		replayInput = broadcast.replay_url ?? '';
+		descInput = broadcast.description ?? '';
+		slugInput = broadcast.id;
+	});
 
 	const GRID_EVENTS = [
 		'update-cell',
