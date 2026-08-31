@@ -106,7 +106,7 @@
 	let activeTab = $state('shows');
 	let adminError = $state('');
 
-	let epShowId = $state(untrack(() => data.shows[0]?.id ?? ''));
+	let epShowId = $state('');
 	let epDate = $state('');
 	let epStartHours = $state('18');
 	let epStartMinutes = $state('0');
@@ -115,6 +115,14 @@
 	let epSaving = $state(false);
 	let epError = $state('');
 	let epNotice = $state('');
+
+	// Keep the episode form's selected show in sync with fresh server data;
+	// fall back to the first show only if the current selection no longer exists.
+	$effect(() => {
+		if (!data.shows.some((s) => s.id === epShowId)) {
+			epShowId = data.shows[0]?.id ?? '';
+		}
+	});
 	let epOverlap = $state('');
 
 	async function addEpisode() {

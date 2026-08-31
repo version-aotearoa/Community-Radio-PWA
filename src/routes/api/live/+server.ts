@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { proxiedArtFromUrl } from '$lib/azuracast';
 import { getNextBroadcast, getOnAirBroadcast, getSchedule, zonedNow } from '$lib/server/shows';
 import type { RequestHandler } from './$types';
 
@@ -75,7 +76,7 @@ export const GET: RequestHandler = async ({ platform, fetch: cfFetch }) => {
 					title: typeof song.title === 'string' ? song.title : null,
 					artist: typeof song.artist === 'string' ? song.artist : null,
 					text: typeof song.text === 'string' ? song.text : null,
-					art: typeof song.art === 'string' ? song.art : null,
+					art: proxiedArtFromUrl(typeof song.art === 'string' ? song.art : null),
 					playedAt: typeof np.played_at === 'number' ? np.played_at : null,
 					duration: typeof np.duration === 'number' ? np.duration : null,
 					elapsed: typeof np.elapsed === 'number' ? np.elapsed : null,

@@ -3,18 +3,18 @@
 	import { invalidateAll } from '$app/navigation';
 	import { Button, Field, Text } from '@svar-ui/svelte-core';
 	import { authClient } from '$lib/client';
+	import { replayArtFromUrl } from '$lib/azuracast';
 
 	let { data } = $props();
 
 	// Clicking the avatar right after following/saving can race the write:
 	// the page load may have started before the toggle POST committed.
 	// Revalidate on mount so the lists always settle to the persisted state.
+	// Every mutated page now revalidates on arrival (see onMount across pages),
+	// so a single revalidation here is enough — the old second pass could stomp
+	// a just-saved name.
 	onMount(() => {
 		void invalidateAll();
-		// The POST can still be in flight when the mount-time revalidation
-		// runs, so re-check once more shortly after — belt and suspenders.
-		const t = setTimeout(() => void invalidateAll(), 800);
-		return () => clearTimeout(t);
 	});
 
 	const user = $derived(data.user);
@@ -58,10 +58,13 @@
 			: null
 	);
 
-	function fmtSaved(ts: number) {
-		return new Intl.DateTimeFormat('en-NZ', { day: '2-digit', month: 'short', year: 'numeric' })
-			.format(new Date(ts * 1000))
-			.toUpperCase();
+	const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+	const ORDINALS = ['1st', '2nd', '3rd', '4th'];
+
+	function airLabel(s: { day_of_week?: number; showCycleWeeks: number[] }) {
+		if (s.day_of_week === undefined || s.showCycleWeeks.length === 0) return '';
+		const day = DAY_NAMES[s.day_of_week];
+		return `Every ${s.showCycleWeeks.map((w) => ORDINALS[w - 1]).join(' & ')} ${day}`;
 	}
 
 	function fmtDate(dateStr: string) {
@@ -184,7 +187,9 @@
 								</span>
 								<span class="saved-info">
 									<span class="h-sm">{s.title}</span>
-									<span class="mono meta">Following · {fmtSaved(s.followed_at)}</span>
+									{#if airLabel(s)}
+										<span class="mono meta">{airLabel(s)}</span>
+									{/if}
 								</span>
 							</a>
 						</li>
@@ -205,7 +210,9 @@
 						<li>
 							<a class="saved-row" href={`/shows/${s.show_id}/${s.broadcast_id}`}>
 								<span class="saved-art">
-									{#if s.image}
+									{#if replayArtFromUrl(s.replay_url)}
+										<img src={replayArtFromUrl(s.replay_url) ?? ''} alt="" loading="lazy" />
+									{:else if s.image}
 										<img src={s.image} alt="" loading="lazy" />
 									{:else}
 										<svg viewBox="0 0 80 70" fill="currentColor" width="20" height="17" aria-hidden="true">
@@ -218,7 +225,7 @@
 								</span>
 								<span class="saved-info">
 									<span class="h-sm">{s.title}</span>
-									<span class="mono meta">Saved {fmtSaved(s.saved_at)} · {fmtDate(s.date)}</span>
+									<span class="mono meta">{fmtDate(s.date)}</span>
 								</span>
 							</a>
 						</li>

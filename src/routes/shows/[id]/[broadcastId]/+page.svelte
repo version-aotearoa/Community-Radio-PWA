@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
+	import { invalidateAll } from '$app/navigation';
 	import ShowActions from '$lib/components/ShowActions.svelte';
 	import { playback, playMedia, requestTogglePlay, streamPlaying } from '$lib/stores/player';
 	import { replayArtFromUrl } from '$lib/azuracast';
@@ -8,6 +10,13 @@
 	const show = $derived(data.show);
 	const broadcast = $derived(data.broadcast);
 	const tracks = $derived(data.tracks);
+
+	// Fresh server data on every visit — the DB is the source of truth
+	// (back/forward navigation can otherwise restore a stale load snapshot,
+	// e.g. a saved-bookmark that was toggled then left the page).
+	onMount(() => {
+		void invalidateAll();
+	});
 
 	function fmtDate(dateStr: string) {
 		return new Intl.DateTimeFormat('en-NZ', {

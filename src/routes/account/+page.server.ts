@@ -1,4 +1,5 @@
 import { redirect } from '@sveltejs/kit';
+import { cycleWeekOf, nextDateForWeekday, todayStr } from '$lib/server/shows';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, platform }) => {
@@ -13,18 +14,18 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 
 	const following = await db
 		.prepare(
-			`SELECT s.id, s.title, s.image AS image, f.created_at AS followed_at
+			`SELECT s.id, s.title, s.image AS image, s.day_of_week, s.interval_weeks, s.anchor_date
 			 FROM follow_show f
 			 JOIN show s ON s.id = f.show_id
 			 WHERE f.user_id = ?
-			 ORDER BY f.created_at DESC`
+			 ORDER BY s.day_of_week, s.start_minutes`
 		)
 		.bind(user.id)
 		.all();
 
 	const saved = await db
 		.prepare(
-			`SELECT b.id AS broadcast_id, b.show_id, b.date, s.title, s.image AS image, e.created_at AS saved_at
+			`SELECT b.id AS broadcast_id, b.show_id, b.date, b.replay_url, s.title, s.image AS image
 			 FROM saved_episode e
 			 JOIN broadcast b ON b.id = e.broadcast_id
 			 JOIN show s ON s.id = b.show_id
@@ -34,22 +35,38 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 		.bind(user.id)
 		.all();
 
+	// Air cadence per followed show (station's 4-week cycle), matching the
+	// shows-list cards. Empty for weekly shows.
+	const today = todayStr();
+	const followingWithCadence = (following.results as {
+		id: string;
+		title: string;
+		image: string | null;
+		day_of_week: number;
+		interval_weeks: number;
+		anchor_date: string | null;
+	}[]).map((s) => {
+		const baseWeek = cycleWeekOf(s.anchor_date ?? nextDateForWeekday(s.day_of_week, today));
+		const showCycleWeeks =
+			s.interval_weeks === 4
+				? [baseWeek]
+				: s.interval_weeks === 2
+					? [baseWeek, ((baseWeek + 1) % 4) + 1]
+					: [];
+		return { id: s.id, title: s.title, image: s.image, day_of_week: s.day_of_week, showCycleWeeks };
+	});
+
 	return {
 		user,
 		createdAt,
-		following: following.results as {
-			id: string;
-			title: string;
-			image: string | null;
-			followed_at: number;
-		}[],
+		following: followingWithCadence,
 		saved: saved.results as {
 			broadcast_id: string;
 			show_id: string;
 			date: string;
+			replay_url: string | null;
 			title: string;
 			image: string | null;
-			saved_at: number;
 		}[]
 	};
 };
