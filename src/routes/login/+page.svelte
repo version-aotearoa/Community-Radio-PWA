@@ -3,6 +3,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { authClient } from '$lib/client';
 	import Turnstile from '$lib/components/Turnstile.svelte';
+	import Seo from '$lib/components/Seo.svelte';
 
 	let { data } = $props();
 
@@ -85,6 +86,8 @@
 <svelte:head>
 	<title>Sign in — Version Radio</title>
 </svelte:head>
+
+<Seo title="Sign in — Version Radio" />
 
 <div class="login-wrap">
 	<section class="card">

@@ -42,6 +42,9 @@ import {
 /** Max length of the short plain-text card blurb (show.description). */
 export const SHOW_DESC_MAX = 50;
 
+/** Max length of the plain-text extract used for social share descriptions. */
+export const OG_DESC_MAX = 200;
+
 export interface TrackRow {
 	id: string;
 	show_id: string;
@@ -244,6 +247,8 @@ export async function getShow(db: D1Database, id: string): Promise<ShowRow | nul
 export interface ShowWithDj extends ShowRow {
 	dj_name: string | null;
 	dj_image: string | null;
+	/** Plain-text extract of page_content for social share descriptions. */
+	pageContentText: string;
 }
 
 export async function getShowWithDj(db: D1Database, id: string): Promise<ShowWithDj | null> {
@@ -256,7 +261,10 @@ export async function getShowWithDj(db: D1Database, id: string): Promise<ShowWit
 		)
 		.bind(id)
 		.first()) as ShowWithDj | null;
-	return row ? sanitizeShowRow(row) : null;
+	const clean = row ? sanitizeShowRow(row) : null;
+	return clean
+		? { ...clean, pageContentText: descriptionToText(clean.page_content).slice(0, OG_DESC_MAX) }
+		: null;
 }
 
 export async function getShowsForDj(db: D1Database, djId: string): Promise<ShowRow[]> {

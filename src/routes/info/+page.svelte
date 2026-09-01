@@ -3,6 +3,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
 	import Turnstile from '$lib/components/Turnstile.svelte';
+	import Seo from '$lib/components/Seo.svelte';
 
 	let { data } = $props();
 
@@ -108,6 +109,8 @@
 <svelte:head>
 	<title>Info — Version Radio</title>
 </svelte:head>
+
+<Seo title="Info — Version Radio" />
 
 <div class="page">
 	<header class="head">

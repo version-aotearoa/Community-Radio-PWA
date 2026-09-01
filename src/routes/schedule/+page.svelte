@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Seo from '$lib/components/Seo.svelte';
+
 	let { data } = $props();
 
 	const upcoming = $derived(data.upcoming);
@@ -47,6 +49,8 @@
 <svelte:head>
 	<title>Schedule — Version Radio</title>
 </svelte:head>
+
+<Seo title="Schedule — Version Radio" />
 
 <div class="page">
 	<header class="head">

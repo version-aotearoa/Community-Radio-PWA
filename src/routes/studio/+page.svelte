@@ -4,6 +4,7 @@
 	import { Button, Field, Text, Combo } from '@svar-ui/svelte-core';
 	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
 	import type { ShowRow } from '$lib/server/shows';
+	import Seo from '$lib/components/Seo.svelte';
 
 	let { data } = $props();
 
@@ -513,6 +514,8 @@
 <svelte:head>
 	<title>DJ Studio — Version Radio</title>
 </svelte:head>
+
+<Seo title="DJ Studio — Version Radio" noindex />
 
 <div class="page">
 <h1 class="h-lg">DJ Studio</h1>
