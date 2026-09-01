@@ -57,6 +57,7 @@
 	let slugSaving = $state(false);
 	let slugError = $state('');
 	let fileInput: HTMLInputElement | undefined = $state();
+	let activeTab = $state<'tracklist' | 'replay' | 'description' | 'episode'>('tracklist');
 
 	// Sync the replay/description/slug form fields whenever the broadcast prop
 	// changes (fresh server data after a save or navigation).
@@ -188,8 +189,13 @@
 		try {
 			const text = await file.text();
 			const { tracks: parsed, header } = parseTracksCsv(text);
+			// Import always replaces the current grid contents — clearing is a
+			// no-op when the grid is empty, so this also serves a fresh import.
 			const rows = gridApi?.getState().data ?? [];
-			let position = rows.length;
+			for (const r of rows) {
+				await gridApi.exec('delete-row', { id: r.id });
+			}
+			let position = 0;
 			for (const t of parsed) {
 				await gridApi.exec('add-row', {
 					row: {
@@ -200,7 +206,7 @@
 						album: t.album,
 						url: t.url ?? ''
 					},
-					after: rows.at(-1)?.id
+					after: null
 				});
 			}
 			renumber();
@@ -347,14 +353,13 @@
 			Broadcast: <strong>{broadcast.date}</strong> · {fmtTime(broadcast.start_minutes)}
 		</p>
 	</div>
-	<div class="actions">
-		<Button css="vr-cta ghost" onclick={() => fileInput?.click()}>Import CSV</Button>
-		<Button css="vr-cta ghost" onclick={addTrack}>+ Add track</Button>
-		<Button css="vr-cta ghost" onclick={deleteSelected}>Delete selected</Button>
-		<Button css="vr-cta" type="primary" disabled={saving} onclick={save}>
-			{saving ? 'Saving…' : 'Save tracklist'}
-		</Button>
-	</div>
+</div>
+
+<div class="tabs" role="tablist">
+	<button class="tab" class:active={activeTab === 'tracklist'} onclick={() => (activeTab = 'tracklist')}>Tracklist</button>
+	<button class="tab" class:active={activeTab === 'replay'} onclick={() => (activeTab = 'replay')}>Replay</button>
+	<button class="tab" class:active={activeTab === 'description'} onclick={() => (activeTab = 'description')}>Description</button>
+	<button class="tab" class:active={activeTab === 'episode'} onclick={() => (activeTab = 'episode')}>Episode</button>
 </div>
 
 <input
@@ -365,85 +370,103 @@
 	onchange={(e) => onCsvPicked(e.currentTarget)}
 />
 
-<div class="replay-row">
-	<label for="replay-link">Replay link</label>
-	<input
-		id="replay-link"
-		type="url"
-		placeholder="Paste the on-demand track id or download link"
-		bind:value={replayInput}
-		onkeydown={(e) => e.key === 'Enter' && saveReplay()}
-	/>
-	<Button css="vr-cta ghost" disabled={replaySaving} onclick={saveReplay}>
-		{replaySaving ? 'Saving…' : 'Save'}
-	</Button>
-	<Button css="vr-cta ghost" disabled={replaySaving} onclick={clearReplay}>Clear</Button>
-	<p class="hint">Copy the recording's link from the AzuraCast on-demand player. Accepts a 24-char track id or a full download link.</p>
-	{#if replayError}
-		<p class="replay-msg bad">{replayError}</p>
-	{/if}
-	{#if replayNotice}
-		<p class="replay-msg ok">{replayNotice}</p>
-	{/if}
-</div>
-
-<div class="desc-row">
-	<label for="broadcast-desc">Description</label>
-	<RichTextEditor bind:value={descInput} placeholder="Episode description" />
-	<div class="desc-actions">
-		<Button css="vr-cta ghost" disabled={descSaving} onclick={saveDescription}>
-			{descSaving ? 'Saving…' : 'Save'}
+{#if activeTab === 'replay'}
+	<div class="replay-row">
+		<label for="replay-link">Replay link</label>
+		<input
+			id="replay-link"
+			type="url"
+			placeholder="Paste the on-demand track id or download link"
+			bind:value={replayInput}
+			onkeydown={(e) => e.key === 'Enter' && saveReplay()}
+		/>
+		<Button css="vr-cta ghost" disabled={replaySaving} onclick={saveReplay}>
+			{replaySaving ? 'Saving…' : 'Save'}
 		</Button>
-		<Button css="vr-cta ghost" disabled={descSaving} onclick={clearDescription}>Clear</Button>
+		<Button css="vr-cta ghost" disabled={replaySaving} onclick={clearReplay}>Clear</Button>
+		<p class="hint">Copy the recording's link from the AzuraCast on-demand player. Accepts a 24-char track id or a full download link.</p>
+		{#if replayError}
+			<p class="replay-msg bad">{replayError}</p>
+		{/if}
+		{#if replayNotice}
+			<p class="replay-msg ok">{replayNotice}</p>
+		{/if}
 	</div>
-	{#if descError}
-		<p class="replay-msg bad">{descError}</p>
-	{/if}
-	{#if descNotice}
-		<p class="replay-msg ok">{descNotice}</p>
-	{/if}
-</div>
-
-<div class="desc-row">
-	<label for="episode-slug">Episode ID</label>
-	<input
-		id="episode-slug"
-		type="text"
-		placeholder="lowercase-slug"
-		bind:value={slugInput}
-		onkeydown={(e) => e.key === 'Enter' && saveSlug()}
-	/>
-	<Button css="vr-cta ghost" disabled={slugSaving} onclick={saveSlug}>
-		{slugSaving ? 'Saving…' : 'Save'}
-	</Button>
-	{#if slugError}
-		<p class="replay-msg bad">{slugError}</p>
-	{/if}
-</div>
-
-{#if error}
-	<div class="notice bad">{error}</div>
-{/if}
-{#if notice}
-	<div class="notice ok">{notice}</div>
 {/if}
 
-<div class="grid-wrap" onkeydowncapture={onGridKeydown}>
-	{#key saveVersion}
-		<WillowDark>
-			<Grid
-				{columns}
-				data={gridData}
-				reorder={true}
-				undo={true}
-				select={true}
-				init={handleInit}
-			/>
-		</WillowDark>
-	{/key}
-</div>
+{#if activeTab === 'description'}
+	<div class="desc-row">
+		<label for="broadcast-desc">Description</label>
+		<RichTextEditor bind:value={descInput} placeholder="Episode description" />
+		<div class="desc-actions">
+			<Button css="vr-cta ghost" disabled={descSaving} onclick={saveDescription}>
+				{descSaving ? 'Saving…' : 'Save'}
+			</Button>
+			<Button css="vr-cta ghost" disabled={descSaving} onclick={clearDescription}>Clear</Button>
+		</div>
+		{#if descError}
+			<p class="replay-msg bad">{descError}</p>
+		{/if}
+		{#if descNotice}
+			<p class="replay-msg ok">{descNotice}</p>
+		{/if}
+	</div>
+{/if}
 
-<p class="hint">Click a cell to edit it. Drag rows to reorder. Use Ctrl+Z / Ctrl+Y to undo and redo.</p>
+{#if activeTab === 'episode'}
+	<div class="desc-row">
+		<label for="episode-slug">Episode ID</label>
+		<input
+			id="episode-slug"
+			type="text"
+			placeholder="lowercase-slug"
+			bind:value={slugInput}
+			onkeydown={(e) => e.key === 'Enter' && saveSlug()}
+		/>
+		<Button css="vr-cta ghost" disabled={slugSaving} onclick={saveSlug}>
+			{slugSaving ? 'Saving…' : 'Save'}
+		</Button>
+		{#if slugError}
+			<p class="replay-msg bad">{slugError}</p>
+		{/if}
+	</div>
+{/if}
+
+{#if activeTab === 'tracklist'}
+	<div class="tracklist-actions">
+		<Button css="vr-cta ghost" onclick={() => fileInput?.click()}>Import CSV</Button>
+		<Button css="vr-cta ghost" onclick={addTrack}>+ Add track</Button>
+		<Button css="vr-cta ghost" onclick={deleteSelected}>Delete selected</Button>
+		<Button css="vr-cta" type="primary" disabled={saving} onclick={save}>
+			{saving ? 'Saving…' : 'Save tracklist'}
+		</Button>
+	</div>
+
+	{#if error}
+		<div class="notice bad">{error}</div>
+	{/if}
+	{#if notice}
+		<div class="notice ok">{notice}</div>
+	{/if}
+
+	<div class="grid-wrap" onkeydowncapture={onGridKeydown}>
+		{#key saveVersion}
+			<WillowDark>
+				<Grid
+					{columns}
+					data={gridData}
+					reorder={true}
+					undo={true}
+					select={true}
+					multiselect={true}
+					init={handleInit}
+				/>
+			</WillowDark>
+		{/key}
+	</div>
+
+	<p class="hint">Click a cell to edit it. Drag rows to reorder. Use Ctrl+Z / Ctrl+Y to undo and redo.</p>
+{/if}
 </div>
 
 <style>
@@ -487,10 +510,45 @@
 		color: var(--vr-muted);
 	}
 
-	.actions {
+	.tabs {
+		display: flex;
+		flex-wrap: wrap;
+		margin: 0 0 1rem;
+		border: 1px solid var(--vr-line);
+	}
+
+	.tab {
+		flex: 0 0 auto;
+		background: transparent;
+		color: var(--vr-text);
+		border: none;
+		border-right: 1px solid var(--vr-line);
+		font-family: var(--vr-font-headline);
+		font-size: 1rem;
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+		padding: 0.55rem 1.1rem;
+		cursor: pointer;
+	}
+
+	.tab:last-child {
+		border-right: none;
+	}
+
+	.tab:hover {
+		background: var(--vr-surface-high);
+	}
+
+	.tab.active {
+		background: var(--vr-text);
+		color: var(--vr-black);
+	}
+
+	.tracklist-actions {
 		display: flex;
 		gap: 0.5rem;
 		flex-wrap: wrap;
+		margin: 0 0 0.5rem;
 	}
 
 	.grid-wrap {
