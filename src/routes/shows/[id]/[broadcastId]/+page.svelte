@@ -1,9 +1,11 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import ShowActions from '$lib/components/ShowActions.svelte';
 	import { playback, playMedia, requestTogglePlay, streamPlaying } from '$lib/stores/player';
 	import { replayArtFromUrl } from '$lib/azuracast';
+	import Seo from '$lib/components/Seo.svelte';
 
 	let { data } = $props();
 
@@ -82,6 +84,13 @@
 <svelte:head>
 	<title>{show.title} — {fmtDate(broadcast.date)} — Version Radio</title>
 </svelte:head>
+
+<Seo
+	title={`${show.title} — ${fmtDate(broadcast.date)}`}
+	description={show.pageContentText || show.description || undefined}
+	image={replayArtFromUrl(broadcast.replay_url) ?? show.image}
+	url={page.url.pathname}
+/>
 
 <div class="page">
 	<a class="back mono" href={`/shows/${show.id}`}>← {show.title}</a>

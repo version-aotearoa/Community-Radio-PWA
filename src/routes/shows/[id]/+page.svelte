@@ -7,6 +7,7 @@
 	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
 	import { playback, playMedia, requestTogglePlay, streamPlaying } from '$lib/stores/player';
 	import { replayArtFromUrl } from '$lib/azuracast';
+	import Seo from '$lib/components/Seo.svelte';
 
 	let { data } = $props();
 
@@ -197,6 +198,13 @@
 <svelte:head>
 	<title>{title} — Version Radio</title>
 </svelte:head>
+
+<Seo
+	title={data.show.title}
+	description={data.show.pageContentText || data.show.description || undefined}
+	image={data.show.image}
+	url={page.url.pathname}
+/>
 
 <div class="page">
 	<header class="head">

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
+	import Seo from '$lib/components/Seo.svelte';
 
 	let { data } = $props();
 
@@ -41,6 +42,8 @@
 <svelte:head>
 	<title>Shows — Version Radio</title>
 </svelte:head>
+
+<Seo title="Shows — Version Radio" />
 
 <div class="page">
 	<header class="head">

@@ -2,6 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { Button, Text } from '@svar-ui/svelte-core';
 	import Turnstile from '$lib/components/Turnstile.svelte';
+	import Seo from '$lib/components/Seo.svelte';
 
 	let { data } = $props();
 
@@ -223,6 +224,8 @@
 <svelte:head>
 	<title>Chat — Version Radio</title>
 </svelte:head>
+
+<Seo title="Chat — Version Radio" />
 
 <div class="page">
 	{#if !data.chatUrl}

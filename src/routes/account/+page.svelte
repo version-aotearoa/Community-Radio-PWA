@@ -4,6 +4,7 @@
 	import { Button, Field, Text } from '@svar-ui/svelte-core';
 	import { authClient } from '$lib/client';
 	import { replayArtFromUrl } from '$lib/azuracast';
+	import Seo from '$lib/components/Seo.svelte';
 
 	let { data } = $props();
 
@@ -85,6 +86,8 @@
 <svelte:head>
 	<title>My Version — Version Radio</title>
 </svelte:head>
+
+<Seo title="My Version — Version Radio" noindex />
 
 <div class="page">
 	<header class="head">
