@@ -30,6 +30,12 @@
 	let nameError = $state('');
 	let nameSaved = $state(false);
 
+	let editingAvatar = $state(false);
+	let avatarInput = $state('');
+	let avatarBusy = $state(false);
+	let avatarError = $state('');
+	let avatarSaved = $state(false);
+
 	async function startNameEdit() {
 		editingName = true;
 		nameInput = user.name ?? '';
@@ -52,6 +58,50 @@
 		editingName = false;
 		nameSaved = true;
 		setTimeout(() => (nameSaved = false), 4000);
+	}
+
+	function startAvatarEdit() {
+		editingAvatar = true;
+		avatarInput = user.image ?? '';
+		avatarError = '';
+		avatarSaved = false;
+	}
+
+	async function saveAvatar() {
+		avatarBusy = true;
+		avatarError = '';
+		avatarSaved = false;
+		const image = avatarInput.trim().slice(0, 500);
+		if (image && !/^https?:\/\//i.test(image)) {
+			avatarBusy = false;
+			avatarError = 'Avatar must be an image URL starting with http:// or https://';
+			return;
+		}
+		const res = await authClient.updateUser({ image: image || null });
+		avatarBusy = false;
+		if (res.error) {
+			avatarError = res.error.message ?? 'Could not save your avatar.';
+			return;
+		}
+		await invalidateAll();
+		editingAvatar = false;
+		avatarSaved = true;
+		setTimeout(() => (avatarSaved = false), 4000);
+	}
+
+	async function removeAvatar() {
+		avatarBusy = true;
+		avatarError = '';
+		avatarSaved = false;
+		const res = await authClient.updateUser({ image: null });
+		avatarBusy = false;
+		if (res.error) {
+			avatarError = res.error.message ?? 'Could not remove your avatar.';
+			return;
+		}
+		await invalidateAll();
+		avatarSaved = true;
+		setTimeout(() => (avatarSaved = false), 4000);
 	}
 
 	const createdAt = $derived(
@@ -114,17 +164,21 @@
 		<section class="card">
 		<div class="identity">
 			<div class="avatar" aria-hidden="true">
-				<svg viewBox="0 0 24 24" width="18" height="18">
-					<circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8" />
-					<path
-						d="M5.5 19a6.5 6.5 0 0 1 13 0"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="1.8"
-						stroke-linecap="round"
-					/>
-				</svg>
-				<span class="mono initials">{user.name?.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || (user.email?.[0] ?? '?')}</span>
+				{#if user.image}
+					<img class="avatar-img" src={user.image} alt="" />
+				{:else}
+					<svg viewBox="0 0 24 24" width="18" height="18">
+						<circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8" />
+						<path
+							d="M5.5 19a6.5 6.5 0 0 1 13 0"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="1.8"
+							stroke-linecap="round"
+						/>
+					</svg>
+					<span class="mono initials">{user.name?.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || (user.email?.[0] ?? '?')}</span>
+				{/if}
 			</div>
 			<div class="identity-copy">
 				<span class="h-sm">{user.name || 'Listener'}</span>
@@ -160,6 +214,37 @@
 				<button class="btn-outline" onclick={startNameEdit}>
 					{user.name ? 'Edit name' : 'Set name'}
 				</button>
+			</div>
+		{/if}
+		{#if editingAvatar}
+			<form class="name-form" onsubmit={(e) => { e.preventDefault(); saveAvatar(); }}>
+				<Field label="Avatar image URL">
+					<Text bind:value={avatarInput} placeholder="https://…" css="vr-input" />
+				</Field>
+				{#if avatarError}
+					<div class="notice bad">{avatarError}</div>
+				{/if}
+				{#if avatarSaved}
+					<div class="notice ok">Avatar saved</div>
+				{/if}
+				<div class="name-actions">
+					<Button css="vr-cta" type="primary" disabled={avatarBusy} onclick={saveAvatar}>
+						{avatarBusy ? 'Saving…' : 'Save'}
+					</Button>
+					<Button css="vr-cta ghost" onclick={() => (editingAvatar = false)}>Cancel</Button>
+				</div>
+			</form>
+		{:else}
+			{#if avatarSaved}
+				<div class="notice ok">Avatar saved</div>
+			{/if}
+			<div class="name-actions">
+				<button class="btn-outline" onclick={startAvatarEdit}>
+					{user.image ? 'Edit avatar' : 'Set avatar'}
+				</button>
+				{#if user.image}
+					<button class="btn-outline" onclick={removeAvatar} disabled={avatarBusy}>Remove</button>
+				{/if}
 			</div>
 		{/if}
 		<button class="btn-outline signout" onclick={signOut} disabled={busy}>
@@ -331,6 +416,13 @@
 
 	.initials {
 		font-size: 0.78rem;
+	}
+
+	.avatar-img {
+		width: 18px;
+		height: 18px;
+		object-fit: cover;
+		display: block;
 	}
 
 	.identity-copy {

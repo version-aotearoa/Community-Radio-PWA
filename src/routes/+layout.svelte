@@ -117,17 +117,21 @@
 			{#if user}
 				<div class="account">
 					<a class="avatar" href="/account" title={user.email} aria-label="My Version: {user.name || user.email}">
-						<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-							<circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8" />
-							<path
-								d="M5.5 19a6.5 6.5 0 0 1 13 0"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="1.8"
-								stroke-linecap="round"
-							/>
-						</svg>
-						<span class="mono avatar-initials">{initials(user)}</span>
+						{#if user.image}
+							<img class="avatar-img" src={user.image} alt="" />
+						{:else}
+							<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+								<circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8" />
+								<path
+									d="M5.5 19a6.5 6.5 0 0 1 13 0"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.8"
+									stroke-linecap="round"
+								/>
+							</svg>
+							<span class="mono avatar-initials">{initials(user)}</span>
+						{/if}
 					</a>
 				</div>
 			{:else}
@@ -422,6 +426,13 @@
 
 	.avatar-initials {
 		font-size: 0.78rem;
+	}
+
+	.avatar-img {
+		width: 16px;
+		height: 16px;
+		object-fit: cover;
+		display: block;
 	}
 
 	.site-footer {
