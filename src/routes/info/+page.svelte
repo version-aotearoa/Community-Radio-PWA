@@ -244,6 +244,10 @@
 		padding-bottom: 0.6rem;
 	}
 
+	.card#contact .card-title {
+		margin-bottom: 0.75rem;
+	}
+
 	.card-head {
 		display: flex;
 		justify-content: space-between;

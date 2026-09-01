@@ -176,9 +176,14 @@
 						<span class="num">{i + 1}</span>
 						{#if t.title}
 							<span class="track-title">{t.title}</span>
-							{#if t.artist}<span class="artist">{t.artist}</span>{/if}
-							{#if t.album}<span class="album">{t.album}</span>{/if}
-						{:else if t.url}
+						{/if}
+						{#if t.artist}
+							<span class="artist">{t.artist}</span>
+						{/if}
+						{#if t.album}
+							<span class="album">{t.album}</span>
+						{/if}
+						{#if t.url}
 							<a class="url-fallback" href={t.url} target="_blank" rel="noopener noreferrer">
 								{hostOf(t.url)} ↗
 							</a>
@@ -272,6 +277,7 @@
 		color: var(--vr-text);
 		text-decoration: underline;
 		font-size: 0.9rem;
+		margin-left: 0.5rem;
 	}
 
 	.tracklist li.embed-row {
