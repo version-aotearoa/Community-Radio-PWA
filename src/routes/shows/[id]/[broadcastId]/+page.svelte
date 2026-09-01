@@ -15,7 +15,9 @@
 	// (back/forward navigation can otherwise restore a stale load snapshot,
 	// e.g. a saved-bookmark that was toggled then left the page).
 	onMount(() => {
-		void invalidateAll();
+		// Deferred past the navigation's microtasks: an immediate invalidateAll
+		// aborts the in-flight navigation before SvelteKit resets scroll to top.
+		setTimeout(() => void invalidateAll(), 0);
 	});
 
 	function fmtDate(dateStr: string) {

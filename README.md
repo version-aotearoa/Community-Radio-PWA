@@ -101,7 +101,7 @@ Staging URL: `https://dev.versionradio.live` (also reachable via `https://versio
 
 ## Before going live
 
-- Create real Turnstile widget (account-level) for the production hostname `versionradio.live`; set `PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET`, `TURNSTILE_HOSTNAMES` (add `dev.versionradio.live` too). Test keys are in `.dev.vars` today and on staging.
+- Create real Turnstile widget (account-level) for the production hostname `versionradio.live`; set `PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET`, `TURNSTILE_HOSTNAMES` (add `dev.versionradio.live` too). Test keys are in `.dev.vars` today and on staging. Notes: with the test keys siteverify returns `hostname: "example.com"` (hence staging's `TURNSTILE_HOSTNAMES` includes it) — real keys return the real page hostname, so no `example.com` entry is needed once prod has real keys. The login form sets its `busy` flag synchronously (before the async Turnstile verify) so enabling Turnstile on prod will not cause duplicate magic-link emails.
 - Onboard a sending domain for Cloudflare Email Service; add the `EMAIL` binding via the Pages dashboard (config-file `send_email` is rejected for Pages) and set `EMAIL_FROM`. Until then magic links log to the console.
 - Set `BETTER_AUTH_URL` (or `baseURL`) once a stable production hostname exists.
 - Add GitHub/Google OAuth client IDs as `GITHUB_ID/GITHUB_SECRET/GOOGLE_ID/GOOGLE_SECRET` secrets.

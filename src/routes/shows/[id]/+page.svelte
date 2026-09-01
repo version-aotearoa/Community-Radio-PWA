@@ -18,11 +18,14 @@
 	// (back/forward navigation can otherwise restore a stale load snapshot,
 	// e.g. a follow that was toggled then left the page).
 	onMount(() => {
-		void invalidateAll();
+		// Deferred past the navigation's microtasks: an immediate invalidateAll
+		// aborts the in-flight navigation before SvelteKit resets scroll to top.
+		setTimeout(() => void invalidateAll(), 0);
 	});
 
 	let title = $state('');
 	let description = $state('');
+	let pageContent = $state('');
 	let djName = $state<string | null>('');
 	let djId = $state('');
 	let djHandle = $state('');
@@ -33,6 +36,7 @@
 	$effect(() => {
 		title = data.show.title;
 		description = data.show.description ?? '';
+		pageContent = data.show.page_content ?? '';
 		djName = data.show.dj_name ?? '';
 		djId = data.show.dj_id;
 		djHandle = data.show.dj_handle ?? '';
@@ -60,6 +64,7 @@
 		editSaved = false;
 		title = data.show.title;
 		description = data.show.description ?? '';
+		pageContent = data.show.page_content ?? '';
 		djId = data.show.dj_id;
 		djHandle = data.show.dj_handle ?? '';
 		if (isAdmin && djOptions.length === 0) {
@@ -80,7 +85,7 @@
 		saving = true;
 		editError = '';
 		editSaved = false;
-		const body: Record<string, string> = { title, description, djHandle };
+		const body: Record<string, string> = { title, description, pageContent, djHandle };
 		if (isAdmin) body.djId = djId;
 		const res = await fetch(`/api/shows/${data.show.id}`, {
 			method: 'POST',
@@ -96,6 +101,7 @@
 		await invalidateAll();
 		title = data.show.title;
 		description = data.show.description ?? '';
+		pageContent = data.show.page_content ?? '';
 		djName = data.show.dj_name;
 		djId = data.show.dj_id;
 		djHandle = data.show.dj_handle ?? '';
@@ -240,8 +246,17 @@
 							</select>
 						</Field>
 					{/if}
-					<Field label="Description">
-						<RichTextEditor bind:value={description} placeholder="Show description" />
+					<Field label="Description (card blurb)">
+						<input
+							class="vr-input"
+							maxlength={50}
+							style="width:100%"
+							bind:value={description}
+							placeholder="Short blurb, max 50 chars"
+						/>
+					</Field>
+					<Field label="Page content">
+						<RichTextEditor bind:value={pageContent} placeholder="Show page content (rich text)" />
 					</Field>
 					{#if editError}
 						<div class="notice bad">{editError}</div>
@@ -254,8 +269,8 @@
 					</div>
 				</form>
 			{:else}
-				{#if description}
-					<div class="desc">{@html description}</div>
+				{#if pageContent}
+					<div class="desc">{@html pageContent}</div>
 				{/if}
 				{#if editSaved}
 					<div class="notice ok">Saved</div>

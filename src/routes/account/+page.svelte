@@ -14,7 +14,9 @@
 	// so a single revalidation here is enough — the old second pass could stomp
 	// a just-saved name.
 	onMount(() => {
-		void invalidateAll();
+		// Deferred past the navigation's microtasks: an immediate invalidateAll
+		// aborts the in-flight navigation before SvelteKit resets scroll to top.
+		setTimeout(() => void invalidateAll(), 0);
 	});
 
 	const user = $derived(data.user);

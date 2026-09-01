@@ -9,6 +9,7 @@
 
 	let title = $state('');
 	let description = $state('');
+	let pageContent = $state('');
 	let dayOfWeek = $state('0');
 	let startHours = $state('18');
 	let startMinutes = $state('0');
@@ -28,6 +29,7 @@
 	let evStartMinutes = $state('0');
 	let evReplay = $state('');
 	let evDescription = $state('');
+	let evPageContent = $state('');
 	let evImage = $state('');
 	let evSaving = $state(false);
 	let evError = $state('');
@@ -58,6 +60,7 @@
 				durationMinutes: 60,
 				replayUrl: evReplay,
 				description: evDescription,
+				pageContent: evPageContent,
 				image: evImage
 			})
 		});
@@ -73,6 +76,7 @@
 		evDate = '';
 		evReplay = '';
 		evDescription = '';
+		evPageContent = '';
 		evImage = '';
 		evNotice = 'Event created.';
 	}
@@ -227,6 +231,7 @@
 	let ef = $state({
 		title: '',
 		description: '',
+		pageContent: '',
 		image: '',
 		djId: '',
 		djHandle: '',
@@ -265,6 +270,7 @@
 		ef = {
 			title: fresh.title,
 			description: fresh.description ?? '',
+			pageContent: fresh.page_content ?? '',
 			image: fresh.image ?? '',
 			djId: fresh.dj_id,
 			djHandle: fresh.dj_handle ?? '',
@@ -286,6 +292,7 @@
 		const body: Record<string, unknown> = {
 			title: ef.title,
 			description: ef.description,
+			pageContent: ef.pageContent,
 			image: ef.image,
 			djId: ef.djId,
 			djHandle: ef.djHandle
@@ -437,8 +444,10 @@
 	onMount(() => {
 		loadAdmin();
 		// Fresh server data on every visit — the DB is the source of truth
-		// (SPA navigation otherwise reuses the initial SSR snapshot).
-		void invalidateAll();
+		// (SPA navigation otherwise reuses the initial SSR snapshot). Deferred
+		// past the navigation's microtasks: an immediate invalidateAll aborts
+		// the in-flight navigation before SvelteKit resets scroll to top.
+		setTimeout(() => void invalidateAll(), 0);
 	});
 
 	const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -466,6 +475,7 @@
 		const body: Record<string, unknown> = {
 			title,
 			description,
+			pageContent,
 			image: showImage,
 			dayOfWeek: Number(dayOfWeek),
 			startMinutes: Number(startHours) * 60 + Number(startMinutes),
@@ -489,6 +499,7 @@
 		showOverlap = overlapText(created.overlap);
 		title = '';
 		description = '';
+		pageContent = '';
 		showImage = '';
 		cycleWeekSel = '';
 		notice = 'Show created.';
@@ -592,8 +603,17 @@
 			<Field label="Show name">
 				<Text bind:value={title} placeholder="e.g. The Lunchtime Hour" css="vr-input" />
 			</Field>
-			<Field label="Description">
-				<RichTextEditor bind:value={description} placeholder="Short blurb (optional)" />
+			<Field label="Description (card blurb)">
+				<input
+					class="vr-input"
+					maxlength={50}
+					style="width:100%"
+					bind:value={description}
+					placeholder="Short blurb (optional)"
+				/>
+			</Field>
+			<Field label="Page content (optional)">
+				<RichTextEditor bind:value={pageContent} placeholder="Show page content" />
 			</Field>
 			<Field label="Image URL (optional)">
 				<Text bind:value={showImage} placeholder="https://…" css="vr-input" />
@@ -652,7 +672,16 @@
 				<Text bind:value={evTitle} placeholder="e.g. HIFI SESSION" css="vr-input" />
 			</Field>
 			<Field label="Description (optional)">
-				<RichTextEditor bind:value={evDescription} placeholder="Short blurb" />
+				<input
+					class="vr-input"
+					maxlength={50}
+					style="width:100%"
+					bind:value={evDescription}
+					placeholder="Short blurb"
+				/>
+			</Field>
+			<Field label="Page content (optional)">
+				<RichTextEditor bind:value={evPageContent} placeholder="Event page content" />
 			</Field>
 			<Field label="Date">
 				<Text bind:value={evDate} placeholder="YYYY-MM-DD" css="vr-input" />
@@ -920,7 +949,16 @@
 								<Text bind:value={ef.title} css="vr-input" />
 							</Field>
 							<Field label="Description">
-								<RichTextEditor bind:value={ef.description} placeholder="Short blurb" />
+								<input
+									class="vr-input"
+									maxlength={50}
+									style="width:100%"
+									bind:value={ef.description}
+									placeholder="Short blurb"
+								/>
+							</Field>
+							<Field label="Page content">
+								<RichTextEditor bind:value={ef.pageContent} placeholder="Show page content" />
 							</Field>
 							<Field label="Image URL (blank clears)">
 								<Text bind:value={ef.image} placeholder="https://…" css="vr-input" />

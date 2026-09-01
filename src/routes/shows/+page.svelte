@@ -10,7 +10,9 @@
 	// (SPA navigation otherwise reuses the initial SSR snapshot, so edited
 	// show cards stay stale until a full reload).
 	onMount(() => {
-		void invalidateAll();
+		// Deferred past the navigation's microtasks: an immediate invalidateAll
+		// aborts the in-flight navigation before SvelteKit resets scroll to top.
+		setTimeout(() => void invalidateAll(), 0);
 	});
 
 	const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -81,9 +83,9 @@
 							{:else}
 								<span class="dj-spacer" aria-hidden="true"></span>
 							{/if}
-							{#if show.description}
-								<p class="desc">{show.descriptionText}</p>
-							{/if}
+						{#if show.description}
+							<p class="desc">{show.description}</p>
+						{/if}
 						</div>
 					</a>
 				</li>

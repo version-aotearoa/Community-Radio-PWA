@@ -28,14 +28,21 @@
 	}
 
 	async function sendMagicLink() {
+		// Lock synchronously before the async Turnstile check: the svar-ui
+		// Button renders type="submit", so a click also submits the form — a
+		// second send would fire unless busy is already set (→ 2 magic links).
+		if (busy) return;
+		busy = true;
 		error = '';
 		if (!email.trim()) {
 			error = 'Enter your email address first.';
+			busy = false;
 			return;
 		}
 		if (data.siteKey) {
 			if (!turnstileToken) {
 				error = turnstileExpired ? 'Verification expired — please verify again.' : 'Please complete the verification.';
+				busy = false;
 				return;
 			}
 			const vr = await fetch('/api/verify-turnstile', {
@@ -46,10 +53,10 @@
 			if (!vr.ok) {
 				error = 'Verification failed. Please try again.';
 				turnstileToken = '';
+				busy = false;
 				return;
 			}
 		}
-		busy = true;
 		const name = displayName.trim().slice(0, 50);
 		const res = await authClient.signIn.magicLink({
 			email,
@@ -122,7 +129,15 @@
 					{#if error}
 						<div class="notice bad">{error}</div>
 					{/if}
-					<Button css="vr-cta" type="primary" disabled={busy} onclick={sendMagicLink}>
+					<Button
+						css="vr-cta"
+						type="primary"
+						disabled={busy}
+						onclick={(e) => {
+							e.preventDefault();
+							sendMagicLink();
+						}}
+					>
 						{busy ? 'Sending…' : 'Email me a sign-in link'}
 					</Button>
 				</form>
