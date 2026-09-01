@@ -43,7 +43,7 @@
 	<title>Shows — Version Radio</title>
 </svelte:head>
 
-<Seo title="Shows — Version Radio" />
+<Seo />
 
 <div class="page">
 	<header class="head">

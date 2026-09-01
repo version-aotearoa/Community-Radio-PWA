@@ -1,12 +1,11 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { SITE_TITLE, SITE_DESC } from '$lib/site';
 
-	const SITE_DESC =
-		'Live shows, DJ tracklists, and community chat.';
 	const DEFAULT_IMAGE = '/og-image.jpg';
 
 	let {
-		title = 'Version Radio · Aotearoa',
+		title = SITE_TITLE,
 		description = SITE_DESC,
 		image = DEFAULT_IMAGE,
 		url,

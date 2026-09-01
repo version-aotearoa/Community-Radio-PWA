@@ -515,7 +515,7 @@
 	<title>DJ Studio — Version Radio</title>
 </svelte:head>
 
-<Seo title="DJ Studio — Version Radio" noindex />
+<Seo noindex />
 
 <div class="page">
 <h1 class="h-lg">DJ Studio</h1>

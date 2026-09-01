@@ -8,6 +8,7 @@
 	import { initBannerDismissed, initPwa, registerServiceWorker } from '$lib/pwa';
 	import { requestCollapsePlayer } from '$lib/stores/player';
 	import { authClient } from '$lib/client';
+	import { SITE_TITLE } from '$lib/site';
 	import '@fontsource/anton/latin.css';
 	import '@fontsource/hanken-grotesk/latin-400.css';
 	import '@fontsource/hanken-grotesk/latin-600.css';
@@ -72,7 +73,7 @@
 </script>
 
 <svelte:head>
-	<title>Version Radio</title>
+	<title>{SITE_TITLE}</title>
 	<meta name="theme-color" content="#141313" />
 	<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 	<link rel="apple-touch-icon" href="/icons/icon-192.png" />
