@@ -328,6 +328,9 @@
 							</a>
 						{/if}
 					</header>
+					<div class="replay">
+						<a class="view-show mono" href={`/shows/${show.id}/${b.id}`}>View →</a>
+					</div>
 				</li>
 			{/each}
 		</ul>
