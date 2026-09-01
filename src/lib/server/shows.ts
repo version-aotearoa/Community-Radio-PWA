@@ -5,6 +5,7 @@ export interface ShowRow {
 	kind: string;
 	title: string;
 	description: string;
+	page_content: string;
 	image: string | null;
 	day_of_week: number;
 	start_minutes: number;
@@ -32,7 +33,14 @@ export interface BroadcastRow {
 }
 
 import { extractReplayTrackId, replayPlayUrl as azReplayPlayUrl } from '$lib/azuracast';
-import { DESCRIPTION_MAX, descriptionToText, sanitizeDescription } from '$lib/server/sanitize';
+import {
+	DESCRIPTION_MAX,
+	descriptionToText,
+	sanitizeDescription
+} from '$lib/server/sanitize';
+
+/** Max length of the short plain-text card blurb (show.description). */
+export const SHOW_DESC_MAX = 50;
 
 export interface TrackRow {
 	id: string;
@@ -62,12 +70,17 @@ export interface TrackInput {
 const now = () => Math.floor(Date.now() / 1000);
 
 /**
- * Rich-text descriptions are stored as sanitized HTML. Re-sanitize on every
- * read so anything rendered via `{@html}` is safe even if it predates the
- * sanitizer (legacy plain-text rows) or slips through a future write path.
+ * Show rows carry a short plain-text blurb (`description`, max 50 chars) for
+ * cards/taglines plus rich HTML `page_content` (sanitized) shown only on the
+ * show page. `description` is rendered as escaped text, so any stray HTML is
+ * stripped via `descriptionToText` rather than allowed through.
  */
 function sanitizeShowRow<T extends ShowRow>(row: T): T {
-	return { ...row, description: sanitizeDescription(row.description) };
+	return {
+		...row,
+		description: descriptionToText(row.description).slice(0, SHOW_DESC_MAX),
+		page_content: sanitizeDescription(row.page_content).slice(0, DESCRIPTION_MAX)
+	};
 }
 
 function sanitizeBroadcastRow<T extends BroadcastRow>(row: T): T {
@@ -271,8 +284,6 @@ export async function getAllShows(db: D1Database): Promise<ShowRow[]> {
 export interface ScheduleShow extends ShowRow {
 	dj_name: string | null;
 	dj_image: string | null;
-	/** Plain-text teaser for list cards (no markup → no nested-anchor breakage). */
-	descriptionText: string;
 	/** Station-cycle weeks the show airs on (1-4). Empty for weekly shows. */
 	showCycleWeeks: number[];
 }
@@ -298,7 +309,7 @@ export async function getSchedule(db: D1Database): Promise<ScheduleShow[]> {
 				: clean.interval_weeks === 2
 					? [baseWeek, ((baseWeek + 1) % 4) + 1]
 					: [];
-		return { ...clean, descriptionText: descriptionToText(clean.description), showCycleWeeks };
+		return { ...clean, showCycleWeeks };
 	});
 }
 
@@ -520,6 +531,7 @@ export async function createShow(
 		djId: string;
 		title: string;
 		description?: string;
+		pageContent?: string;
 		image?: string | null;
 		dayOfWeek: number;
 		startMinutes: number;
@@ -542,14 +554,15 @@ export async function createShow(
 	const id = await uniqueShowId(db, base);
 	await db
 		.prepare(
-			`INSERT INTO show (id, dj_id, title, description, image, day_of_week, start_minutes, duration_minutes, interval_weeks, anchor_date, kind, active, created_at, updated_at)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
+			`INSERT INTO show (id, dj_id, title, description, page_content, image, day_of_week, start_minutes, duration_minutes, interval_weeks, anchor_date, kind, active, created_at, updated_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
 		)
 		.bind(
 			id,
 			input.djId,
 			input.title.trim(),
-			sanitizeDescription(input.description).slice(0, DESCRIPTION_MAX),
+			descriptionToText(input.description ?? '').slice(0, SHOW_DESC_MAX),
+			sanitizeDescription(input.pageContent ?? '').slice(0, DESCRIPTION_MAX),
 			image,
 			input.dayOfWeek,
 			input.startMinutes,

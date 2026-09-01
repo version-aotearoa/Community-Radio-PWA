@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import {
+	SHOW_DESC_MAX,
 	cycleWeekOf,
 	ensureBroadcasts,
 	findOverlappingShows,
@@ -10,7 +11,7 @@ import {
 	todayStr,
 	weekdayOf
 } from '$lib/server/shows';
-import { DESCRIPTION_MAX, sanitizeDescription } from '$lib/server/sanitize';
+import { DESCRIPTION_MAX, descriptionToText, sanitizeDescription } from '$lib/server/sanitize';
 import type { RequestHandler } from './$types';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -30,6 +31,7 @@ export const POST: RequestHandler = async ({ request, params, locals, platform }
 	const body = (await request.json()) as {
 		title?: string;
 		description?: string;
+		pageContent?: string;
 		image?: string;
 		djId?: string;
 		djHandle?: string;
@@ -57,7 +59,12 @@ export const POST: RequestHandler = async ({ request, params, locals, platform }
 
 	if (typeof body.description === 'string') {
 		columns.push('description = ?');
-		values.push(sanitizeDescription(body.description).slice(0, DESCRIPTION_MAX));
+		values.push(descriptionToText(body.description).slice(0, SHOW_DESC_MAX));
+	}
+
+	if (typeof body.pageContent === 'string') {
+		columns.push('page_content = ?');
+		values.push(sanitizeDescription(body.pageContent).slice(0, DESCRIPTION_MAX));
 	}
 
 	if (typeof body.djHandle === 'string') {

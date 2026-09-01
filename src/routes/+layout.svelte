@@ -55,8 +55,18 @@
 			closeMenu();
 		};
 		document.addEventListener('pointerdown', onDocPointer);
+
+		// Safari serves back/forward pages from bfcache frozen — no onMount, no
+		// load re-run — so refresh data on restore or pages show stale content
+		// (e.g. an edited show description or DJ name).
+		const onPageshow = (e: PageTransitionEvent) => {
+			if (e.persisted) void invalidateAll();
+		};
+		window.addEventListener('pageshow', onPageshow);
+
 		return () => {
 			document.removeEventListener('pointerdown', onDocPointer);
+			window.removeEventListener('pageshow', onPageshow);
 		};
 	});
 </script>
