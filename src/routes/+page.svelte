@@ -5,6 +5,7 @@
 	import { live, startLivePolling } from '$lib/stores/live';
 	import { replayArtFromUrl } from '$lib/azuracast';
 	import Seo from '$lib/components/Seo.svelte';
+	import { SITE_TITLE } from '$lib/site';
 
 	let { data } = $props();
 
@@ -68,10 +69,10 @@
 </script>
 
 <svelte:head>
-	<title>Version Radio — independent radio</title>
+	<title>{SITE_TITLE}</title>
 </svelte:head>
 
-<Seo title="Version Radio — independent radio" />
+<Seo />
 
 <!-- Hero -->
 <section class="hero">

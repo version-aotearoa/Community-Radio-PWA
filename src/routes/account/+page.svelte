@@ -87,7 +87,7 @@
 	<title>My Version — Version Radio</title>
 </svelte:head>
 
-<Seo title="My Version — Version Radio" noindex />
+<Seo noindex />
 
 <div class="page">
 	<header class="head">

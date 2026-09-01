@@ -50,7 +50,7 @@
 	<title>Schedule — Version Radio</title>
 </svelte:head>
 
-<Seo title="Schedule — Version Radio" />
+<Seo />
 
 <div class="page">
 	<header class="head">

@@ -225,7 +225,7 @@
 	<title>Chat — Version Radio</title>
 </svelte:head>
 
-<Seo title="Chat — Version Radio" />
+<Seo />
 
 <div class="page">
 	{#if !data.chatUrl}

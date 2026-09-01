@@ -110,7 +110,7 @@
 	<title>Info — Version Radio</title>
 </svelte:head>
 
-<Seo title="Info — Version Radio" />
+<Seo />
 
 <div class="page">
 	<header class="head">

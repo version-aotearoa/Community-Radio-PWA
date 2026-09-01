@@ -87,7 +87,7 @@
 	<title>Sign in — Version Radio</title>
 </svelte:head>
 
-<Seo title="Sign in — Version Radio" />
+<Seo />
 
 <div class="login-wrap">
 	<section class="card">
