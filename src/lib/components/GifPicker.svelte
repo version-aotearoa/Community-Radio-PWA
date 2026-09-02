@@ -192,17 +192,17 @@
 	}
 
 	.picker-item {
+		display: block;
 		padding: 0;
 		border: 1px solid var(--vr-line-muted);
 		background: none;
 		cursor: pointer;
-		aspect-ratio: 1;
 		overflow: hidden;
 	}
 
 	.picker-item img {
 		width: 100%;
-		height: 100%;
+		aspect-ratio: 1 / 1;
 		object-fit: cover;
 		display: block;
 	}
