@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { Grid, WillowDark } from '@svar-ui/svelte-grid';
 	import { Button } from '@svar-ui/svelte-core';
 	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
 	import { parseTracksCsv } from '$lib/csv';
+	import { episodeArtUrl } from '$lib/azuracast';
 	import type { ShowRow, BroadcastRow, TrackRow } from '$lib/server/shows';
 
 	let {
@@ -56,6 +57,9 @@
 	let slugInput = $state('');
 	let slugSaving = $state(false);
 	let slugError = $state('');
+	let artInput = $state('');
+	let artSaving = $state(false);
+	let artError = $state('');
 	let fileInput: HTMLInputElement | undefined = $state();
 	let activeTab = $state<'tracklist' | 'replay' | 'description' | 'episode'>('tracklist');
 
@@ -65,7 +69,10 @@
 		replayInput = broadcast.replay_url ?? '';
 		descInput = broadcast.description ?? '';
 		slugInput = broadcast.id;
+		artInput = broadcast.art ?? '';
 	});
+
+	const artPreview = $derived(episodeArtUrl(broadcast.id, broadcast));
 
 	const GRID_EVENTS = [
 		'update-cell',
@@ -314,6 +321,37 @@
 		}
 	}
 
+	async function saveArt() {
+		artError = '';
+		artSaving = true;
+		const url = artInput.trim();
+		const res = await fetch(`/api/shows/${show.id}/broadcasts/${broadcast.id}/art`, {
+			method: 'PUT',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ url: url || null })
+		});
+		artSaving = false;
+		if (!res.ok) {
+			artError = await readErrorMessage(res);
+			return;
+		}
+		await invalidateAll();
+	}
+
+	async function clearArt() {
+		artError = '';
+		artSaving = true;
+		const res = await fetch(`/api/shows/${show.id}/broadcasts/${broadcast.id}/art`, {
+			method: 'DELETE'
+		});
+		artSaving = false;
+		if (!res.ok) {
+			artError = await readErrorMessage(res);
+			return;
+		}
+		await invalidateAll();
+	}
+
 	async function save() {
 		error = '';
 		notice = '';
@@ -423,11 +461,39 @@
 			bind:value={slugInput}
 			onkeydown={(e) => e.key === 'Enter' && saveSlug()}
 		/>
-		<Button css="vr-cta ghost" disabled={slugSaving} onclick={saveSlug}>
-			{slugSaving ? 'Saving…' : 'Save'}
-		</Button>
+		<div class="desc-actions">
+			<Button css="vr-cta ghost" disabled={slugSaving} onclick={saveSlug}>
+				{slugSaving ? 'Saving…' : 'Save'}
+			</Button>
+		</div>
 		{#if slugError}
 			<p class="replay-msg bad">{slugError}</p>
+		{/if}
+	</div>
+
+	<div class="desc-row">
+		<label for="episode-art">Artwork URL (optional, blank clears)</label>
+		<div class="art-fields">
+			<input
+				id="episode-art"
+				type="url"
+				placeholder="https://… or /media/<art-id>.jpg"
+				bind:value={artInput}
+				onkeydown={(e) => e.key === 'Enter' && saveArt()}
+			/>
+			<Button css="vr-cta ghost" disabled={artSaving} onclick={saveArt}>
+				{artSaving ? 'Saving…' : 'Save'}
+			</Button>
+			<Button css="vr-cta ghost" disabled={artSaving} onclick={clearArt}>Clear</Button>
+		</div>
+		<p class="hint">Overrides the auto replay artwork for this episode. External image URLs are
+			proxied and cached via /media; AzuraCast /media paths are used as-is. Leave blank to use the
+			replay artwork.</p>
+		{#if artPreview}
+			<img class="art-preview" src={artPreview} alt="Current artwork" loading="lazy" />
+		{/if}
+		{#if artError}
+			<p class="replay-msg bad">{artError}</p>
 		{/if}
 	</div>
 {/if}
@@ -601,6 +667,26 @@
 	.desc-actions {
 		display: flex;
 		gap: 0.5rem;
+	}
+
+	.art-fields {
+		display: flex;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+		align-items: center;
+	}
+
+	.art-fields input {
+		flex: 1;
+		min-width: 220px;
+	}
+
+	.art-preview {
+		width: 80px;
+		height: 80px;
+		object-fit: cover;
+		border: 1px solid var(--vr-line-muted);
+		margin-top: 0.4rem;
 	}
 
 	.desc-row input {

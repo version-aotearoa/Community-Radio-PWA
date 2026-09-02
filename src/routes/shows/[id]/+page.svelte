@@ -6,7 +6,7 @@
 	import ShowActions from '$lib/components/ShowActions.svelte';
 	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
 	import { playback, playMedia, requestTogglePlay, streamPlaying } from '$lib/stores/player';
-	import { replayArtFromUrl } from '$lib/azuracast';
+	import { episodeArtUrl } from '$lib/azuracast';
 	import Seo from '$lib/components/Seo.svelte';
 
 	let { data } = $props();
@@ -161,7 +161,7 @@
 			url: b.replay_url,
 			title: `${show.title} — ${fmtDate(b.date)}`,
 			artist: show.kind === 'event' ? null : (show.dj_name ?? null),
-			art: replayArtFromUrl(b.replay_url),
+			art: episodeArtUrl(b.id, b),
 			show: { id: show.id, title: show.title },
 			href: `/shows/${show.id}/${b.id}`,
 			broadcastId: b.id
@@ -348,8 +348,8 @@
 							href={`/shows/${show.id}/${b.id}`}
 							aria-label={`View ${fmtDate(b.date)} episode`}
 						>
-							{#if replayArtFromUrl(b.replay_url)}
-								<img src={replayArtFromUrl(b.replay_url) ?? ''} alt="" loading="lazy" />
+							{#if episodeArtUrl(b.id, b)}
+								<img src={episodeArtUrl(b.id, b) ?? ''} alt="" loading="lazy" />
 							{:else}
 								<span class="past-art-fallback" aria-hidden="true">
 									<svg viewBox="0 0 80 70" fill="currentColor" width="36" height="31">

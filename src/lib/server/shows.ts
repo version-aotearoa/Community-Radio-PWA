@@ -29,6 +29,8 @@ export interface BroadcastRow {
 	description: string;
 	featured: number;
 	home_ready: number;
+	/** Admin-set artwork override (any public image URL); else replay art is used. */
+	art: string | null;
 	created_at: number;
 	updated_at: number;
 }

@@ -4,7 +4,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import ShowActions from '$lib/components/ShowActions.svelte';
 	import { playback, playMedia, requestTogglePlay, streamPlaying } from '$lib/stores/player';
-	import { replayArtFromUrl } from '$lib/azuracast';
+	import { episodeArtUrl } from '$lib/azuracast';
 	import Seo from '$lib/components/Seo.svelte';
 
 	let { data } = $props();
@@ -12,6 +12,7 @@
 	const show = $derived(data.show);
 	const broadcast = $derived(data.broadcast);
 	const tracks = $derived(data.tracks);
+	const artUrl = $derived(episodeArtUrl(broadcast.id, broadcast));
 
 	// Fresh server data on every visit — the DB is the source of truth
 	// (back/forward navigation can otherwise restore a stale load snapshot,
@@ -64,7 +65,7 @@
 			url: broadcast.replay_url,
 			title: `${show.title} — ${fmtDate(broadcast.date)}`,
 			artist: show.kind === 'event' ? null : (show.dj_name ?? null),
-			art: replayArtFromUrl(broadcast.replay_url),
+			art: artUrl,
 			show: { id: show.id, title: show.title },
 			href: `/shows/${show.id}/${broadcast.id}`,
 			broadcastId: broadcast.id
@@ -88,7 +89,7 @@
 <Seo
 	title={`${show.title} — ${fmtDate(broadcast.date)}`}
 	description={show.pageContentText || show.description || undefined}
-	image={replayArtFromUrl(broadcast.replay_url) ?? show.image}
+	image={artUrl ?? show.image}
 	url={page.url.pathname}
 />
 
@@ -112,10 +113,10 @@
 <section class="card">
 	<div class="replay">
 		{#if broadcast.replay_url}
-			{#if replayArtFromUrl(broadcast.replay_url)}
+			{#if artUrl}
 				<img
 					class="replay-art"
-					src={replayArtFromUrl(broadcast.replay_url) ?? ''}
+					src={artUrl}
 					alt=""
 					width="80"
 					height="80"
