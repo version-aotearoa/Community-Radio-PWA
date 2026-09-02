@@ -186,13 +186,13 @@
 	.picker-grid {
 		display: grid;
 		grid-template-columns: repeat(4, 1fr);
+		align-items: start;
 		gap: 0.5rem;
 		max-height: 260px;
 		overflow-y: auto;
 	}
 
 	.picker-item {
-		position: relative;
 		display: block;
 		padding: 0;
 		border: 1px solid var(--vr-line-muted);
@@ -201,18 +201,9 @@
 		overflow: hidden;
 	}
 
-	.picker-item::before {
-		content: '';
-		display: block;
-		padding-top: 100%;
-	}
-
 	.picker-item img {
-		position: absolute;
-		inset: 0;
 		width: 100%;
-		height: 100%;
-		object-fit: cover;
+		height: auto;
 		display: block;
 	}
 
