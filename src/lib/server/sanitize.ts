@@ -77,8 +77,9 @@ export function sanitizeDescription(input: unknown): string {
 export const DESCRIPTION_MAX = 8000;
 
 /** Plain-text rendering of sanitized HTML (for list cards / teasers). */
-export function descriptionToText(html: string): string {
-	return html
+export function descriptionToText(html: unknown): string {
+	const raw = typeof html === 'string' ? html : '';
+	return raw
 		.replace(/<[^>]*>/g, ' ')
 		.replace(/&nbsp;/g, ' ')
 		.replace(/&amp;/g, '&')
