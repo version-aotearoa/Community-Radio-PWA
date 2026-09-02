@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { WillowDark } from '@svar-ui/svelte-core';
 	import { onMount } from 'svelte';
+	import { slide, fade } from 'svelte/transition';
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
@@ -140,8 +141,8 @@
 		</header>
 
 		{#if menuOpen}
-			<div class="menu-scrim" aria-hidden="true" onclick={closeMenu}></div>
-			<div class="mobile-menu">
+			<div class="menu-scrim" aria-hidden="true" onclick={closeMenu} transition:fade={{ duration: 160 }}></div>
+			<div class="mobile-menu" transition:slide={{ duration: 220 }}>
 				<nav aria-label="Mobile">
 					<a href="/shows" onclick={closeMenu}>Shows</a>
 					<a href="/schedule" onclick={closeMenu}>Schedule</a>
@@ -325,16 +326,6 @@
 		background: rgba(0, 0, 0, 0.55);
 		backdrop-filter: blur(2px);
 		-webkit-backdrop-filter: blur(2px);
-		animation: scrim-fade 160ms ease-out;
-	}
-
-	@keyframes scrim-fade {
-		from {
-			opacity: 0;
-		}
-		to {
-			opacity: 1;
-		}
 	}
 
 	.mobile-menu nav {
