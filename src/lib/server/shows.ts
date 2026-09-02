@@ -28,6 +28,7 @@ export interface BroadcastRow {
 	replay_url: string | null;
 	description: string;
 	featured: number;
+	home_ready: number;
 	created_at: number;
 	updated_at: number;
 }
@@ -104,6 +105,18 @@ export function toDateStr(d: Date): string {
 
 export function todayStr(timeZone = 'Pacific/Auckland'): string {
 	return zonedNow(timeZone).date;
+}
+
+/**
+ * Whether a broadcast's airing window has fully elapsed at the given instant
+ * (station-local date + minutes). Same-date rows count as ended only once
+ * `start_minutes + duration_minutes` has passed; earlier-date rows are past.
+ */
+export function broadcastEnded(
+	now: { date: string; minutes: number },
+	b: { date: string; start_minutes: number; duration_minutes: number }
+): boolean {
+	return b.date < now.date || (b.date === now.date && now.minutes >= b.start_minutes + b.duration_minutes);
 }
 
 export function addDays(dateStr: string, days: number): string {
@@ -434,7 +447,8 @@ export async function getUpcomingBroadcasts(
 		)
 		.bind(from, to)
 		.all();
-	return results as unknown as UpcomingBroadcast[];
+	const now = zonedNow();
+	return (results as unknown as UpcomingBroadcast[]).filter((b) => !broadcastEnded(now, b));
 }
 
 export interface OverlapInfo {
