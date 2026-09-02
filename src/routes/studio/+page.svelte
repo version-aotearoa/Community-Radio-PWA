@@ -197,6 +197,7 @@
 		id: string;
 		date: string;
 		featured: number;
+		home_ready: number;
 		title: string;
 	}
 
@@ -226,6 +227,22 @@
 			return;
 		}
 		c.featured = target ? 1 : 0;
+	}
+
+	async function toggleLatest(c: FeaturedCandidate) {
+		featuredFeedback = '';
+		const target = c.home_ready === 1 ? false : true;
+		const res = await fetch('/api/admin/featured', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ broadcastId: c.id, ready: target })
+		});
+		if (!res.ok) {
+			const body = (await res.json().catch(() => null)) as { error?: string } | null;
+			featuredFeedback = body?.error ?? `Save failed (${res.status})`;
+			return;
+		}
+		c.home_ready = target ? 1 : 0;
 	}
 
 	let editingShowId = $state('');
@@ -786,8 +803,9 @@
 			<p class="muted">No episodes with replay links yet.</p>
 		{:else}
 			<p class="muted">
-				{featuredList.filter((c) => c.featured === 1).length} of 3 featured — toggle episodes with
-				replay links below.
+				{featuredList.filter((c) => c.featured === 1).length} of 3 featured ·{' '}
+				{featuredList.filter((c) => c.home_ready === 1).length} on homepage latest — toggle
+				episodes with replay links below.
 			</p>
 			{#if featuredFeedback}
 				<div class="notice bad">{featuredFeedback}</div>
@@ -799,9 +817,19 @@
 							<strong>{c.title}</strong>
 							<span class="meta">{c.date}</span>
 						</div>
-						<button class="mini-btn" class:off={c.featured === 0} onclick={() => toggleFeatured(c)}>
-							{c.featured === 1 ? 'Unfeature' : 'Feature'}
-						</button>
+						<div class="admin-actions">
+							<button class="mini-btn" class:off={c.featured === 0} onclick={() => toggleFeatured(c)}>
+								{c.featured === 1 ? 'Unfeature' : 'Feature'}
+							</button>
+							<button
+								class="mini-btn"
+								class:off={c.home_ready === 0}
+								title={c.home_ready === 1 ? 'Hide from homepage latest' : 'Show on homepage latest'}
+								onclick={() => toggleLatest(c)}
+							>
+								Latest
+							</button>
+						</div>
 					</div>
 				{/each}
 			</div>
@@ -1241,6 +1269,12 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.15rem;
+	}
+
+	.admin-actions {
+		display: flex;
+		gap: 0.5rem;
+		flex-shrink: 0;
 	}
 
 	.role-label {

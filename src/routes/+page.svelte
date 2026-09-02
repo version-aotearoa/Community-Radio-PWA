@@ -158,7 +158,7 @@
 				<h3 class="h-md showcard-title">{show.title}</h3>
 			</a>
 		{:else}
-			<p class="empty mono">No shows yet — the schedule is being built.</p>
+			<p class="empty mono">New episodes appear here once they've been checked.</p>
 		{/each}
 	</div>
 	<a class="btn-outline view-all-mobile" href="/shows">View all</a>

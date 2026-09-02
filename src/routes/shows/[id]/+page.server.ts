@@ -1,12 +1,14 @@
 import { error } from '@sveltejs/kit';
 import {
+	broadcastEnded,
 	cycleWeekOf,
 	ensureBroadcasts,
 	getBroadcastTracksMap,
 	getBroadcasts,
 	getShowWithDj,
 	nextDateForWeekday,
-	todayStr
+	todayStr,
+	zonedNow
 } from '$lib/server/shows';
 import type { PageServerLoad } from './$types';
 
@@ -50,7 +52,7 @@ export const load: PageServerLoad = async ({ params, locals, platform }) => {
 		followed,
 		showCycleWeeks,
 		currentCycleWeek,
-		upcoming: broadcasts.filter((b) => b.date >= today).slice(0, 1),
-		past: broadcasts.filter((b) => b.date < today).reverse()
+		upcoming: broadcasts.filter((b) => !broadcastEnded(zonedNow(), b)).slice(0, 1),
+		past: broadcasts.filter((b) => broadcastEnded(zonedNow(), b)).reverse()
 	};
 };
