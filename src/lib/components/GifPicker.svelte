@@ -192,6 +192,7 @@
 	}
 
 	.picker-item {
+		position: relative;
 		display: block;
 		padding: 0;
 		border: 1px solid var(--vr-line-muted);
@@ -200,9 +201,17 @@
 		overflow: hidden;
 	}
 
+	.picker-item::before {
+		content: '';
+		display: block;
+		padding-top: 100%;
+	}
+
 	.picker-item img {
+		position: absolute;
+		inset: 0;
 		width: 100%;
-		aspect-ratio: 1 / 1;
+		height: 100%;
 		object-fit: cover;
 		display: block;
 	}

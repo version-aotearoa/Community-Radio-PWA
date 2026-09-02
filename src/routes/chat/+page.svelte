@@ -325,9 +325,7 @@
 						title="Add a GIF"
 						aria-expanded={gifPickerOpen}
 					>
-						<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-							<path d="M8 6v12M8 12h5M13 8v4a3 3 0 0 1-3 3M16 6v12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-						</svg>
+						<span class="gif-btn-label">GIF</span>
 					</button>
 				{/if}
 				<Text bind:value={input} placeholder="Say something…" css="vr-input chat-input" />
@@ -565,6 +563,15 @@
 	.gif-btn.active {
 		color: var(--vr-text);
 		border-color: var(--vr-text);
+	}
+
+	.gif-btn-label {
+		font-family: var(--vr-font-headline);
+		font-weight: 700;
+		font-size: 0.95rem;
+		line-height: 1;
+		letter-spacing: 0.02em;
+		pointer-events: none;
 	}
 
 	.msg-gif {
