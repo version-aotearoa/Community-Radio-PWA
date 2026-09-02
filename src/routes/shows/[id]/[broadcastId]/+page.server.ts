@@ -11,6 +11,8 @@ export const load: PageServerLoad = async ({ params, locals, platform }) => {
 	const tracks = await getTracklist(db, broadcast.id);
 
 	const user = locals.user ?? null;
+	const canEdit =
+		user !== null && (user.role === 'admin' || (user.role === 'dj' && show.dj_id === user.id));
 	const followed = user
 		? Boolean(
 				await db
@@ -28,5 +30,5 @@ export const load: PageServerLoad = async ({ params, locals, platform }) => {
 			)
 		: false;
 
-	return { show, broadcast, tracks, followed, savedEpisode };
+	return { show, broadcast, tracks, followed, savedEpisode, canEdit };
 };

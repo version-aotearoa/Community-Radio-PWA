@@ -93,7 +93,12 @@
 />
 
 <div class="page">
-	<a class="back mono" href={`/shows/${show.id}`}>← {show.title}</a>
+	<div class="page-head">
+		<a class="back mono" href={`/shows/${show.id}`}>← {show.title}</a>
+		{#if data.canEdit}
+			<a class="btn-outline" href={`/shows/${show.id}/${broadcast.id}/edit`}>Edit</a>
+		{/if}
+	</div>
 
 	<h1 class="h-lg">{show.title}</h1>
 	<p class="meta mono">
@@ -204,12 +209,19 @@
 		max-width: 56rem;
 	}
 
+	.page-head {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 1rem;
+		margin-bottom: 1rem;
+	}
+
 	.back {
 		display: inline-block;
 		color: var(--vr-muted);
 		text-decoration: none;
 		font-size: 0.82rem;
-		margin-bottom: 1rem;
 	}
 
 	.back:hover {
