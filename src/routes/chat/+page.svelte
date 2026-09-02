@@ -385,7 +385,7 @@
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		margin: 0.75rem 0 0;
+		margin: 0.75rem 0 1rem;
 	}
 
 	.handle-row :global(button) {
@@ -571,7 +571,6 @@
 		border: 1px solid var(--vr-line);
 		color: var(--vr-muted);
 		width: 40px;
-		height: 40px;
 		flex-shrink: 0;
 		cursor: pointer;
 	}
