@@ -140,6 +140,7 @@
 		</header>
 
 		{#if menuOpen}
+			<div class="menu-scrim" aria-hidden="true" onclick={closeMenu}></div>
 			<div class="mobile-menu">
 				<nav aria-label="Mobile">
 					<a href="/shows" onclick={closeMenu}>Shows</a>
@@ -312,6 +313,28 @@
 		background: var(--vr-surface);
 		border-bottom: 1px solid var(--vr-line);
 		padding: 0;
+	}
+
+	.menu-scrim {
+		position: fixed;
+		top: 57px;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		z-index: 35;
+		background: rgba(0, 0, 0, 0.55);
+		backdrop-filter: blur(2px);
+		-webkit-backdrop-filter: blur(2px);
+		animation: scrim-fade 160ms ease-out;
+	}
+
+	@keyframes scrim-fade {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
 	}
 
 	.mobile-menu nav {
