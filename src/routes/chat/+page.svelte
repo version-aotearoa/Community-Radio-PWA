@@ -491,6 +491,23 @@
 	}
 
 	@media (max-width: 640px) {
+		.page {
+			padding: 0;
+		}
+
+		.chat-card {
+			border-left: none;
+			border-right: none;
+		}
+
+		.verify-box,
+		.subtitle,
+		.handle-row,
+		.notice {
+			margin-left: 1rem;
+			margin-right: 1rem;
+		}
+
 		.msg {
 			max-width: 100%;
 			padding: 0.45rem 0.65rem;

@@ -237,6 +237,11 @@
 	}
 
 	@media (max-width: 640px) {
+		.gif-picker {
+			border-left: none;
+			border-right: none;
+		}
+
 		.picker-grid {
 			grid-template-columns: repeat(3, 1fr);
 		}
