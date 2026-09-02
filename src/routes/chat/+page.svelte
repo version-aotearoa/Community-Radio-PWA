@@ -2,9 +2,17 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { Button, Text } from '@svar-ui/svelte-core';
 	import Turnstile from '$lib/components/Turnstile.svelte';
+	import GifPicker from '$lib/components/GifPicker.svelte';
 	import Seo from '$lib/components/Seo.svelte';
 
 	let { data } = $props();
+
+	interface GifMedia {
+		url: string;
+		preview?: string | null;
+		width?: number | null;
+		height?: number | null;
+	}
 
 	interface ChatMessage {
 		id: string;
@@ -12,6 +20,7 @@
 		name: string;
 		content: string;
 		userId?: string | null;
+		gif?: GifMedia | null;
 		reactions?: Record<string, number>;
 		my?: string[];
 	}
@@ -56,6 +65,7 @@
 	let connected = $state(false);
 	let error = $state('');
 	let closed = $state(false);
+	let gifPickerOpen = $state(false);
 	let turnstileToken = $state('');
 	let scrollEl: HTMLDivElement | undefined = $state();
 	let identity = $state<{ token: string; name: string } | null>(null);
@@ -207,6 +217,12 @@
 		input = '';
 	}
 
+	function onPickGif(gif: GifMedia) {
+		gifPickerOpen = false;
+		if (!ws || ws.readyState !== WebSocket.OPEN) return;
+		ws.send(JSON.stringify({ type: 'message', content: '', gif }));
+	}
+
 	function saveHandle() {
 		const value = handleInput.trim().slice(0, 40);
 		if (!value) return;
@@ -276,8 +292,20 @@
 								{#if heartCount(msg) > 0}<span>{heartCount(msg)}</span>{/if}
 							</button>
 						</div>
+					{#if msg.gif}
+						<img
+							class="msg-gif"
+							src={msg.gif.url}
+							width={msg.gif.width ?? undefined}
+							height={msg.gif.height ?? undefined}
+							alt=""
+							loading="lazy"
+						/>
+					{/if}
+					{#if msg.content}
 						<p class="msg-body">{msg.content}</p>
-					</div>
+					{/if}
+				</div>
 				{/each}
 			</div>
 			<form
@@ -287,9 +315,29 @@
 					send();
 				}}
 			>
+				{#if data.giphyKey}
+					<button
+						type="button"
+						class="gif-btn"
+						class:active={gifPickerOpen}
+						onclick={() => (gifPickerOpen = !gifPickerOpen)}
+						aria-label="Add a GIF"
+						title="Add a GIF"
+						aria-expanded={gifPickerOpen}
+					>
+						<span class="gif-btn-label">GIF</span>
+					</button>
+				{/if}
 				<Text bind:value={input} placeholder="Say something…" css="vr-input chat-input" />
 				<button class="send" type="submit" disabled={!connected}>Send</button>
 			</form>
+			{#if gifPickerOpen && data.giphyKey}
+				<GifPicker
+					giphyKey={data.giphyKey}
+					onSelect={onPickGif}
+					onClose={() => (gifPickerOpen = false)}
+				/>
+			{/if}
 			{#if error}
 				<div class="notice bad">{error}</div>
 			{/if}
@@ -337,7 +385,7 @@
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		margin: 0.75rem 0 0;
+		margin: 0.75rem 0 1rem;
 	}
 
 	.handle-row :global(button) {
@@ -443,6 +491,23 @@
 	}
 
 	@media (max-width: 640px) {
+		.page {
+			padding: 0;
+		}
+
+		.chat-card {
+			border-left: none;
+			border-right: none;
+		}
+
+		.verify-box,
+		.subtitle,
+		.handle-row,
+		.notice {
+			margin-left: 1rem;
+			margin-right: 1rem;
+		}
+
 		.msg {
 			max-width: 100%;
 			padding: 0.45rem 0.65rem;
@@ -497,6 +562,40 @@
 		gap: 0.5rem;
 		padding: 0.75rem 1rem;
 		border-top: 1px solid var(--vr-line);
+	}
+
+	.gif-btn {
+		display: inline-grid;
+		place-items: center;
+		background: none;
+		border: 1px solid var(--vr-line);
+		color: var(--vr-muted);
+		width: 40px;
+		flex-shrink: 0;
+		cursor: pointer;
+	}
+
+	.gif-btn:hover,
+	.gif-btn.active {
+		color: var(--vr-text);
+		border-color: var(--vr-text);
+	}
+
+	.gif-btn-label {
+		font-family: var(--vr-font-headline);
+		font-weight: 700;
+		font-size: 0.95rem;
+		line-height: 1;
+		letter-spacing: 0.02em;
+		pointer-events: none;
+	}
+
+	.msg-gif {
+		max-width: 240px;
+		height: auto;
+		display: block;
+		border: 1px solid var(--vr-line-muted);
+		margin: 0.25rem 0;
 	}
 
 	:global(.chat-input) {

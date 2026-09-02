@@ -56,6 +56,7 @@ declare global {
 		RESEND_API_KEY?: string;
 		RESEND_FROM?: string;
 		PUBLIC_CHAT_URL?: string;
+		PUBLIC_GIPHY_API_KEY?: string;
 		TURNSTILE_SECRET?: string;
 		TURNSTILE_HOSTNAMES?: string;
 		PUBLIC_TURNSTILE_SITE_KEY?: string;

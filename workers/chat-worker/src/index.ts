@@ -15,8 +15,17 @@ export interface ChatMessage {
 	name: string;
 	content: string;
 	userId: string | null;
+	gif?: GifMedia | null;
 	reactions?: Record<string, number>;
 	my?: string[];
+}
+
+/** A Giphy GIF attached to a chat message (URLs only — no bytes stored). */
+export interface GifMedia {
+	url: string;
+	preview?: string | null;
+	width?: number | null;
+	height?: number | null;
 }
 
 interface ConnectionMeta {
@@ -37,6 +46,7 @@ const MAX_STORED = 1000;
 const RATE_LIMIT_MS = 500;
 const MAX_CONTENT_LENGTH = 500;
 const MAX_NAME_LENGTH = 40;
+const MAX_GIF_URL_LENGTH = 2048;
 
 /**
  * Per-room chat: WebSockets + SQLite persistence. One instance per room (named
@@ -104,6 +114,15 @@ export class ChatRoom extends DurableObject<Env> {
 				);
 				CREATE INDEX IF NOT EXISTS idx_reactions_msg ON reactions (message_id);
 				INSERT INTO _sql_schema_migrations (id) VALUES (4);
+			`);
+		}
+		if (version < 5) {
+			this.ctx.storage.sql.exec(`
+				ALTER TABLE messages ADD COLUMN gif_url TEXT;
+				ALTER TABLE messages ADD COLUMN gif_preview TEXT;
+				ALTER TABLE messages ADD COLUMN gif_width INTEGER;
+				ALTER TABLE messages ADD COLUMN gif_height INTEGER;
+				INSERT INTO _sql_schema_migrations (id) VALUES (5);
 			`);
 		}
 	}
@@ -216,7 +235,7 @@ export class ChatRoom extends DurableObject<Env> {
 	}
 
 	async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer) {
-		let data: { type?: string; content?: unknown; id?: unknown; emoji?: unknown };
+		let data: { type?: string; content?: unknown; gif?: unknown; id?: unknown; emoji?: unknown };
 		try {
 			data = JSON.parse(String(message));
 		} catch {
@@ -235,7 +254,8 @@ export class ChatRoom extends DurableObject<Env> {
 		const content = String(data.content ?? '')
 			.trim()
 			.slice(0, MAX_CONTENT_LENGTH);
-		if (!content) return;
+		const gif = sanitizeGif(data.gif);
+		if (!content && !gif) return;
 		const now = Date.now();
 		if (now - meta.lastTs < RATE_LIMIT_MS) {
 			ws.send(JSON.stringify({ type: 'error', message: 'Slow down a little.' }));
@@ -243,7 +263,7 @@ export class ChatRoom extends DurableObject<Env> {
 		}
 		ws.serializeAttachment({ ...meta, lastTs: now });
 
-		const chatMessage = this.insert(meta.name, content, meta.uid);
+		const chatMessage = this.insert(meta.name, content, meta.uid, gif);
 		this.broadcast({ type: 'message', message: chatMessage });
 	}
 
@@ -286,15 +306,26 @@ export class ChatRoom extends DurableObject<Env> {
 		this.broadcast({ type: 'reacted', id, emoji, count });
 	}
 
-	private insert(name: string, content: string, userId: string | null): ChatMessage {
-		const msg: ChatMessage = { id: crypto.randomUUID(), ts: Date.now(), name, content, userId };
+	private insert(name: string, content: string, userId: string | null, gif: GifMedia | null): ChatMessage {
+		const msg: ChatMessage = {
+			id: crypto.randomUUID(),
+			ts: Date.now(),
+			name,
+			content,
+			userId,
+			...(gif ? { gif } : {})
+		};
 		this.ctx.storage.sql.exec(
-			'INSERT INTO messages (id, ts, name, content, user_id) VALUES (?, ?, ?, ?, ?)',
+			'INSERT INTO messages (id, ts, name, content, user_id, gif_url, gif_preview, gif_width, gif_height) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
 			msg.id,
 			msg.ts,
 			msg.name,
 			msg.content,
-			msg.userId
+			msg.userId,
+			gif?.url ?? null,
+			gif?.preview ?? null,
+			gif?.width ?? null,
+			gif?.height ?? null
 		);
 		// Keep stored history bounded; delete oldest beyond the cap.
 		this.ctx.storage.sql.exec(
@@ -308,18 +339,30 @@ export class ChatRoom extends DurableObject<Env> {
 
 	private recent(limit: number, userKey: string | null): ChatMessage[] {
 		const messages = this.ctx.storage.sql
-			.exec<Record<string, string | number>>(
-				'SELECT id, ts, name, content, user_id FROM messages ORDER BY ts DESC LIMIT ?',
+			.exec<Record<string, string | number | null>>(
+				'SELECT id, ts, name, content, user_id, gif_url, gif_preview, gif_width, gif_height FROM messages ORDER BY ts DESC LIMIT ?',
 				limit
 			)
 			.toArray()
-			.map((row) => ({
-				id: String(row.id),
-				ts: Number(row.ts),
-				name: String(row.name),
-				content: String(row.content),
-				userId: row.user_id === undefined || row.user_id === null ? null : String(row.user_id)
-			}))
+			.map((row) => {
+				const gif =
+					row.gif_url === undefined || row.gif_url === null
+						? null
+						: {
+								url: String(row.gif_url),
+								preview: row.gif_preview == null ? null : String(row.gif_preview),
+								width: row.gif_width == null ? null : Number(row.gif_width),
+								height: row.gif_height == null ? null : Number(row.gif_height)
+							};
+				return {
+					id: String(row.id),
+					ts: Number(row.ts),
+					name: String(row.name),
+					content: String(row.content),
+					userId: row.user_id === undefined || row.user_id === null ? null : String(row.user_id),
+					...(gif ? { gif } : {})
+				};
+			})
 			.reverse();
 
 		const ids = messages.map((m) => m.id);
@@ -412,6 +455,30 @@ export default {
 		return env.CHAT_ROOM.getByName(room).fetch(request);
 	}
 };
+
+/**
+ * Validate an incoming GIF payload: https + provider host allowlist only, so
+ * users can't smuggle arbitrary URLs into messages. Returns null to reject.
+ */
+function sanitizeGif(raw: unknown): GifMedia | null {
+	if (typeof raw !== 'object' || raw === null) return null;
+	const g = raw as { url?: unknown; preview?: unknown; width?: unknown; height?: unknown };
+	const url = typeof g.url === 'string' ? g.url.trim().slice(0, MAX_GIF_URL_LENGTH) : '';
+	if (!url) return null;
+	let parsed: URL;
+	try {
+		parsed = new URL(url);
+	} catch {
+		return null;
+	}
+	if (parsed.protocol !== 'https:') return null;
+	if (!parsed.hostname.endsWith('.giphy.com')) return null;
+	const preview =
+		typeof g.preview === 'string' ? g.preview.trim().slice(0, MAX_GIF_URL_LENGTH) : null;
+	const width = typeof g.width === 'number' && Number.isFinite(g.width) ? g.width : null;
+	const height = typeof g.height === 'number' && Number.isFinite(g.height) ? g.height : null;
+	return { url, preview, width, height };
+}
 
 /**
  * Verify a Turnstile token server-side. Fails closed.
