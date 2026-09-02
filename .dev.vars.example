@@ -22,6 +22,10 @@ GOOGLE_SECRET=
 # Chat worker public URL (local: http://localhost:8790)
 PUBLIC_CHAT_URL=http://localhost:8790
 
+# Giphy GIF search (client-side key; beta keys ~100 calls/hr). Create at
+# https://developers.giphy.com/dashboard/ and set on Pages projects too.
+PUBLIC_GIPHY_API_KEY=
+
 # Cloudflare Turnstile — TEST keys (always pass). Replace before production.
 TURNSTILE_SECRET=1x0000000000000000000000000000000AA
 TURNSTILE_HOSTNAMES=localhost,127.0.0.1,example.com
