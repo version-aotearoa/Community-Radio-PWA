@@ -3,7 +3,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { Button, Field, Text } from '@svar-ui/svelte-core';
 	import { authClient } from '$lib/client';
-	import { replayArtFromUrl } from '$lib/azuracast';
+	import { episodeArtUrl } from '$lib/azuracast';
 	import Seo from '$lib/components/Seo.svelte';
 
 	let { data } = $props();
@@ -300,8 +300,8 @@
 						<li>
 							<a class="saved-row" href={`/shows/${s.show_id}/${s.broadcast_id}`}>
 								<span class="saved-art">
-									{#if replayArtFromUrl(s.replay_url)}
-										<img src={replayArtFromUrl(s.replay_url) ?? ''} alt="" loading="lazy" />
+									{#if episodeArtUrl(s.broadcast_id, s)}
+										<img src={episodeArtUrl(s.broadcast_id, s) ?? ''} alt="" loading="lazy" />
 									{:else if s.image}
 										<img src={s.image} alt="" loading="lazy" />
 									{:else}

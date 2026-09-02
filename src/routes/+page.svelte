@@ -3,7 +3,7 @@
 	import { requestPlay, requestTogglePlay, streamPlaying } from '$lib/stores/player';
 	import { playMedia } from '$lib/stores/player';
 	import { live, startLivePolling } from '$lib/stores/live';
-	import { replayArtFromUrl } from '$lib/azuracast';
+	import { episodeArtUrl } from '$lib/azuracast';
 	import Seo from '$lib/components/Seo.svelte';
 	import { SITE_TITLE } from '$lib/site';
 
@@ -48,21 +48,21 @@
 			.replace(/\s/g, ' ');
 	}
 
-	function playEpisode(show: { show_id: string; broadcast_id: string; title: string; date: string; replay_url: string | null; dj_name?: string | null }) {
+	function playEpisode(show: { show_id: string; broadcast_id: string; title: string; date: string; replay_url: string | null; art?: string | null; dj_name?: string | null }) {
 		if (!show.replay_url) return;
 		playMedia({
 			url: show.replay_url,
 			title: `${show.title} — ${fmtBroadcastDate(show.date)}`,
 			artist: show.dj_name ?? null,
-			art: replayArtFromUrl(show.replay_url),
+			art: episodeArtUrl(show.broadcast_id, show),
 			show: { id: show.show_id, title: show.title },
 			href: `/shows/${show.show_id}/${show.broadcast_id}`,
 			broadcastId: show.broadcast_id
 		});
 	}
 
-	function featArt(f: { replay_url: string | null; image: string | null }) {
-		return replayArtFromUrl(f.replay_url) ?? f.image;
+	function featArt(f: { broadcast_id: string; replay_url: string | null; art?: string | null; image: string | null }) {
+		return episodeArtUrl(f.broadcast_id, f) ?? f.image;
 	}
 
 	onMount(() => startLivePolling());
@@ -119,8 +119,12 @@
 		{#each data.latest as show (show.show_id)}
 			<a class="showcard" href={`/shows/${show.show_id}/${show.broadcast_id}`}>
 				<div class="showcard-art">
-					{#if show.show_image}
-						<img src={show.show_image} alt="" loading="lazy" />
+					{#if episodeArtUrl(show.broadcast_id, show) ?? show.show_image}
+						<img
+							src={episodeArtUrl(show.broadcast_id, show) ?? show.show_image ?? ''}
+							alt=""
+							loading="lazy"
+						/>
 					{:else}
 						<div class="art-glyph" aria-hidden="true">
 							<svg viewBox="0 0 80 70" fill="currentColor" width="42" height="37">

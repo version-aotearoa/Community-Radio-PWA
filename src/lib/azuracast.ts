@@ -34,6 +34,45 @@ export function replayArtFromUrl(url: string | null | undefined): string | null 
 	return id ? replayArtUrl(id) : null;
 }
 
+/** Deterministic short hash (FNV-1a, 8 hex). Same on client and server. */
+export function artUrlHash(url: string): string {
+	let hash = 0x811c9dc5;
+	for (let i = 0; i < url.length; i++) {
+		hash ^= url.charCodeAt(i);
+		hash = Math.imul(hash, 0x01000193);
+	}
+	return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+/** True when `url` is already served by our /media proxy/CDN. */
+function isMediaPath(url: string): boolean {
+	try {
+		return new URL(url, 'https://versionradio.live').pathname.startsWith('/media/');
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Served image URL for a broadcast tile.
+ * - `b.art` set to a /media path -> used as-is (already CDN-cached).
+ * - `b.art` set to any other URL -> proxied + cached via
+ *   /media/ep/<broadcastId>/<urlhash>.jpg (hash busts the cache on change).
+ * - otherwise falls back to the replay-derived art.
+ */
+export function episodeArtUrl(
+	broadcastId: string | null | undefined,
+	b: { art?: string | null; replay_url?: string | null }
+): string | null {
+	const art = b.art?.trim();
+	if (art) {
+		if (isMediaPath(art)) return art;
+		if (broadcastId) return `/media/ep/${broadcastId}/${artUrlHash(art)}.jpg`;
+		return art;
+	}
+	return replayArtFromUrl(b.replay_url);
+}
+
 const ART_FILE_RE = /([0-9a-f]{24}(?:-\d+)?)\.(?:jpg|jpeg|png|webp|avif)$/i;
 
 /**

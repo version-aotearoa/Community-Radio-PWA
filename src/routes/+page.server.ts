@@ -7,6 +7,7 @@ export interface LatestShow {
 	date: string;
 	start_minutes: number;
 	replay_url: string | null;
+	art: string | null;
 	title: string;
 	show_image: string | null;
 	dj_name: string | null;
@@ -18,6 +19,7 @@ export interface FeaturedShow {
 	show_id: string;
 	date: string;
 	replay_url: string | null;
+	art: string | null;
 	title: string;
 	image: string | null;
 	dj_name: string | null;
@@ -32,7 +34,7 @@ export const load: PageServerLoad = async ({ platform }) => {
 	// once the admin marks it ready.
 	const { results } = await db
 		.prepare(
-			`SELECT b.id AS broadcast_id, b.show_id, b.date, b.start_minutes, b.replay_url, s.title, s.image AS show_image, s.kind, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name
+			`SELECT b.id AS broadcast_id, b.show_id, b.date, b.start_minutes, b.replay_url, b.art, s.title, s.image AS show_image, s.kind, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name
 			 FROM broadcast b
 			 JOIN show s ON s.id = b.show_id
 			 LEFT JOIN user u ON u.id = s.dj_id
@@ -59,7 +61,7 @@ export const load: PageServerLoad = async ({ platform }) => {
 	// most recent first. Falls back to the four earliest-dated broadcasts if
 	// nothing is featured.
 	const featuredSelect = (extra: string) => `
-		SELECT b.id AS broadcast_id, b.date, b.show_id, b.replay_url, s.title, s.image AS show_image, s.kind, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name
+		SELECT b.id AS broadcast_id, b.date, b.show_id, b.replay_url, b.art, s.title, s.image AS show_image, s.kind, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name
 		FROM broadcast b
 		JOIN show s ON s.id = b.show_id
 		LEFT JOIN user u ON u.id = s.dj_id
@@ -70,6 +72,7 @@ export const load: PageServerLoad = async ({ platform }) => {
 		date: string;
 		show_id: string;
 		replay_url: string | null;
+		art: string | null;
 		title: string;
 		show_image: string | null;
 		dj_name: string | null;
@@ -93,6 +96,7 @@ export const load: PageServerLoad = async ({ platform }) => {
 		show_id: r.show_id,
 		date: r.date,
 		replay_url: r.replay_url,
+		art: r.art,
 		title: r.title,
 		image: r.show_image,
 		dj_name: r.dj_name,

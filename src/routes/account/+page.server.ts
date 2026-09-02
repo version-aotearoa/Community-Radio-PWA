@@ -25,7 +25,7 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 
 	const saved = await db
 		.prepare(
-			`SELECT b.id AS broadcast_id, b.show_id, b.date, b.replay_url, s.title, s.image AS image
+			`SELECT b.id AS broadcast_id, b.show_id, b.date, b.replay_url, b.art, s.title, s.image AS image
 			 FROM saved_episode e
 			 JOIN broadcast b ON b.id = e.broadcast_id
 			 JOIN show s ON s.id = b.show_id
@@ -65,6 +65,7 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 			show_id: string;
 			date: string;
 			replay_url: string | null;
+			art: string | null;
 			title: string;
 			image: string | null;
 		}[]
