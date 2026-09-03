@@ -81,6 +81,23 @@
 	}
 
 	let loginHint = $state<{ show: boolean; kind: 'follow' | 'save' } | null>(null);
+
+	let lightboxOpen = $state(false);
+
+	// Close the artwork lightbox on Esc; lock body scroll while open.
+	$effect(() => {
+		if (!lightboxOpen) return;
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') lightboxOpen = false;
+		};
+		window.addEventListener('keydown', onKey);
+		const prevOverflow = document.body.style.overflow;
+		document.body.style.overflow = 'hidden';
+		return () => {
+			window.removeEventListener('keydown', onKey);
+			document.body.style.overflow = prevOverflow;
+		};
+	});
 </script>
 
 <svelte:head>
@@ -115,14 +132,21 @@
 	<div class="replay">
 		{#if broadcast.replay_url}
 			{#if artUrl}
-				<img
-					class="replay-art"
-					src={artUrl}
-					alt=""
-					width="80"
-					height="80"
-					loading="lazy"
-				/>
+				<button
+					class="art-btn"
+					onclick={() => (lightboxOpen = true)}
+					aria-label="View full artwork"
+					title="View full artwork"
+				>
+					<img
+						class="replay-art"
+						src={artUrl}
+						alt=""
+						width="80"
+						height="80"
+						loading="lazy"
+					/>
+				</button>
 			{:else}
 				<span class="replay-art replay-art-fallback" aria-hidden="true">
 					<svg viewBox="0 0 80 70" fill="currentColor" width="36" height="31">
@@ -203,6 +227,31 @@
 		<p class="hint">No tracklist for this broadcast.</p>
 	{/if}
 </section>
+
+{#if lightboxOpen}
+	<div
+		class="lightbox"
+		role="dialog"
+		aria-modal="true"
+		aria-label="Full artwork"
+		tabindex="-1"
+		onclick={(e) => {
+			if (e.target === e.currentTarget) lightboxOpen = false;
+		}}
+		onkeydown={(e) => {
+			if (e.key === 'Escape') lightboxOpen = false;
+		}}
+	>
+		{#if artUrl}
+			<img src={artUrl} alt="" />
+		{/if}
+		<button class="lightbox-close" aria-label="Close" onclick={() => (lightboxOpen = false)}>
+			<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+				<path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+			</svg>
+		</button>
+	</div>
+{/if}
 </div>
 
 <style>
@@ -445,5 +494,57 @@
 			margin-left: -2rem;
 			margin-right: -2rem;
 		}
+	}
+
+	.art-btn {
+		border: none;
+		padding: 0;
+		background: none;
+		line-height: 0;
+		cursor: zoom-in;
+		flex-shrink: 0;
+	}
+
+	.art-btn:hover .replay-art {
+		box-shadow: 0 0 0 2px var(--vr-text);
+	}
+
+	.lightbox {
+		position: fixed;
+		inset: 0;
+		z-index: 60;
+		background: rgba(0, 0, 0, 0.9);
+		display: grid;
+		place-items: center;
+		padding: 1.5rem;
+	}
+
+	.lightbox img {
+		max-width: 92vw;
+		max-height: 88vh;
+		width: auto;
+		height: auto;
+		object-fit: contain;
+		display: block;
+		border: 1px solid var(--vr-line);
+	}
+
+	.lightbox-close {
+		position: absolute;
+		top: 1rem;
+		right: 1rem;
+		width: 40px;
+		height: 40px;
+		display: grid;
+		place-items: center;
+		border: 1px solid var(--vr-line);
+		background: var(--vr-bg);
+		color: var(--vr-text);
+		cursor: pointer;
+	}
+
+	.lightbox-close:hover {
+		background: var(--vr-text);
+		color: var(--vr-black);
 	}
 </style>
