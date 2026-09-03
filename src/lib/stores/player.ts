@@ -2,7 +2,14 @@ import { get, writable } from 'svelte/store';
 
 const AUTOPLAY_KEY = 'vr-autoplay';
 
+// Autoplay is DISABLED until full PWA features are ready (2026-09-02): the
+// switch is hidden from the player and the stored opt-in is ignored, so the
+// stream never auto-starts on load. Flip to true (and restore the switch in
+// StreamPlayer) when re-enabling.
+const AUTOPLAY_ENABLED = false;
+
 function readAutoplay(): boolean {
+	if (!AUTOPLAY_ENABLED) return false;
 	if (typeof localStorage === 'undefined') return false;
 	return localStorage.getItem(AUTOPLAY_KEY) === 'on';
 }

@@ -60,7 +60,6 @@
 	const livePayload = $derived($live);
 	const media = $derived($playback.kind === 'media' ? $playback : null);
 	const mediaMode = $derived(media !== null);
-	const autoplayOn = $derived($autoplay);
 
 	const artSource = $derived(media?.art ?? livePayload?.nowPlaying?.art ?? livePayload?.onAir?.djImage ?? '');
 	const isLive = $derived(!mediaMode && livePayload?.live.isLive === true);
@@ -208,6 +207,39 @@
 		if (e.key === 'Escape' && expanded) expanded = false;
 	}
 
+	// ---- Loading-trace hardening (phantom-stall investigation) ----
+	// waiting/stalled only count when actually playing; a 1.5s watchdog clears
+	// phantoms (time advanced or buffer filled) while real stalls (frozen time)
+	// keep the trace visible.
+	let stallTimer: ReturnType<typeof setTimeout> | null = null;
+	let stallStartedAt = 0;
+
+	function clearStallWatchdog() {
+		if (stallTimer) {
+			clearTimeout(stallTimer);
+			stallTimer = null;
+		}
+	}
+
+	function beginStall() {
+		if (!audioEl || audioEl.paused) return;
+		clearStallWatchdog();
+		stallStartedAt = audioEl.currentTime;
+		setLoading(true, 'stall:begin');
+		stallTimer = setTimeout(() => {
+			stallTimer = null;
+			if (audioEl && !audioEl.paused && (audioEl.readyState >= 3 || audioEl.currentTime > stallStartedAt)) {
+				setLoading(false, 'stall:phantom');
+			}
+		}, 1500);
+	}
+
+	function onVisibilityChange() {
+		if (document.visibilityState === 'visible' && audioEl && !audioEl.paused && audioEl.readyState >= 3) {
+			setLoading(false, 'event:visibility');
+		}
+	}
+
 	onMount(() => {
 		startLivePolling();
 		if (typeof window !== 'undefined') {
@@ -219,32 +251,47 @@
 			audioEl.addEventListener('playing', () => {
 				streamPlaying.set(true);
 				setLoading(false, 'event:playing');
+				clearStallWatchdog();
 			});
 			audioEl.addEventListener('pause', () => {
 				streamPlaying.set(false);
 				setLoading(false, 'event:pause');
+				clearStallWatchdog();
 			});
-			audioEl.addEventListener('canplay', () => setLoading(false, 'event:canplay'));
+			audioEl.addEventListener('canplay', () => {
+				setLoading(false, 'event:canplay');
+				clearStallWatchdog();
+			});
 			audioEl.addEventListener('seeked', () => setLoading(false, 'event:seeked'));
-			audioEl.addEventListener('waiting', () => setLoading(true, 'event:waiting'));
-			audioEl.addEventListener('stalled', () => setLoading(true, 'event:stalled'));
-			audioEl.addEventListener('loadstart', () => setLoading(true, 'event:loadstart'));
+			audioEl.addEventListener('waiting', () => {
+				// Paused-invariant: an engine "waiting" while paused is not a
+				// real stall (Safari fires these during blocked autoplay).
+				if (!audioEl?.paused) beginStall();
+			});
+			audioEl.addEventListener('stalled', () => {
+				// Safari phantom stalls mid-playback when the buffer is fine.
+				if (audioEl && !audioEl.paused && audioEl.readyState < 3) beginStall();
+			});
 			audioEl.addEventListener('timeupdate', () => {
 				currentTime = audioEl?.currentTime ?? 0;
 				setLoading(false, 'event:timeupdate');
+				clearStallWatchdog();
 			});
 			audioEl.addEventListener('loadedmetadata', () => (duration = audioEl?.duration ?? NaN));
 			audioEl.addEventListener('durationchange', () => (duration = audioEl?.duration ?? NaN));
 		}
 		window.addEventListener('keydown', onKey);
+		document.addEventListener('visibilitychange', onVisibilityChange);
 		if ($autoplay && !mediaMode) togglePlay();
 	});
 
 	onDestroy(() => {
 		hls?.destroy();
 		audioEl?.pause();
+		clearStallWatchdog();
 		if (typeof window !== 'undefined') {
 			window.removeEventListener('keydown', onKey);
+			document.removeEventListener('visibilitychange', onVisibilityChange);
 			delete (window as unknown as Record<string, unknown>).__vrPlayerDebug;
 		}
 	});
@@ -464,21 +511,6 @@
 					{#if !mediaMode && !playing}
 						<button class="live-btn" onclick={requestPlay}>Listen live</button>
 					{/if}
-					{#if !mediaMode}
-						<button
-							class="autoplay-switch"
-							role="switch"
-							aria-checked={autoplayOn}
-							onclick={() => ($autoplay = !$autoplay)}
-							title="Autoplay: {autoplayOn ? 'on — starts the stream when you open the site' : 'off — press play to listen'}"
-							type="button"
-						>
-							<span class="switch-label mono">Autoplay</span>
-							<span class="switch-track" class:on={autoplayOn} aria-hidden="true">
-								<span class="switch-knob"></span>
-							</span>
-						</button>
-					{/if}
 					{#if showId && !broadcastId}
 						<button
 							class="icon-btn"
@@ -533,7 +565,9 @@
 						</svg>
 					</button>
 					{#if mediaMode}
-						<button class="live-btn" onclick={requestPlay}>Back to live</button>
+						<button class="live-btn back" onclick={requestPlay}>
+							<span class="lbl-full">Back to live</span><span class="lbl-short">LIVE</span>
+						</button>
 					{/if}
 					<button class="play big" onclick={togglePlay} aria-label={playing ? 'Pause' : 'Play'}>
 						{#if loading}
@@ -610,7 +644,9 @@
 
 		<div class="controls">
 			{#if mediaMode}
-				<button class="live-btn" onclick={requestPlay}>Back to live</button>
+				<button class="live-btn back" onclick={requestPlay}>
+					<span class="lbl-full">Back to live</span><span class="lbl-short">LIVE</span>
+				</button>
 			{/if}
 			<button class="play" onclick={togglePlay} aria-label={playing ? 'Pause' : 'Play'}>
 				{#if loading}
@@ -882,61 +918,8 @@
 		color: var(--vr-green);
 	}
 
-	.autoplay-switch {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.55rem;
-		border: none;
-		background: transparent;
-		color: var(--vr-muted);
-		padding: 0.35rem 0;
-		cursor: pointer;
-	}
-
-	.switch-label {
-		font-size: 0.72rem;
-		color: var(--vr-faint);
-	}
-
-	.switch-track {
-		position: relative;
-		display: inline-block;
-		width: 34px;
-		height: 18px;
-		flex-shrink: 0;
-		border: 1px solid var(--vr-line-muted);
-		background: transparent;
-		transition: background-color 150ms, border-color 150ms;
-	}
-
-	.switch-track .switch-knob {
-		position: absolute;
-		top: 2px;
-		left: 2px;
-		width: 12px;
-		height: 12px;
-		background: var(--vr-faint);
-		transition: transform 150ms, background-color 150ms;
-	}
-
-	.switch-track.on {
-		border-color: var(--vr-line);
-		background: var(--vr-text);
-	}
-
-	.switch-track.on .switch-knob {
-		transform: translateX(16px);
-		background: var(--vr-black);
-	}
-
-	.autoplay-switch:hover .switch-track {
-		border-color: var(--vr-line);
-	}
-
-	.autoplay-switch:focus-visible {
-		outline: none;
-		box-shadow: 0 0 0 2px var(--vr-bg), 0 0 0 3px var(--vr-line);
-	}
+	/* Autoplay switch removed while the feature is disabled (PWA-ready gate) —
+	   restore .autoplay-switch markup/CSS when re-enabling in StreamPlayer. */
 
 	.live-btn {
 		border: none;
@@ -951,6 +934,10 @@
 		padding: 0 1rem;
 		cursor: pointer;
 		white-space: nowrap;
+	}
+
+	.live-btn .lbl-short {
+		display: none;
 	}
 
 	.live-btn:hover {
@@ -1131,8 +1118,29 @@
 			display: none;
 		}
 
+		/* The bar's expand/collapse chevron: comfortable fat-finger target. */
+		.player-bar .chev {
+			width: 48px;
+		}
+
 		.live-btn {
 			display: none;
+		}
+
+		/* Return-to-live stays available on mobile — compact "LIVE" label. */
+		.live-btn.back {
+			display: inline-flex;
+			align-items: center;
+			padding: 0 0.6rem;
+			font-size: 0.68rem;
+		}
+
+		.live-btn.back .lbl-full {
+			display: none;
+		}
+
+		.live-btn.back .lbl-short {
+			display: inline;
 		}
 	}
 </style>
