@@ -638,7 +638,7 @@
 					{/if}
 				{:else}
 					{#if media?.date}
-						<span class="showlink mono">Episode · {fmtDt(media.date)}</span>
+						<span class="showlink mono">{fmtDt(media.date)}</span>
 					{/if}
 				{/if}
 			</div>
