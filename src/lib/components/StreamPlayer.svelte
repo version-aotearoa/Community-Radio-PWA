@@ -67,6 +67,48 @@
 
 	const stationSticker = $derived(mediaMode ? 'Archive' : isLive ? 'Live now' : 'Replay');
 
+	// ---- iOS lock-screen / notification metadata (Media Session, metadata-only) ----
+	// No seek actions and no setPositionState: live has no finite timeline and
+	// the HANDOVER cautions to re-verify background audio after any re-enable.
+	const hasMediaSession =
+		typeof navigator !== 'undefined' && 'mediaSession' in navigator && typeof MediaMetadata !== 'undefined';
+
+	$effect(() => {
+		if (!hasMediaSession) return;
+		const state: MediaSessionPlaybackState = $streamPlaying ? 'playing' : 'paused';
+		if (navigator.mediaSession.playbackState !== state) navigator.mediaSession.playbackState = state;
+	});
+
+	$effect(() => {
+		if (!hasMediaSession) return;
+		$playback;
+		$live;
+		artSource;
+		let title = 'Version Radio';
+		let artist = '';
+		if (media) {
+			title = media.title;
+			artist = media.artist ?? '';
+		} else if (livePayload?.onAir?.title) {
+			title = livePayload.onAir.title;
+			artist = livePayload.onAir.djName ?? livePayload.live.streamerName ?? '';
+		} else if (livePayload?.nowPlaying?.title) {
+			title = livePayload.nowPlaying.title;
+			artist = livePayload.nowPlaying.artist ?? '';
+		}
+		const artwork = artSource ? [{ src: artSource, sizes: '512x512' }] : [];
+		try {
+			navigator.mediaSession.metadata = new MediaMetadata({
+				title,
+				artist: artist || 'Version Radio',
+				album: 'Version Radio',
+				artwork
+			});
+		} catch {
+			// metadata is best-effort
+		}
+	});
+
 	$effect(() => {
 		// React to a requestPlay() signal from anywhere in the app (skip the passive n=0 mount run).
 		if ($playerRequest.n === 0) return;
@@ -282,6 +324,14 @@
 		}
 		window.addEventListener('keydown', onKey);
 		document.addEventListener('visibilitychange', onVisibilityChange);
+		if (hasMediaSession) {
+			navigator.mediaSession.setActionHandler('play', () => {
+				if (audioEl?.paused) void togglePlay();
+			});
+			navigator.mediaSession.setActionHandler('pause', () => {
+				if (audioEl && !audioEl.paused) void togglePlay();
+			});
+		}
 		if ($autoplay && !mediaMode) togglePlay();
 	});
 
@@ -289,6 +339,10 @@
 		hls?.destroy();
 		audioEl?.pause();
 		clearStallWatchdog();
+		if (hasMediaSession) {
+			navigator.mediaSession.setActionHandler('play', null);
+			navigator.mediaSession.setActionHandler('pause', null);
+		}
 		if (typeof window !== 'undefined') {
 			window.removeEventListener('keydown', onKey);
 			document.removeEventListener('visibilitychange', onVisibilityChange);
