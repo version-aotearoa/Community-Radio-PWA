@@ -37,6 +37,8 @@ export interface MediaSource {
 	href?: string | null;
 	/** Broadcast id of the archive episode being played. */
 	broadcastId?: string | null;
+	/** Air date (YYYY-MM-DD) of the archive episode being played. */
+	date?: string | null;
 }
 
 export type PlaybackSource = { kind: 'live' } | ({ kind: 'media' } & MediaSource);

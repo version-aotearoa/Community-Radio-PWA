@@ -52,12 +52,13 @@
 		if (!show.replay_url) return;
 		playMedia({
 			url: show.replay_url,
-			title: `${show.title} — ${fmtBroadcastDate(show.date)}`,
+			title: show.title,
 			artist: show.dj_name ?? null,
 			art: episodeArtUrl(show.broadcast_id, show),
 			show: { id: show.show_id, title: show.title },
 			href: `/shows/${show.show_id}/${show.broadcast_id}`,
-			broadcastId: show.broadcast_id
+			broadcastId: show.broadcast_id,
+			date: show.date
 		});
 	}
 

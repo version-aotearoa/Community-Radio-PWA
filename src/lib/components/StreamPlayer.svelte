@@ -478,7 +478,7 @@
 					</span>
 					<span class="station-name">
 						{#if mediaMode}
-							Recording · {fmtClock(currentTime)} / {Number.isFinite(duration) ? fmtClock(duration) : '--:--'}
+							Recording{media?.date ? ` · ${fmtDt(media.date)}` : ''} · {fmtClock(currentTime)} / {Number.isFinite(duration) ? fmtClock(duration) : '--:--'}
 						{/if}
 					</span>
 				</div>
@@ -637,7 +637,9 @@
 						<span class="showlink mono">{livePayload.live.streamerName}</span>
 					{/if}
 				{:else}
-					<span class="showlink mono">Archive</span>
+					{#if media?.date}
+						<span class="showlink mono">Episode · {fmtDt(media.date)}</span>
+					{/if}
 				{/if}
 			</div>
 		</div>
