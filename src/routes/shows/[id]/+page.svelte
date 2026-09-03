@@ -159,12 +159,13 @@
 		}
 		playMedia({
 			url: b.replay_url,
-			title: `${show.title} — ${fmtDate(b.date)}`,
+			title: show.title,
 			artist: show.kind === 'event' ? null : (show.dj_name ?? null),
 			art: episodeArtUrl(b.id, b),
 			show: { id: show.id, title: show.title },
 			href: `/shows/${show.id}/${b.id}`,
-			broadcastId: b.id
+			broadcastId: b.id,
+			date: b.date
 		});
 	}
 

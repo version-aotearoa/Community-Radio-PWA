@@ -15,13 +15,21 @@
 - **Prod is PR-gated via CI**: merging a PR to `main` (branch-protected:
   `pr-checks` status required, `enforce_admins: true`) auto-deploys prod —
   app + D1 migrations + chat worker. Never run `pages:deploy:prod` locally
-  as a substitute for the pipeline. A human review gate (PR + 1 approval) can
-  be re-enabled for major updates by requiring reviews on `main` and inviting
-  a collaborator.
+  as a substitute for the pipeline.
+- **PRs require human approval + merge on GitHub.** Open the PR, confirm
+  `pr-checks` passes, then STOP. Never approve or merge your own pull
+  requests (`gh pr merge` is off-limits). The admin reviews and approves on
+  GitHub, then merges. Merging to `main` is that human approval AND the
+  explicit authorisation for the CI prod auto-deploy.
 - Say "push staging" and we action exactly that target.
 - When the user says "push", "deploy", or similar, action exactly
   that target and nothing more. If the target is ambiguous, ask one short
   question.
+- **Precise action vocabulary — act to that point and no further**:
+  `commit` (local only) → `push <branch>` (that branch, no PR) → `open PR`
+  (push branch + PR, then stop) → `merge` (you approve + merge on GitHub).
+  A broad word ("github", "deploy", "push it") never authorises a larger
+  step.
 - **The repository is PUBLIC.** History is permanent. Never commit secrets
   (keys, tokens, `.dev.vars`). Before pushing any change that adds or moves
   env vars/secrets, scan `git log -p` for leaked values and flag findings to

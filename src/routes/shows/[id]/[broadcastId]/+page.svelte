@@ -63,12 +63,13 @@
 		}
 		playMedia({
 			url: broadcast.replay_url,
-			title: `${show.title} — ${fmtDate(broadcast.date)}`,
+			title: show.title,
 			artist: show.kind === 'event' ? null : (show.dj_name ?? null),
 			art: artUrl,
 			show: { id: show.id, title: show.title },
 			href: `/shows/${show.id}/${broadcast.id}`,
-			broadcastId: broadcast.id
+			broadcastId: broadcast.id,
+			date: broadcast.date
 		});
 	}
 
