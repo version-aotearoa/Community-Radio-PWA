@@ -1,4 +1,5 @@
 <script lang="ts">
+	import NewsActions from '$lib/components/NewsActions.svelte';
 	import { SITE_TITLE } from '$lib/site';
 
 	let { data } = $props();
@@ -39,20 +40,31 @@
 		<ul class="list">
 			{#each posts as post (post.id)}
 				<li>
-					<a class="row" href={`/news/${post.id}`}>
-						{#if post.image}
-							<div class="row-img">
-								<img src={post.image} alt="" loading="lazy" />
-							</div>
-						{/if}
-						<div class="row-body">
-							<p class="mono row-meta">{fmtDate(post.created_at)}</p>
-							<h2 class="h-md">{post.title}</h2>
-							{#if post.bodyText}
-								<p class="teaser">{teaser(post.bodyText)}</p>
+					<div class="row">
+						<a class="row-link" href={`/news/${post.id}`}>
+							{#if post.image}
+								<div class="row-img">
+									<img src={post.image} alt="" loading="lazy" />
+								</div>
 							{/if}
+							<div class="row-body">
+								<p class="mono row-meta">{fmtDate(post.created_at)}</p>
+								<h2 class="h-md">{post.title}</h2>
+								{#if post.bodyText}
+									<p class="teaser">{teaser(post.bodyText)}</p>
+								{/if}
+							</div>
+						</a>
+						<div class="row-actions">
+							<NewsActions
+								compact
+								postId={post.id}
+								title={post.title}
+								count={post.heartCount}
+								active={post.myHeart}
+							/>
 						</div>
-					</a>
+					</div>
 				</li>
 			{/each}
 		</ul>
@@ -92,20 +104,38 @@
 
 	.row {
 		display: flex;
-		gap: 1.25rem;
-		align-items: flex-start;
+		align-items: stretch;
 		border: 1px solid var(--vr-line);
 		margin: -1px 0 0 -1px;
 		background: var(--vr-surface);
-		padding: 1.25rem;
-		text-decoration: none;
-		color: var(--vr-text);
-		transition: color 150ms, background-color 150ms;
+		transition: background-color 150ms;
 	}
 
 	.row:hover {
 		background: #fff;
+	}
+
+	.row-link {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		gap: 1.25rem;
+		align-items: flex-start;
+		padding: 1.25rem;
+		text-decoration: none;
+		color: var(--vr-text);
+	}
+
+	.row:hover .row-link {
 		color: #000;
+	}
+
+	.row-actions {
+		display: flex;
+		align-items: center;
+		padding: 1.25rem;
+		border-left: 1px solid var(--vr-line-muted);
+		flex-shrink: 0;
 	}
 
 	.row-img {
@@ -156,9 +186,21 @@
 			flex-direction: column;
 		}
 
+		.row-link {
+			flex-direction: column;
+			padding-bottom: 0;
+		}
+
 		.row-img {
 			width: 100%;
 			aspect-ratio: 1.6;
+		}
+
+		.row-actions {
+			border-left: none;
+			border-top: 1px solid var(--vr-line-muted);
+			padding: 0.9rem 1.25rem;
+			width: 100%;
 		}
 	}
 </style>

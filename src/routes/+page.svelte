@@ -4,6 +4,7 @@
 	import { playMedia } from '$lib/stores/player';
 	import { live, startLivePolling } from '$lib/stores/live';
 	import { episodeArtUrl } from '$lib/azuracast';
+	import NewsActions from '$lib/components/NewsActions.svelte';
 	import Seo from '$lib/components/Seo.svelte';
 	import { SITE_TITLE } from '$lib/site';
 
@@ -189,16 +190,26 @@
 		<ul class="news-list">
 			{#each data.news as post (post.id)}
 				<li>
-					<a class="news-row" href={`/news/${post.id}`}>
-						<span class="mono news-date">{fmtTsDate(post.created_at)}</span>
-						<span class="news-main">
-							<span class="h-sm news-title">{post.title}</span>
-							{#if post.bodyText}
-								<span class="news-teaser">{post.bodyText.slice(0, 140)}</span>
-							{/if}
-						</span>
-						<span class="arrow" aria-hidden="true">→</span>
-					</a>
+					<div class="news-row">
+						<a class="news-link" href={`/news/${post.id}`}>
+							<span class="mono news-date">{fmtTsDate(post.created_at)}</span>
+							<span class="news-main">
+								<span class="h-sm news-title">{post.title}</span>
+								{#if post.bodyText}
+									<span class="news-teaser">{post.bodyText.slice(0, 140)}</span>
+								{/if}
+							</span>
+						</a>
+						<div class="news-actions">
+							<NewsActions
+								compact
+								postId={post.id}
+								title={post.title}
+								count={post.heartCount}
+								active={post.myHeart}
+							/>
+						</div>
+					</div>
 				</li>
 			{/each}
 		</ul>
@@ -617,13 +628,9 @@
 
 	.news-row {
 		display: flex;
-		align-items: center;
-		gap: 1.25rem;
-		padding: 1rem 1.25rem;
+		align-items: stretch;
 		border-bottom: 1px solid var(--vr-line-muted);
-		text-decoration: none;
-		color: var(--vr-text);
-		transition: color 150ms, background-color 150ms;
+		transition: background-color 150ms;
 	}
 
 	.news-row:last-child {
@@ -632,14 +639,28 @@
 
 	.news-row:hover {
 		background: #fff;
+	}
+
+	.news-link {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		align-items: center;
+		gap: 1.25rem;
+		padding: 1rem 1.25rem;
+		text-decoration: none;
+		color: var(--vr-text);
+	}
+
+	.news-row:hover .news-link {
 		color: #000;
 	}
 
-	.news-row .arrow {
-		margin-left: auto;
+	.news-actions {
+		display: flex;
+		align-items: center;
+		padding: 0 1.25rem 0 0;
 		flex-shrink: 0;
-		font-family: var(--vr-font-body);
-		font-weight: 600;
 	}
 
 	.news-date {
@@ -672,6 +693,21 @@
 	.news-row:hover .news-date,
 	.news-row:hover .news-teaser {
 		color: rgba(0, 0, 0, 0.75);
+	}
+
+	@media (max-width: 560px) {
+		.news-link {
+			padding-left: 1rem;
+			gap: 0.75rem;
+		}
+
+		.news-teaser {
+			display: none;
+		}
+
+		.news-actions {
+			padding-right: 0.5rem;
+		}
 	}
 
 	.coming-up,

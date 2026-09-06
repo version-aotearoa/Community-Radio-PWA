@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Seo from '$lib/components/Seo.svelte';
+	import NewsActions from '$lib/components/NewsActions.svelte';
 	import { SITE_TITLE } from '$lib/site';
 
 	let { data } = $props();
@@ -32,6 +33,14 @@
 			{/if}
 		</p>
 		<h1 class="h-lg title">{post.title}</h1>
+		<div class="actions-row">
+			<NewsActions
+				postId={post.id}
+				title={post.title}
+				count={data.heartCount}
+				active={data.myHeart}
+			/>
+		</div>
 		{#if post.image}
 			<img class="art" src={post.image} alt="" />
 		{/if}
@@ -80,6 +89,10 @@
 
 	.title {
 		margin: 0 0 1.25rem;
+	}
+
+	.actions-row {
+		margin: 0 0 1.5rem;
 	}
 
 	.art {

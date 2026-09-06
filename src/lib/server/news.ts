@@ -134,3 +134,111 @@ export async function deleteNews(db: D1Database, id: string): Promise<boolean> {
 	const res = await db.prepare('DELETE FROM news_post WHERE id = ?').bind(id).run();
 	return (res.meta.changes ?? 0) > 0;
 }
+
+/* ------------------------------------------------------------------ */
+/* Hearts                                                              */
+/* ------------------------------------------------------------------ */
+
+/** Cookie holding the anonymous device key used for hearts without sign-in. */
+export const VR_ANON_COOKIE = 'vr_anon';
+
+export interface NewsPostWithHeart extends NewsListItem {
+	heartCount: number;
+	myHeart: boolean;
+}
+
+/**
+ * Identity key for a heart: the signed-in user id when present, otherwise an
+ * anonymous device key from the vr_anon cookie (`anon:<key>`). Null only when
+ * there is no signed-in user and no cookie (a visitor who has never hearted).
+ */
+export function heartKeyOf(userId: string | null | undefined, anonKey: string | null): string | null {
+	if (userId) return userId;
+	return anonKey ? `anon:${anonKey}` : null;
+}
+
+export async function heartCounts(db: D1Database, postIds: string[]): Promise<Record<string, number>> {
+	const counts: Record<string, number> = {};
+	if (postIds.length === 0) return counts;
+	const { results } = await db
+		.prepare(
+			`SELECT post_id, COUNT(*) AS c FROM news_heart
+			 WHERE post_id IN (${postIds.map(() => '?').join(',')})
+			 GROUP BY post_id`
+		)
+		.bind(...postIds)
+		.all();
+	for (const r of results as unknown as { post_id: string; c: number }[]) {
+		counts[r.post_id] = Number(r.c);
+	}
+	return counts;
+}
+
+/** Post ids the identity has hearted (empty for null identity). */
+async function heartedPostIds(db: D1Database, postIds: string[], key: string | null): Promise<Set<string>> {
+	const set = new Set<string>();
+	if (!key || postIds.length === 0) return set;
+	const { results } = await db
+		.prepare(
+			`SELECT post_id FROM news_heart
+			 WHERE user_key = ? AND post_id IN (${postIds.map(() => '?').join(',')})`
+		)
+		.bind(key, ...postIds)
+		.all();
+	for (const r of results as unknown as { post_id: string }[]) set.add(r.post_id);
+	return set;
+}
+
+/** True if the identity has hearted the post. */
+export async function myHeart(db: D1Database, postId: string, key: string | null): Promise<boolean> {
+	if (!key) return false;
+	return Boolean(
+		await db
+			.prepare('SELECT 1 AS x FROM news_heart WHERE post_id = ? AND user_key = ?')
+			.bind(postId, key)
+			.first()
+	);
+}
+
+/** Attach heartCount + myHeart to a set of posts in one round-trip. */
+export async function attachHearts(
+	db: D1Database,
+	posts: NewsListItem[],
+	key: string | null
+): Promise<NewsPostWithHeart[]> {
+	if (posts.length === 0) return [];
+	const ids = posts.map((p) => p.id);
+	const [counts, mine] = await Promise.all([heartCounts(db, ids), heartedPostIds(db, ids, key)]);
+	return posts.map((p) => ({ ...p, heartCount: counts[p.id] ?? 0, myHeart: mine.has(p.id) }));
+}
+
+/**
+ * Toggle the identity's heart on a post. Idempotent per identity: returns the
+ * resulting state and the fresh global count.
+ */
+export async function toggleHeart(
+	db: D1Database,
+	postId: string,
+	key: string
+): Promise<{ hearted: boolean; count: number }> {
+	const existing = await db
+		.prepare('SELECT 1 AS x FROM news_heart WHERE post_id = ? AND user_key = ?')
+		.bind(postId, key)
+		.first();
+	if (existing) {
+		await db
+			.prepare('DELETE FROM news_heart WHERE post_id = ? AND user_key = ?')
+			.bind(postId, key)
+			.run();
+	} else {
+		await db
+			.prepare('INSERT INTO news_heart (post_id, user_key, created_at) VALUES (?, ?, ?)')
+			.bind(postId, key, now())
+			.run();
+	}
+	const row = (await db
+		.prepare('SELECT COUNT(*) AS c FROM news_heart WHERE post_id = ?')
+		.bind(postId)
+		.first()) as { c: number };
+	return { hearted: !existing, count: Number(row.c) };
+}
