@@ -4,6 +4,7 @@
 	import { Button, Field, Text, Combo } from '@svar-ui/svelte-core';
 	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
 	import type { ShowRow } from '$lib/server/shows';
+	import type { NewsListItem } from '$lib/server/news';
 	import Seo from '$lib/components/Seo.svelte';
 
 	let { data } = $props();
@@ -205,6 +206,23 @@
 	let featuredLoaded = $state(false);
 	let featuredFeedback = $state('');
 
+	let newsList = $state<NewsListItem[]>([]);
+	let newsLoaded = $state(false);
+	let newsFeedback = $state<Record<string, RowFeedback>>({});
+	let newsError = $state('');
+	let newsNotice = $state('');
+
+	let newsTitle = $state('');
+	let newsBody = $state('');
+	let newsImage = $state('');
+	let newsPublished = $state(true);
+	let newsSaving = $state(false);
+
+	let editingNewsId = $state('');
+	let nf = $state({ title: '', body: '', image: '', published: true });
+	let nfSaving = $state(false);
+	let nfError = $state('');
+
 	async function loadFeatured() {
 		const res = await fetch('/api/admin/featured');
 		if (res.ok) {
@@ -243,6 +261,108 @@
 			return;
 		}
 		c.home_ready = target ? 1 : 0;
+	}
+
+	async function loadNews() {
+		const res = await fetch('/api/news');
+		if (res.ok) {
+			newsList = await res.json();
+			newsLoaded = true;
+		}
+	}
+
+	async function createNewsPost() {
+		newsError = '';
+		newsNotice = '';
+		if (!newsTitle.trim()) {
+			newsError = 'Give the post a title.';
+			return;
+		}
+		newsSaving = true;
+		const res = await fetch('/api/news', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				title: newsTitle,
+				body: newsBody,
+				image: newsImage,
+				published: newsPublished
+			})
+		});
+		newsSaving = false;
+		if (!res.ok) {
+			const body = (await res.json().catch(() => null)) as { error?: string } | null;
+			newsError = body?.error ?? 'Could not save the post.';
+			return;
+		}
+		newsTitle = '';
+		newsBody = '';
+		newsImage = '';
+		newsPublished = true;
+		newsNotice = 'Post saved.';
+		await loadNews();
+	}
+
+	function startEditNews(post: NewsListItem) {
+		editingNewsId = post.id;
+		nfError = '';
+		nf = {
+			title: post.title,
+			body: post.body,
+			image: post.image ?? '',
+			published: post.published === 1
+		};
+	}
+
+	async function saveEditNews(post: NewsListItem) {
+		nfSaving = true;
+		nfError = '';
+		const res = await fetch(`/api/news/${post.id}`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				title: nf.title,
+				body: nf.body,
+				image: nf.image,
+				published: nf.published
+			})
+		});
+		nfSaving = false;
+		if (!res.ok) {
+			const err = (await res.json().catch(() => null)) as { error?: string } | null;
+			nfError = err?.error ?? 'Save failed.';
+			return;
+		}
+		editingNewsId = '';
+		flashFeedback(newsFeedback, post.id, 'Saved', true);
+		await loadNews();
+	}
+
+	async function togglePublishNews(post: NewsListItem) {
+		newsError = '';
+		const target = post.published === 1 ? false : true;
+		const res = await fetch(`/api/news/${post.id}`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ published: target })
+		});
+		if (!res.ok) {
+			const body = (await res.json().catch(() => null)) as { error?: string } | null;
+			newsError = body?.error ?? 'Save failed.';
+			return;
+		}
+		post.published = target ? 1 : 0;
+	}
+
+	async function deleteNewsPost(post: NewsListItem) {
+		newsError = '';
+		const res = await fetch(`/api/news/${post.id}`, { method: 'DELETE' });
+		if (!res.ok) {
+			const body = (await res.json().catch(() => null)) as { error?: string } | null;
+			newsError = body?.error ?? 'Delete failed.';
+			return;
+		}
+		newsList = newsList.filter((p) => p.id !== post.id);
 	}
 
 	let editingShowId = $state('');
@@ -377,6 +497,7 @@
 		if (usersRes.ok) adminUsers = await usersRes.json();
 		await loadChat();
 		await loadFeatured();
+		await loadNews();
 	}
 
 	async function loadChat() {
@@ -558,6 +679,9 @@
 			onclick={() => (activeTab = 'featured')}
 		>
 			Featured
+		</button>
+		<button class="tab" class:active={activeTab === 'news'} onclick={() => (activeTab = 'news')}>
+			News
 		</button>
 		<button class="tab" class:active={activeTab === 'users'} onclick={() => (activeTab = 'users')}>
 			Users
@@ -831,6 +955,107 @@
 							</button>
 						</div>
 					</div>
+				{/each}
+			</div>
+		{/if}
+	</section>
+{/if}
+
+{#if isAdmin && activeTab === 'news'}
+	<section class="card">
+		<h2>Admin — news posts</h2>
+		{#if newsError}
+			<div class="notice bad">{newsError}</div>
+		{/if}
+		{#if newsNotice}
+			<div class="notice ok">{newsNotice}</div>
+		{/if}
+		<form class="news-form" onsubmit={(e) => { e.preventDefault(); createNewsPost(); }}>
+			<Field label="Title">
+				<Text bind:value={newsTitle} placeholder="Post title" css="vr-input" />
+			</Field>
+			<Field label="Body">
+				<RichTextEditor bind:value={newsBody} placeholder="Write the post…" />
+			</Field>
+			<Field label="Image URL (optional)">
+				<Text bind:value={newsImage} placeholder="https://…" css="vr-input" />
+			</Field>
+			<label class="publish-check">
+				<input type="checkbox" bind:checked={newsPublished} />
+				<span class="mono">Published</span>
+			</label>
+			<div class="edit-actions">
+				<Button css="vr-cta" type="primary" disabled={newsSaving} onclick={createNewsPost}>
+					{newsSaving ? 'Saving…' : 'Publish post'}
+				</Button>
+			</div>
+		</form>
+
+		{#if !newsLoaded}
+			<p class="muted">Loading posts…</p>
+		{:else if newsList.length === 0}
+			<p class="muted">No posts yet.</p>
+		{:else}
+			<div class="admin-table">
+				{#each newsList as post (post.id)}
+					<div class="admin-row">
+						<div class="user-main">
+							<strong>{post.title}</strong>
+							<span class="meta">
+								{post.published ? 'Published' : 'Draft'}
+								{#if post.bodyText} · {post.bodyText.slice(0, 80)}{/if}
+							</span>
+						</div>
+						{#if newsFeedback[post.id]}
+							<span class="row-feedback" class:bad={!newsFeedback[post.id].ok}>
+								{newsFeedback[post.id].text}
+							</span>
+						{/if}
+						<div class="admin-actions">
+							<button
+								class="mini-btn"
+								class:off={post.published === 0}
+								title={post.published === 1 ? 'Hide from the site' : 'Show on the site'}
+								onclick={() => togglePublishNews(post)}
+							>
+								{post.published === 1 ? 'Unpublish' : 'Publish'}
+							</button>
+							<button class="mini-btn" onclick={() => startEditNews(post)}>Edit</button>
+							<button class="mini-btn danger" onclick={() => deleteNewsPost(post)}>Delete</button>
+						</div>
+					</div>
+					{#if editingNewsId === post.id}
+						<form
+							class="news-edit"
+							onsubmit={(e) => {
+								e.preventDefault();
+								saveEditNews(post);
+							}}
+						>
+							<Field label="Title">
+								<Text bind:value={nf.title} css="vr-input" />
+							</Field>
+							<Field label="Body">
+								<RichTextEditor bind:value={nf.body} placeholder="Write the post…" />
+							</Field>
+							<Field label="Image URL (blank clears)">
+								<Text bind:value={nf.image} placeholder="https://…" css="vr-input" />
+							</Field>
+							<label class="publish-check">
+								<input type="checkbox" bind:checked={nf.published} />
+								<span class="mono">Published</span>
+							</label>
+							{#if nfError}
+								<div class="notice bad">{nfError}</div>
+							{/if}
+							<div class="edit-actions">
+								<Button css="vr-cta" type="primary" disabled={nfSaving} onclick={() => saveEditNews(post)}>
+									{nfSaving ? 'Saving…' : 'Save'}
+								</Button>
+								<Button css="vr-cta ghost" onclick={() => (editingNewsId = '')}>Cancel</Button>
+							</div>
+						</form>
+					{/if}
 				{/each}
 			</div>
 		{/if}
@@ -1453,6 +1678,36 @@
 		gap: 0.75rem;
 		margin-bottom: 1rem;
 		flex-wrap: wrap;
+	}
+
+	.news-form,
+	.news-edit {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.news-form {
+		margin-bottom: 1.5rem;
+	}
+
+	.news-edit {
+		border-top: 1px solid var(--vr-line);
+		margin-top: 0.5rem;
+		padding: 1rem 0 0.5rem;
+	}
+
+	.publish-check {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		width: fit-content;
+		cursor: pointer;
+		color: var(--vr-text);
+	}
+
+	.publish-check input {
+		accent-color: var(--vr-green);
 	}
 
 	@media (max-width: 640px) {

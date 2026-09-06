@@ -31,6 +31,16 @@
 			.replace(/\s/g, ' ');
 	}
 
+	function fmtTsDate(secs: number) {
+		return new Intl.DateTimeFormat('en-NZ', {
+			day: '2-digit',
+			month: 'short',
+			year: 'numeric'
+		})
+			.format(new Date(secs * 1000))
+			.replace(/\s/g, ' ');
+	}
+
 	function fmtTime(mins: number) {
 		const h = Math.floor(mins / 60);
 		const m = mins % 60;
@@ -168,6 +178,33 @@
 	</div>
 	<a class="btn-outline view-all-mobile" href="/shows">View all</a>
 </section>
+
+<!-- News -->
+{#if data.news.length > 0}
+	<section class="section">
+		<div class="section-head">
+			<h2 class="h-lg">News</h2>
+			<a class="view-all" href="/news">View all</a>
+		</div>
+		<ul class="news-list">
+			{#each data.news as post (post.id)}
+				<li>
+					<a class="news-row" href={`/news/${post.id}`}>
+						<span class="mono news-date">{fmtTsDate(post.created_at)}</span>
+						<span class="news-main">
+							<span class="h-sm news-title">{post.title}</span>
+							{#if post.bodyText}
+								<span class="news-teaser">{post.bodyText.slice(0, 140)}</span>
+							{/if}
+						</span>
+						<span class="arrow" aria-hidden="true">→</span>
+					</a>
+				</li>
+			{/each}
+		</ul>
+		<a class="btn-outline view-all-mobile" href="/news">View all news</a>
+	</section>
+{/if}
 
 <!-- Get involved / Coming up -->
 <section class="section split">
@@ -569,6 +606,72 @@
 	.linkrow .arrow {
 		font-family: var(--vr-font-body);
 		font-weight: 600;
+	}
+
+	.news-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		border: 1px solid var(--vr-line);
+	}
+
+	.news-row {
+		display: flex;
+		align-items: center;
+		gap: 1.25rem;
+		padding: 1rem 1.25rem;
+		border-bottom: 1px solid var(--vr-line-muted);
+		text-decoration: none;
+		color: var(--vr-text);
+		transition: color 150ms, background-color 150ms;
+	}
+
+	.news-row:last-child {
+		border-bottom: none;
+	}
+
+	.news-row:hover {
+		background: #fff;
+		color: #000;
+	}
+
+	.news-row .arrow {
+		margin-left: auto;
+		flex-shrink: 0;
+		font-family: var(--vr-font-body);
+		font-weight: 600;
+	}
+
+	.news-date {
+		flex-shrink: 0;
+		color: var(--vr-muted);
+		font-size: 0.78rem;
+		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
+	}
+
+	.news-main {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+		min-width: 0;
+	}
+
+	.news-title {
+		margin: 0;
+	}
+
+	.news-teaser {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		color: var(--vr-muted);
+		font-size: 0.9rem;
+	}
+
+	.news-row:hover .news-date,
+	.news-row:hover .news-teaser {
+		color: rgba(0, 0, 0, 0.75);
 	}
 
 	.coming-up,

@@ -1,4 +1,5 @@
 import { getUpcomingBroadcasts, zonedNow } from '$lib/server/shows';
+import { listNews } from '$lib/server/news';
 import type { PageServerLoad } from './$types';
 
 export interface LatestShow {
@@ -106,6 +107,7 @@ export const load: PageServerLoad = async ({ platform }) => {
 	return {
 		latest: results as unknown as LatestShow[],
 		upcoming,
-		featured
+		featured,
+		news: (await listNews(db, true)).slice(0, 3)
 	};
 };

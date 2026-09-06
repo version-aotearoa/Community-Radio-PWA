@@ -107,6 +107,7 @@
 				<a href="/shows" class:active={path.startsWith('/shows')}>Shows</a>
 				<a href="/schedule" class:active={path.startsWith('/schedule')}>Schedule</a>
 				<a href="/chat" class:active={path.startsWith('/chat')}>Chat</a>
+				<a href="/news" class:active={path.startsWith('/news')}>News</a>
 				<a href="/info" class:active={path.startsWith('/info')}>Info</a>
 				{#if user && (user.role === 'dj' || user.role === 'admin')}
 					<a href="/studio" class:active={path.startsWith('/studio')}>Studio</a>
@@ -147,6 +148,7 @@
 					<a href="/shows" onclick={closeMenu}>Shows</a>
 					<a href="/schedule" onclick={closeMenu}>Schedule</a>
 					<a href="/chat" onclick={closeMenu}>Chat</a>
+					<a href="/news" onclick={closeMenu}>News</a>
 					<a href="/info" onclick={closeMenu}>Info</a>
 					{#if user}
 						{#if user.role === 'dj' || user.role === 'admin'}
