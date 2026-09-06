@@ -1,4 +1,5 @@
 import {
+	addDays,
 	cycleWeekOf,
 	ensureBroadcasts,
 	getAllShows,
@@ -28,6 +29,7 @@ export const load: PageServerLoad = async ({ platform }) => {
 	return {
 		upcoming,
 		cycleWeek: cycleWeekOf(todayStr()),
-		today: todayStr()
+		today: todayStr(),
+		tomorrow: addDays(todayStr(), 1)
 	};
 };
