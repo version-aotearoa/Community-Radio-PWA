@@ -165,7 +165,7 @@
 					<a href="/info#about" onclick={closeMenu}>About</a>
 					<a
 						class="social"
-						href="https://bsky.app/profile/versionhifi.bsky.social"
+						href="https://bsky.app/profile/versionradiolive.bsky.social"
 						target="_blank"
 						rel="noopener noreferrer"
 						aria-label="Bluesky"
@@ -207,7 +207,7 @@
 				<a href="/info#about">About</a>
 				<a
 					class="social"
-					href="https://bsky.app/profile/versionhifi.bsky.social"
+					href="https://bsky.app/profile/versionradiolive.bsky.social"
 					target="_blank"
 					rel="noopener noreferrer"
 					aria-label="Bluesky"
