@@ -1,4 +1,5 @@
 import { getUpcomingBroadcasts, zonedNow } from '$lib/server/shows';
+import { attachHearts, heartKeyOf, listNews, VR_ANON_COOKIE } from '$lib/server/news';
 import type { PageServerLoad } from './$types';
 
 export interface LatestShow {
@@ -26,7 +27,7 @@ export interface FeaturedShow {
 	kind: string;
 }
 
-export const load: PageServerLoad = async ({ platform }) => {
+export const load: PageServerLoad = async ({ platform, locals, cookies }) => {
 	const db = platform!.env.DB;
 
 	// Latest shows: admin-curated episodes (broadcast.home_ready = 1, toggled
@@ -103,9 +104,13 @@ export const load: PageServerLoad = async ({ platform }) => {
 		kind: r.kind
 	}));
 
+	const news = await listNews(db, true);
+	const newsKey = heartKeyOf(locals.user?.id ?? null, cookies.get(VR_ANON_COOKIE) ?? null);
+
 	return {
 		latest: results as unknown as LatestShow[],
 		upcoming,
-		featured
+		featured,
+		news: (await attachHearts(db, news.slice(0, 3), newsKey))
 	};
 };

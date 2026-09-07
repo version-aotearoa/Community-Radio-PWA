@@ -99,7 +99,7 @@
 			<Button css="vr-cta ghost" type="primary" onclick={signOut}>Sign out</Button>
 		{:else}
 			<h1>Sign in to Version Radio</h1>
-			<p class="muted">Get a magic link by email, or use one of your accounts.</p>
+			<p class="muted">Get a sign-in link by email, or use one of your accounts.</p>
 
 			{#if sent}
 				<div class="notice ok">Check your inbox — we've emailed you a sign-in link.</div>

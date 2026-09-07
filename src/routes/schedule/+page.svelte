@@ -10,6 +10,7 @@
 		date: string;
 		label: string;
 		today: boolean;
+		tomorrow: boolean;
 		items: typeof upcoming;
 	}
 
@@ -24,6 +25,7 @@
 			date,
 			label: formatDate(date),
 			today: date === data.today,
+			tomorrow: date === data.tomorrow,
 			items
 		}));
 	});
@@ -72,12 +74,14 @@
 	{:else}
 		<div class="days">
 			{#each days as day (day.date)}
-				<section class="day" class:today={day.today}>
+				<section class="day" class:today={day.today} class:tomorrow={day.tomorrow}>
 					<h2 class="day-head">
 						<span class="day-label">
 							{day.label}
 							{#if day.today}
 								<span class="sticker">Today</span>
+							{:else if day.tomorrow}
+								<span class="sticker">Tomorrow</span>
 							{/if}
 						</span>
 					</h2>
@@ -169,7 +173,8 @@
 		border-bottom: 1px solid var(--vr-line-muted);
 	}
 
-	.day.today {
+	.day.today,
+	.day.tomorrow {
 		border-color: var(--vr-line);
 	}
 
