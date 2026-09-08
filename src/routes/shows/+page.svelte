@@ -5,7 +5,13 @@
 
 	let { data } = $props();
 
+	let filter = $state<'all' | 'shows' | 'events'>('all');
+
 	const shows = $derived([...data.shows].sort((a, b) => a.title.localeCompare(b.title)));
+
+	const visible = $derived(
+		filter === 'all' ? shows : shows.filter((s) => (filter === 'events' ? s.kind === 'event' : s.kind !== 'event'))
+	);
 
 	// Fresh server data on every visit — the DB is the source of truth
 	// (SPA navigation otherwise reuses the initial SSR snapshot, so edited
@@ -51,11 +57,25 @@
 		<p class="subtitle mono">Browse the Version Radio lineup — each show has its own page and tracklists.</p>
 	</header>
 
-	{#if shows.length === 0}
-		<p class="empty mono">No shows yet.</p>
+	<div class="filter-btns" role="group" aria-label="Filter shows">
+		<button class="filter-btn" class:active={filter === 'all'} onclick={() => (filter = 'all')}>
+			All
+		</button>
+		<button class="filter-btn" class:active={filter === 'shows'} onclick={() => (filter = 'shows')}>
+			Shows
+		</button>
+		<button class="filter-btn" class:active={filter === 'events'} onclick={() => (filter = 'events')}>
+			Events
+		</button>
+	</div>
+
+	{#if visible.length === 0}
+		<p class="empty mono">
+			{filter === 'events' ? 'No events yet.' : filter === 'shows' ? 'No regular shows yet.' : 'No shows yet.'}
+		</p>
 	{:else}
 		<ul class="grid">
-			{#each shows as show (show.id)}
+			{#each visible as show (show.id)}
 				<li>
 					<a class="card" href={`/shows/${show.id}`}>
 						<div class="card-img" class:empty={!show.image && !(show.kind !== 'event' && show.dj_image)}>
@@ -94,7 +114,9 @@
 				</li>
 			{/each}
 		</ul>
-		<p class="cycle-foot mono"><span aria-hidden="true">*</span> of 4 week cycle</p>
+		{#if filter !== 'events'}
+			<p class="cycle-foot mono"><span aria-hidden="true">*</span> of 4 week cycle</p>
+		{/if}
 	{/if}
 </div>
 
@@ -120,6 +142,37 @@
 
 	.empty {
 		color: var(--vr-muted);
+	}
+
+	.filter-btns {
+		display: flex;
+		gap: 0.4rem;
+		flex-wrap: wrap;
+		margin: 0 0 1.5rem;
+	}
+
+	.filter-btn {
+		background: none;
+		border: 1px solid var(--vr-line);
+		color: var(--vr-muted);
+		font-family: var(--vr-font-mono);
+		font-size: 0.72rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		padding: 0.35rem 0.7rem;
+		cursor: pointer;
+	}
+
+	.filter-btn:hover {
+		color: var(--vr-text);
+		border-color: var(--vr-text);
+	}
+
+	.filter-btn.active {
+		background: var(--vr-text);
+		color: var(--vr-black);
+		border-color: var(--vr-text);
 	}
 
 	.grid {
