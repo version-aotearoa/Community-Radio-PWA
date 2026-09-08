@@ -197,7 +197,7 @@
 						<span class="news-main">
 							<span class="h-sm news-title">{post.title}</span>
 							{#if post.bodyText}
-								<span class="news-teaser">{post.bodyText.slice(0, 140)}</span>
+								<span class="news-teaser">{post.bodyText.slice(0, 90)}</span>
 							{/if}
 						</span>
 						<span class="arrow" aria-hidden="true">→</span>
