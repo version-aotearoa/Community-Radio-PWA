@@ -4,7 +4,6 @@
 	import { playMedia } from '$lib/stores/player';
 	import { live, startLivePolling } from '$lib/stores/live';
 	import { episodeArtUrl } from '$lib/azuracast';
-	import NewsActions from '$lib/components/NewsActions.svelte';
 	import Seo from '$lib/components/Seo.svelte';
 	import { SITE_TITLE } from '$lib/site';
 
@@ -29,16 +28,6 @@
 			timeZone: 'UTC'
 		})
 			.format(new Date(`${dateStr}T00:00:00Z`))
-			.replace(/\s/g, ' ');
-	}
-
-	function fmtTsDate(secs: number) {
-		return new Intl.DateTimeFormat('en-NZ', {
-			day: '2-digit',
-			month: 'short',
-			year: 'numeric'
-		})
-			.format(new Date(secs * 1000))
 			.replace(/\s/g, ' ');
 	}
 
@@ -190,26 +179,20 @@
 		<ul class="news-list">
 			{#each data.news as post (post.id)}
 				<li>
-					<div class="news-row">
-						<a class="news-link" href={`/news/${post.id}`}>
-							<span class="mono news-date">{fmtTsDate(post.created_at)}</span>
-							<span class="news-main">
-								<span class="h-sm news-title">{post.title}</span>
-								{#if post.bodyText}
-									<span class="news-teaser">{post.bodyText.slice(0, 140)}</span>
-								{/if}
+					<a class="news-row" href={`/news/${post.id}`}>
+						{#if post.image}
+							<span class="news-thumb">
+								<img src={post.image} alt="" loading="lazy" />
 							</span>
-						</a>
-						<div class="news-actions">
-							<NewsActions
-								compact
-								postId={post.id}
-								title={post.title}
-								count={post.heartCount}
-								active={post.myHeart}
-							/>
-						</div>
-					</div>
+						{/if}
+						<span class="news-main">
+							<span class="h-sm news-title">{post.title}</span>
+							{#if post.bodyText}
+								<span class="news-teaser">{post.bodyText.slice(0, 140)}</span>
+							{/if}
+						</span>
+						<span class="arrow" aria-hidden="true">→</span>
+					</a>
 				</li>
 			{/each}
 		</ul>
@@ -628,9 +611,13 @@
 
 	.news-row {
 		display: flex;
-		align-items: stretch;
+		align-items: center;
+		gap: 1.25rem;
+		padding: 1rem 1.25rem;
 		border-bottom: 1px solid var(--vr-line-muted);
-		transition: background-color 150ms;
+		text-decoration: none;
+		color: var(--vr-text);
+		transition: color 150ms, background-color 150ms;
 	}
 
 	.news-row:last-child {
@@ -639,36 +626,28 @@
 
 	.news-row:hover {
 		background: #fff;
-	}
-
-	.news-link {
-		flex: 1;
-		min-width: 0;
-		display: flex;
-		align-items: center;
-		gap: 1.25rem;
-		padding: 1rem 1.25rem;
-		text-decoration: none;
-		color: var(--vr-text);
-	}
-
-	.news-row:hover .news-link {
 		color: #000;
 	}
 
-	.news-actions {
-		display: flex;
-		align-items: center;
-		padding: 0 1.25rem 0 0;
+	.news-thumb {
 		flex-shrink: 0;
+		width: 72px;
+		height: 72px;
+		background: var(--vr-surface-highest);
 	}
 
-	.news-date {
+	.news-thumb img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		display: block;
+	}
+
+	.news-row .arrow {
+		margin-left: auto;
 		flex-shrink: 0;
-		color: var(--vr-muted);
-		font-size: 0.78rem;
-		font-variant-numeric: tabular-nums;
-		white-space: nowrap;
+		font-family: var(--vr-font-body);
+		font-weight: 600;
 	}
 
 	.news-main {
@@ -690,23 +669,23 @@
 		font-size: 0.9rem;
 	}
 
-	.news-row:hover .news-date,
 	.news-row:hover .news-teaser {
 		color: rgba(0, 0, 0, 0.75);
 	}
 
 	@media (max-width: 560px) {
-		.news-link {
-			padding-left: 1rem;
+		.news-row {
 			gap: 0.75rem;
+			padding-left: 1rem;
+		}
+
+		.news-thumb {
+			width: 56px;
+			height: 56px;
 		}
 
 		.news-teaser {
 			display: none;
-		}
-
-		.news-actions {
-			padding-right: 0.5rem;
 		}
 	}
 
