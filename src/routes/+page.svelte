@@ -184,6 +184,15 @@
 							<span class="news-thumb">
 								<img src={post.image} alt="" loading="lazy" />
 							</span>
+						{:else}
+							<span class="news-thumb news-thumb-fallback" aria-hidden="true">
+								<svg viewBox="0 0 80 70" fill="currentColor">
+									<path
+										fill-rule="evenodd"
+										d="M0 0H40V40H50V0H80V45H70V60H55V70H25V60H10V45H0V5ZM10 5H5V40H15V55H30V65H50V55H65V40H75V5H55V45H35V5H15Z"
+									/>
+								</svg>
+							</span>
 						{/if}
 						<span class="news-main">
 							<span class="h-sm news-title">{post.title}</span>
@@ -643,6 +652,18 @@
 		display: block;
 	}
 
+	.news-thumb-fallback {
+		display: grid;
+		place-items: center;
+		background: #000;
+		color: var(--vr-text);
+	}
+
+	.news-thumb-fallback svg {
+		width: 30px;
+		height: auto;
+	}
+
 	.news-row .arrow {
 		margin-left: auto;
 		flex-shrink: 0;
@@ -659,6 +680,9 @@
 
 	.news-title {
 		margin: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.news-teaser {
