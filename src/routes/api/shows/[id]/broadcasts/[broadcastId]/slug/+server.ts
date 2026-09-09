@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { getBroadcast, getShow } from '$lib/server/shows';
+import { getShow, resolveBroadcastForShow } from '$lib/server/shows';
 import type { RequestHandler } from './$types';
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,99}$/;
@@ -16,10 +16,8 @@ export const PUT: RequestHandler = async ({ request, params, locals, platform })
 	if (show.dj_id !== user.id && user.role !== 'admin') {
 		return json({ error: 'Forbidden' }, { status: 403 });
 	}
-	const broadcast = await getBroadcast(db, params.broadcastId);
-	if (!broadcast || broadcast.show_id !== show.id) {
-		return json({ error: 'Not found' }, { status: 404 });
-	}
+	const broadcast = await resolveBroadcastForShow(db, show.id, params.broadcastId);
+	if (!broadcast) return json({ error: 'Not found' }, { status: 404 });
 
 	const body = (await request.json()) as { slug?: unknown };
 	const slug = typeof body.slug === 'string' ? body.slug.trim().toLowerCase() : '';

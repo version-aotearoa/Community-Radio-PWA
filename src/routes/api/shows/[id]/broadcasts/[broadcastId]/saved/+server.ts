@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { resolveBroadcastForShow } from '$lib/server/shows';
 import type { RequestHandler } from './$types';
 
 /** Signed-in user's bookmark state for a recording (episode). */
@@ -7,9 +8,11 @@ export const GET: RequestHandler = async ({ params, locals, platform }) => {
 	if (!user) return json({ error: 'sign-in-required' }, { status: 401 });
 
 	const db = platform!.env.DB;
+	const broadcast = await resolveBroadcastForShow(db, params.id, params.broadcastId);
+	if (!broadcast) return json({ error: 'Not found' }, { status: 404 });
 	const existing = await db
 		.prepare('SELECT 1 FROM saved_episode WHERE user_id = ? AND broadcast_id = ?')
-		.bind(user.id, params.broadcastId)
+		.bind(user.id, broadcast.id)
 		.first();
 	return json({ saved: Boolean(existing) });
 };
@@ -20,7 +23,9 @@ export const POST: RequestHandler = async ({ params, locals, platform }) => {
 	if (!user) return json({ error: 'sign-in-required' }, { status: 401 });
 
 	const db = platform!.env.DB;
-	const { broadcastId } = params;
+	const broadcast = await resolveBroadcastForShow(db, params.id, params.broadcastId);
+	if (!broadcast) return json({ error: 'Not found' }, { status: 404 });
+	const broadcastId = broadcast.id;
 
 	const existing = await db
 		.prepare('SELECT 1 FROM saved_episode WHERE user_id = ? AND broadcast_id = ?')

@@ -73,6 +73,26 @@ export function episodeArtUrl(
 	return replayArtFromUrl(b.replay_url);
 }
 
+export interface EpisodeArtFallback {
+	image?: string | null;
+	dj_image?: string | null;
+}
+
+/**
+ * Episode artwork URL with the show's own (DJ) image as the default:
+ * explicit broadcast art, else the replay's track art, else the show's
+ * curated image, else the DJ avatar. Null only when the show has no image
+ * at all (renderers then fall back to the brand glyph).
+ */
+export function episodeArtOrDefault(
+	broadcastId: string | null | undefined,
+	b: { art?: string | null; replay_url?: string | null },
+	show?: EpisodeArtFallback | null
+): string | null {
+	const own = episodeArtUrl(broadcastId, b);
+	return own ?? show?.image ?? show?.dj_image ?? null;
+}
+
 const ART_FILE_RE = /([0-9a-f]{24}(?:-\d+)?)\.(?:jpg|jpeg|png|webp|avif)$/i;
 
 /**

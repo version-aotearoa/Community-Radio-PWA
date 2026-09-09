@@ -224,6 +224,44 @@ export async function getBroadcast(db: D1Database, id: string): Promise<Broadcas
 	return row ? sanitizeBroadcastRow(row) : null;
 }
 
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Resolve a broadcast reference to the real row for a given show, tolerating
+ * the site's mixed episode id conventions. Tries, in order: the exact id (only
+ * if it belongs to `showId`), a bare `YYYY-MM-DD` date, and a
+ * `<showId>-<YYYY-MM-DD>` slug. Returns null when nothing plausibly matches.
+ * Used so page URLs and save endpoints agree even when a row's id and the
+ * requested reference differ in convention.
+ */
+export async function resolveBroadcastForShow(
+	db: D1Database,
+	showId: string,
+	ref: string
+): Promise<BroadcastRow | null> {
+	const exact = await getBroadcast(db, ref);
+	if (exact && exact.show_id === showId) return exact;
+
+	if (DATE_ONLY_RE.test(ref)) {
+		const row = await db
+			.prepare('SELECT * FROM broadcast WHERE show_id = ? AND date = ? LIMIT 1')
+			.bind(showId, ref)
+			.first();
+		if (row) return sanitizeBroadcastRow(row as unknown as BroadcastRow);
+	}
+
+	const m = ref.match(/^(.+)-(\d{4}-\d{2}-\d{2})$/);
+	if (m && m[1] === showId) {
+		const row = await db
+			.prepare('SELECT * FROM broadcast WHERE show_id = ? AND date = ? LIMIT 1')
+			.bind(showId, m[2])
+			.first();
+		if (row) return sanitizeBroadcastRow(row as unknown as BroadcastRow);
+	}
+
+	return null;
+}
+
 /**
  * Store (or clear) a broadcast's replay link. Accepts a bare track id or a raw
  * on-demand download URL; stores the canonical absolute play URL.
