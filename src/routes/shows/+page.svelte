@@ -6,12 +6,69 @@
 	let { data } = $props();
 
 	let filter = $state<'all' | 'shows' | 'events'>('all');
+	let sort = $state<'az' | 'za' | 'schedule' | 'date'>('az');
 
-	const shows = $derived([...data.shows].sort((a, b) => a.title.localeCompare(b.title)));
+	type SortOption = { value: 'az' | 'za' | 'schedule' | 'date'; label: string };
 
-	const visible = $derived(
-		filter === 'all' ? shows : shows.filter((s) => (filter === 'events' ? s.kind === 'event' : s.kind !== 'event'))
+	const sortOptions = $derived<SortOption[]>(
+		filter === 'events'
+			? [
+					{ value: 'az', label: 'A–Z' },
+					{ value: 'za', label: 'Z–A' },
+					{ value: 'date', label: 'Event date' }
+				]
+			: [
+					{ value: 'az', label: 'A–Z' },
+					{ value: 'za', label: 'Z–A' },
+					{ value: 'schedule', label: 'Day & time' }
+				]
 	);
+
+	$effect(() => {
+		if (!sortOptions.some((o) => o.value === sort)) {
+			sort = filter === 'events' ? 'date' : 'az';
+		}
+	});
+
+	const allShows = $derived([...data.shows]);
+
+	const filtered = $derived(
+		filter === 'all'
+			? allShows
+			: allShows.filter((s) => (filter === 'events' ? s.kind === 'event' : s.kind !== 'event'))
+	);
+
+	function dateCmp(a: { anchor_date: string | null; start_minutes: number; title: string }, b: {
+		anchor_date: string | null;
+		start_minutes: number;
+		title: string;
+	}) {
+		const da = a.anchor_date ?? '';
+		const db = b.anchor_date ?? '';
+		if (da !== db) return da < db ? -1 : 1;
+		if (a.start_minutes !== b.start_minutes) return a.start_minutes - b.start_minutes;
+		return a.title.localeCompare(b.title);
+	}
+
+	function scheduleCmp(
+		a: { kind: string; day_of_week: number; start_minutes: number; anchor_date: string | null; title: string },
+		b: { kind: string; day_of_week: number; start_minutes: number; anchor_date: string | null; title: string }
+	) {
+		// Mixed views (All): events trail after the regular shows, by date.
+		if (a.kind !== b.kind) return a.kind === 'event' ? 1 : -1;
+		if (a.kind === 'event') return dateCmp(a, b);
+		if (a.day_of_week !== b.day_of_week) return a.day_of_week - b.day_of_week;
+		if (a.start_minutes !== b.start_minutes) return a.start_minutes - b.start_minutes;
+		return a.title.localeCompare(b.title);
+	}
+
+	const visible = $derived.by(() => {
+		const list = filtered;
+		if (sort === 'za') return [...list].sort((a, b) => b.title.localeCompare(a.title));
+		if (sort === 'schedule') return [...list].sort(scheduleCmp);
+		if (sort === 'date') return [...list].sort(dateCmp);
+		return [...list].sort((a, b) => a.title.localeCompare(b.title));
+	});
 
 	// Fresh server data on every visit — the DB is the source of truth
 	// (SPA navigation otherwise reuses the initial SSR snapshot, so edited
@@ -57,16 +114,26 @@
 		<p class="subtitle mono">Browse the Version Radio lineup — each show has its own page and tracklists.</p>
 	</header>
 
-	<div class="filter-btns" role="group" aria-label="Filter shows">
-		<button class="filter-btn" class:active={filter === 'all'} onclick={() => (filter = 'all')}>
-			All
-		</button>
-		<button class="filter-btn" class:active={filter === 'shows'} onclick={() => (filter = 'shows')}>
-			Shows
-		</button>
-		<button class="filter-btn" class:active={filter === 'events'} onclick={() => (filter = 'events')}>
-			Events
-		</button>
+	<div class="toolbar">
+		<div class="filter-btns" role="group" aria-label="Filter shows">
+			<button class="filter-btn" class:active={filter === 'all'} onclick={() => (filter = 'all')}>
+				All
+			</button>
+			<button class="filter-btn" class:active={filter === 'shows'} onclick={() => (filter = 'shows')}>
+				Shows
+			</button>
+			<button class="filter-btn" class:active={filter === 'events'} onclick={() => (filter = 'events')}>
+				Events
+			</button>
+		</div>
+		<div class="sort-control">
+			<label class="sort-label mono" for="show-sort">Sort</label>
+			<select id="show-sort" class="sort-select" bind:value={sort}>
+				{#each sortOptions as opt (opt.value)}
+					<option value={opt.value}>{opt.label}</option>
+				{/each}
+			</select>
+		</div>
 	</div>
 
 	{#if visible.length === 0}
@@ -144,11 +211,47 @@
 		color: var(--vr-muted);
 	}
 
+	.toolbar {
+		display: flex;
+		align-items: center;
+		gap: 1.5rem;
+		flex-wrap: wrap;
+		margin: 0 0 1.5rem;
+	}
+
 	.filter-btns {
 		display: flex;
 		gap: 0.4rem;
 		flex-wrap: wrap;
-		margin: 0 0 1.5rem;
+	}
+
+	.sort-control {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.sort-label {
+		color: var(--vr-muted);
+		font-size: 0.72rem;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+	}
+
+	.sort-select {
+		background: var(--vr-surface-low);
+		color: var(--vr-text);
+		border: 1px solid var(--vr-line);
+		padding: 0.35rem 0.5rem;
+		font-family: var(--vr-font-mono);
+		font-size: 0.72rem;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		cursor: pointer;
+	}
+
+	.sort-select option {
+		background: var(--vr-surface);
 	}
 
 	.filter-btn {
