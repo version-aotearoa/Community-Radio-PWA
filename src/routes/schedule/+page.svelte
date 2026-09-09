@@ -258,6 +258,11 @@
 		color: rgba(0, 0, 0, 0.8);
 	}
 
+	.slot:hover .time,
+	.slot:hover .time.onair {
+		color: rgba(0, 0, 0, 0.8);
+	}
+
 	.show-title {
 		min-width: 0;
 	}

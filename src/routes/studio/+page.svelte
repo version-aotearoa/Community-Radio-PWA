@@ -86,6 +86,12 @@
 	const shows = $derived(data.shows);
 	const isAdmin = $derived(data.user?.role === 'admin');
 
+	let mgrFilter = $state<'all' | 'shows' | 'events'>('all');
+
+	const mgrShows = $derived(
+		mgrFilter === 'all' ? shows : shows.filter((s) => (mgrFilter === 'events' ? s.kind === 'event' : s.kind !== 'event'))
+	);
+
 	interface AdminUser {
 		id: string;
 		name: string;
@@ -109,7 +115,7 @@
 	let chatMessages = $state<ChatMessage[]>([]);
 	let chatLoaded = $state(false);
 	let purgeName = $state('');
-	let activeTab = $state('shows');
+	let activeTab = $state('shows-events');
 	let adminError = $state('');
 
 	let epShowId = $state('');
@@ -659,63 +665,40 @@
 <h1 class="h-lg">DJ Studio</h1>
 
 <div class="tabs" role="tablist">
-	<button class="tab" class:active={activeTab === 'shows'} onclick={() => (activeTab = 'shows')}>
-		Shows
+	<button
+		class="tab"
+		class:active={activeTab === 'shows-events'}
+		onclick={() => (activeTab = 'shows-events')}
+	>
+		Shows/Events
 	</button>
-	{#if isAdmin}
-		<button class="tab" class:active={activeTab === 'create'} onclick={() => (activeTab = 'create')}>
-			Create
-		</button>
-		<button
-			class="tab"
-			class:active={activeTab === 'add-episode'}
-			onclick={() => (activeTab = 'add-episode')}
-		>
-			Add Episode
-		</button>
-		<button
-			class="tab"
-			class:active={activeTab === 'featured'}
-			onclick={() => (activeTab = 'featured')}
-		>
-			Featured
-		</button>
-		<button class="tab" class:active={activeTab === 'news'} onclick={() => (activeTab = 'news')}>
-			News
-		</button>
-		<button class="tab" class:active={activeTab === 'users'} onclick={() => (activeTab = 'users')}>
-			Users
-		</button>
-		<button class="tab" class:active={activeTab === 'show-djs'} onclick={() => (activeTab = 'show-djs')}>
-			Show DJs
-		</button>
-		<button class="tab" class:active={activeTab === 'chat'} onclick={() => (activeTab = 'chat')}>
-			Chat
-		</button>
-	{/if}
+	<button class="tab" class:active={activeTab === 'create'} onclick={() => (activeTab = 'create')}>
+		Create
+	</button>
+	<button
+		class="tab"
+		class:active={activeTab === 'add-episode'}
+		onclick={() => (activeTab = 'add-episode')}
+	>
+		Add Episode
+	</button>
+	<button
+		class="tab"
+		class:active={activeTab === 'featured'}
+		onclick={() => (activeTab = 'featured')}
+	>
+		Featured
+	</button>
+	<button class="tab" class:active={activeTab === 'news'} onclick={() => (activeTab = 'news')}>
+		News
+	</button>
+	<button class="tab" class:active={activeTab === 'users'} onclick={() => (activeTab = 'users')}>
+		Users
+	</button>
+	<button class="tab" class:active={activeTab === 'chat'} onclick={() => (activeTab = 'chat')}>
+		Chat
+	</button>
 </div>
-
-{#if activeTab === 'shows'}
-	<section class="card">
-		<h2>Your shows</h2>
-		{#if shows.length === 0}
-			<p class="muted">You don't have any shows yet. Create one below.</p>
-		{:else}
-			<ul class="show-list">
-				{#each shows as show (show.id)}
-					<li>
-						<a href={`/shows/${show.id}`}>
-							<strong>{show.title}</strong>
-							<span class="meta mono">
-								{DAYS[show.day_of_week]} · {fmtStart(show.start_minutes)}
-							</span>
-						</a>
-					</li>
-				{/each}
-			</ul>
-		{/if}
-	</section>
-{/if}
 
 {#if isAdmin && activeTab === 'create'}
 	<section class="card">
@@ -828,7 +811,7 @@
 				<RichTextEditor bind:value={evPageContent} placeholder="Event page content" />
 			</Field>
 			<Field label="Date">
-				<Text bind:value={evDate} placeholder="YYYY-MM-DD" css="vr-input" />
+				<input type="date" class="vr-input" style="width:100%" bind:value={evDate} />
 			</Field>
 			<div class="row">
 				<Field label="Start hour (24h)">
@@ -882,7 +865,7 @@
 				</select>
 			</Field>
 			<Field label="Date">
-				<Text bind:value={epDate} placeholder="YYYY-MM-DD" css="vr-input" />
+				<input type="date" class="vr-input" style="width:100%" bind:value={epDate} />
 			</Field>
 			<div class="row">
 				<Field label="Start hour (24h)">
@@ -1151,16 +1134,29 @@
 	</section>
 {/if}
 
-{#if isAdmin && activeTab === 'show-djs'}
+{#if isAdmin && activeTab === 'shows-events'}
 	<section class="card">
-		<h2>Admin — show DJs</h2>
-		{#if shows.length === 0}
-			<p class="muted">No shows yet.</p>
+		<h2>Shows / Events</h2>
+		<div class="filter-btns" role="group" aria-label="Filter shows and events">
+			<button class="filter-btn" class:active={mgrFilter === 'all'} onclick={() => (mgrFilter = 'all')}>
+				All
+			</button>
+			<button class="filter-btn" class:active={mgrFilter === 'shows'} onclick={() => (mgrFilter = 'shows')}>
+				Shows
+			</button>
+			<button class="filter-btn" class:active={mgrFilter === 'events'} onclick={() => (mgrFilter = 'events')}>
+				Events
+			</button>
+		</div>
+		{#if mgrShows.length === 0}
+			<p class="muted">
+				{mgrFilter === 'events' ? 'No events yet.' : mgrFilter === 'shows' ? 'No regular shows yet.' : 'No shows yet.'}
+			</p>
 		{:else if adminUsers.length === 0}
 			<p class="muted">Loading users…</p>
 		{:else}
 			<div class="admin-table">
-				{#each shows as show (show.id)}
+				{#each mgrShows as show (show.id)}
 					<div class="admin-row">
 						<div class="user-main">
 							<strong>{show.title}</strong>
@@ -1234,7 +1230,7 @@
 							</Field>
 							{#if show.kind === 'event'}
 								<Field label="Date">
-									<Text bind:value={ef.date} placeholder="YYYY-MM-DD" css="vr-input" />
+									<input type="date" class="vr-input" style="width:100%" bind:value={ef.date} />
 								</Field>
 								<div class="row">
 									<Field label="Start hour (24h)">
@@ -1407,33 +1403,6 @@
 		margin: 0 0 1rem;
 		border-bottom: 1px solid var(--vr-line);
 		padding-bottom: 0.6rem;
-	}
-
-	.show-list {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-	}
-
-	.show-list li {
-		border-bottom: 1px solid var(--vr-line-muted);
-	}
-
-	.show-list li:last-child {
-		border-bottom: none;
-	}
-
-	.show-list a {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: 0.8rem 0;
-		color: var(--vr-text);
-		text-decoration: none;
-	}
-
-	.show-list a:hover strong {
-		color: var(--vr-green);
 	}
 
 	.meta {
@@ -1708,6 +1677,12 @@
 
 	.publish-check input {
 		accent-color: var(--vr-green);
+	}
+
+	input[type='date'].vr-input {
+		color-scheme: dark;
+		min-height: 2.6rem;
+		box-sizing: border-box;
 	}
 
 	@media (max-width: 640px) {

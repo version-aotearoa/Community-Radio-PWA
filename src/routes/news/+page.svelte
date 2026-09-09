@@ -14,7 +14,7 @@
 		}).format(new Date(secs * 1000));
 	}
 
-	const TEASER_MAX = 200;
+	const TEASER_MAX = 90;
 
 	function teaser(text: string) {
 		if (text.length <= TEASER_MAX) return text;
@@ -171,7 +171,7 @@
 	}
 
 	.teaser {
-		margin: 0.5rem 0 0;
+		margin: 0.5rem 0 0.75rem;
 		color: var(--vr-muted);
 		font-size: 0.9rem;
 		line-height: 1.45;
