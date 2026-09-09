@@ -3,7 +3,8 @@
 	import { invalidateAll } from '$app/navigation';
 	import { Button, Field, Text } from '@svar-ui/svelte-core';
 	import { authClient } from '$lib/client';
-	import { episodeArtUrl } from '$lib/azuracast';
+	import { episodeArtOrDefault } from '$lib/azuracast';
+	import { artOnError } from '$lib/art';
 	import Seo from '$lib/components/Seo.svelte';
 
 	let { data } = $props();
@@ -297,13 +298,17 @@
 			{:else}
 				<ul>
 					{#each data.saved as s (s.broadcast_id)}
+						{@const sArt = episodeArtOrDefault(s.broadcast_id, s, { image: s.image })}
 						<li>
 							<a class="saved-row" href={`/shows/${s.show_id}/${s.broadcast_id}`}>
 								<span class="saved-art">
-									{#if episodeArtUrl(s.broadcast_id, s)}
-										<img src={episodeArtUrl(s.broadcast_id, s) ?? ''} alt="" loading="lazy" />
-									{:else if s.image}
-										<img src={s.image} alt="" loading="lazy" />
+									{#if sArt}
+										<img
+											src={sArt}
+											alt=""
+											loading="lazy"
+											onerror={(e) => artOnError(e, s.image)}
+										/>
 									{:else}
 										<svg viewBox="0 0 80 70" fill="currentColor" width="20" height="17" aria-hidden="true">
 											<path

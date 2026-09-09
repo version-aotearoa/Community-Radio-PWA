@@ -4,7 +4,8 @@
 	import { Button } from '@svar-ui/svelte-core';
 	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
 	import { parseTracksCsv } from '$lib/csv';
-	import { episodeArtUrl } from '$lib/azuracast';
+	import { episodeArtOrDefault } from '$lib/azuracast';
+	import { artOnError } from '$lib/art';
 	import type { ShowRow, BroadcastRow, TrackRow } from '$lib/server/shows';
 
 	let {
@@ -72,7 +73,8 @@
 		artInput = broadcast.art ?? '';
 	});
 
-	const artPreview = $derived(episodeArtUrl(broadcast.id, broadcast));
+	const artFb = $derived(show.image ?? null);
+	const artPreview = $derived(episodeArtOrDefault(broadcast.id, broadcast, { image: show.image }));
 
 	const GRID_EVENTS = [
 		'update-cell',
@@ -490,7 +492,13 @@
 			proxied and cached via /media; AzuraCast /media paths are used as-is. Leave blank to use the
 			replay artwork.</p>
 		{#if artPreview}
-			<img class="art-preview" src={artPreview} alt="Current artwork" loading="lazy" />
+			<img
+				class="art-preview"
+				src={artPreview}
+				alt="Current artwork"
+				loading="lazy"
+				onerror={(e) => artOnError(e, artFb)}
+			/>
 		{/if}
 		{#if artError}
 			<p class="replay-msg bad">{artError}</p>

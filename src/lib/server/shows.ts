@@ -224,6 +224,44 @@ export async function getBroadcast(db: D1Database, id: string): Promise<Broadcas
 	return row ? sanitizeBroadcastRow(row) : null;
 }
 
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Resolve a broadcast reference to the real row for a given show, tolerating
+ * the site's mixed episode id conventions. Tries, in order: the exact id (only
+ * if it belongs to `showId`), a bare `YYYY-MM-DD` date, and a
+ * `<showId>-<YYYY-MM-DD>` slug. Returns null when nothing plausibly matches.
+ * Used so page URLs and save endpoints agree even when a row's id and the
+ * requested reference differ in convention.
+ */
+export async function resolveBroadcastForShow(
+	db: D1Database,
+	showId: string,
+	ref: string
+): Promise<BroadcastRow | null> {
+	const exact = await getBroadcast(db, ref);
+	if (exact && exact.show_id === showId) return exact;
+
+	if (DATE_ONLY_RE.test(ref)) {
+		const row = await db
+			.prepare('SELECT * FROM broadcast WHERE show_id = ? AND date = ? LIMIT 1')
+			.bind(showId, ref)
+			.first();
+		if (row) return sanitizeBroadcastRow(row as unknown as BroadcastRow);
+	}
+
+	const m = ref.match(/^(.+)-(\d{4}-\d{2}-\d{2})$/);
+	if (m && m[1] === showId) {
+		const row = await db
+			.prepare('SELECT * FROM broadcast WHERE show_id = ? AND date = ? LIMIT 1')
+			.bind(showId, m[2])
+			.first();
+		if (row) return sanitizeBroadcastRow(row as unknown as BroadcastRow);
+	}
+
+	return null;
+}
+
 /**
  * Store (or clear) a broadcast's replay link. Accepts a bare track id or a raw
  * on-demand download URL; stores the canonical absolute play URL.
@@ -334,6 +372,59 @@ export async function getSchedule(db: D1Database): Promise<ScheduleShow[]> {
 					: [];
 		return { ...clean, showCycleWeeks };
 	});
+}
+
+/** Loose name normalisation: lowercase, strip anything but a-z/0-9/spaces. */
+export function normalizeText(s: string): string {
+	return s.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
+}
+
+/** Live-DJ identity block: the active show's display-facing fields. */
+export interface LiveShowIdentity {
+	id: string;
+	title: string;
+	dj_name: string | null;
+	dj_handle: string | null;
+	dj_image: string | null;
+	image: string | null;
+}
+
+/**
+ * Match a connected live streamer's source name to an active show, by show
+ * title, DJ handle, or DJ display name. Exact normalised equality wins; a
+ * containment match (min 4 chars, either direction) is the fallback. Returns
+ * null when nothing plausibly matches (e.g. ad-hoc sources not on the roster).
+ */
+export function matchLiveShow(
+	shows: ScheduleShow[],
+	streamerName: string | null | undefined
+): LiveShowIdentity | null {
+	if (!streamerName) return null;
+	const needle = normalizeText(streamerName);
+	if (needle.length < 4) return null;
+
+	const toIdentity = (s: ScheduleShow): LiveShowIdentity => ({
+		id: s.id,
+		title: s.title,
+		dj_name: s.dj_name,
+		dj_handle: s.dj_handle,
+		dj_image: s.dj_image,
+		image: s.image
+	});
+
+	for (const s of shows) {
+		const exact = [s.title, s.dj_handle ?? '', s.dj_name ?? '']
+			.map(normalizeText)
+			.some((n) => n.length >= 4 && n === needle);
+		if (exact) return toIdentity(s);
+	}
+	for (const s of shows) {
+		const contains = [s.title, s.dj_handle ?? '', s.dj_name ?? '']
+			.map(normalizeText)
+			.some((n) => n.length >= 4 && (n.includes(needle) || needle.includes(n)));
+		if (contains) return toIdentity(s);
+	}
+	return null;
 }
 
 /** Station-wide 4-week cycle anchor (Monday). */

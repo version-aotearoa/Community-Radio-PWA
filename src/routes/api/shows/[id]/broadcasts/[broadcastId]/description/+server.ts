@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { DESCRIPTION_MAX, sanitizeDescription } from '$lib/server/sanitize';
-import { getBroadcast, getShow } from '$lib/server/shows';
+import { getShow, resolveBroadcastForShow } from '$lib/server/shows';
 import type { RequestHandler } from './$types';
 
 async function authorize(
@@ -16,10 +16,8 @@ async function authorize(
 	if (show.dj_id !== user.id && user.role !== 'admin') {
 		return { ok: false, status: 403 };
 	}
-	const broadcast = await getBroadcast(db, params.broadcastId);
-	if (!broadcast || broadcast.show_id !== show.id) {
-		return { ok: false, status: 404 };
-	}
+	const broadcast = await resolveBroadcastForShow(db, show.id, params.broadcastId);
+	if (!broadcast) return { ok: false, status: 404 };
 	return { ok: true, broadcastId: broadcast.id };
 }
 

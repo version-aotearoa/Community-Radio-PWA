@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { getBroadcast, getShow, type BroadcastRow } from '$lib/server/shows';
+import { getShow, resolveBroadcastForShow, type BroadcastRow } from '$lib/server/shows';
 import type { RequestHandler } from './$types';
 
 const ART_MAX = 500;
@@ -24,10 +24,8 @@ async function authorize(
 		return { ok: false, status: 403, error: 'Forbidden' };
 	}
 
-	const broadcast = await getBroadcast(db, params.broadcastId);
-	if (!broadcast || broadcast.show_id !== show.id) {
-		return { ok: false, status: 404, error: 'Not found' };
-	}
+	const broadcast = await resolveBroadcastForShow(db, show.id, params.broadcastId);
+	if (!broadcast) return { ok: false, status: 404, error: 'Not found' };
 
 	return { ok: true, broadcast };
 }

@@ -6,7 +6,8 @@
 	import ShowActions from '$lib/components/ShowActions.svelte';
 	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
 	import { playback, playMedia, requestTogglePlay, streamPlaying } from '$lib/stores/player';
-	import { episodeArtUrl } from '$lib/azuracast';
+	import { episodeArtOrDefault } from '$lib/azuracast';
+	import { artOnError } from '$lib/art';
 	import Seo from '$lib/components/Seo.svelte';
 
 	let { data } = $props();
@@ -161,7 +162,7 @@
 			url: b.replay_url,
 			title: show.title,
 			artist: show.kind === 'event' ? null : (show.dj_name ?? null),
-			art: episodeArtUrl(b.id, b),
+			art: episodeArtOrDefault(b.id, b, show),
 			show: { id: show.id, title: show.title },
 			href: `/shows/${show.id}/${b.id}`,
 			broadcastId: b.id,
@@ -343,14 +344,21 @@
 			<h2 class="h-md">{show.kind === 'event' ? 'Broadcast recording' : 'Past broadcasts'}</h2>
 			<ul class="broadcasts">
 				{#each past as b, i (b.id)}
+					{@const epArt = episodeArtOrDefault(b.id, b, show)}
+					{@const epArtFb = show.image ?? show.dj_image ?? null}
 					<li class="broadcast past" use:squareToBody>
 						<a
 							class="past-art"
 							href={`/shows/${show.id}/${b.id}`}
 							aria-label={`View ${fmtDate(b.date)} episode`}
 						>
-							{#if episodeArtUrl(b.id, b)}
-								<img src={episodeArtUrl(b.id, b) ?? ''} alt="" loading="lazy" />
+							{#if epArt}
+								<img
+									src={epArt}
+									alt=""
+									loading="lazy"
+									onerror={(e) => artOnError(e, epArtFb)}
+								/>
 							{:else}
 								<span class="past-art-fallback" aria-hidden="true">
 									<svg viewBox="0 0 80 70" fill="currentColor" width="36" height="31">

@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { resolveBandcamp } from '$lib/bandcamp';
-import { getBroadcast, getShow, getTracklist, replaceTracklist } from '$lib/server/shows';
+import { getShow, getTracklist, replaceTracklist, resolveBroadcastForShow } from '$lib/server/shows';
 import type { TrackInput } from '$lib/server/shows';
 import type { RequestHandler } from './$types';
 
@@ -25,11 +25,10 @@ async function resolveTrackUrls(tracks: (TrackInput & { url: string | null })[])
 }
 
 export const GET: RequestHandler = async ({ params, platform }) => {
-	const broadcast = await getBroadcast(platform!.env.DB, params.broadcastId);
-	if (!broadcast || broadcast.show_id !== params.id) {
-		return json({ error: 'Not found' }, { status: 404 });
-	}
-	const tracks = await getTracklist(platform!.env.DB, broadcast.id);
+	const db = platform!.env.DB;
+	const broadcast = await resolveBroadcastForShow(db, params.id, params.broadcastId);
+	if (!broadcast) return json({ error: 'Not found' }, { status: 404 });
+	const tracks = await getTracklist(db, broadcast.id);
 	return json(tracks);
 };
 
@@ -45,10 +44,12 @@ export const PUT: RequestHandler = async ({ request, params, locals, platform })
 		return json({ error: 'Forbidden' }, { status: 403 });
 	}
 
-	const broadcast = await getBroadcast(platform!.env.DB, params.broadcastId);
-	if (!broadcast || broadcast.show_id !== show.id) {
-		return json({ error: 'Not found' }, { status: 404 });
-	}
+	const broadcast = await resolveBroadcastForShow(
+		platform!.env.DB,
+		show.id,
+		params.broadcastId
+	);
+	if (!broadcast) return json({ error: 'Not found' }, { status: 404 });
 
 	const body = (await request.json()) as {
 		tracks?: Array<{ title?: string; artist?: string; album?: string; url?: string }>;

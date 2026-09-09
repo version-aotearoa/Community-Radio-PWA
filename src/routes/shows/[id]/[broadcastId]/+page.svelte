@@ -4,7 +4,8 @@
 	import { invalidateAll } from '$app/navigation';
 	import ShowActions from '$lib/components/ShowActions.svelte';
 	import { playback, playMedia, requestTogglePlay, streamPlaying } from '$lib/stores/player';
-	import { episodeArtUrl } from '$lib/azuracast';
+	import { episodeArtOrDefault } from '$lib/azuracast';
+	import { artOnError } from '$lib/art';
 	import Seo from '$lib/components/Seo.svelte';
 
 	let { data } = $props();
@@ -12,7 +13,9 @@
 	const show = $derived(data.show);
 	const broadcast = $derived(data.broadcast);
 	const tracks = $derived(data.tracks);
-	const artUrl = $derived(episodeArtUrl(broadcast.id, broadcast));
+	// Episode art, defaulting to the show's (DJ) image when the episode has none.
+	const artFallback = $derived(show.image ?? show.dj_image ?? null);
+	const artUrl = $derived(episodeArtOrDefault(broadcast.id, broadcast, show));
 
 	// Fresh server data on every visit — the DB is the source of truth
 	// (back/forward navigation can otherwise restore a stale load snapshot,
@@ -145,6 +148,7 @@
 						width="80"
 						height="80"
 						loading="lazy"
+						onerror={(e) => artOnError(e, artFallback)}
 					/>
 				</button>
 			{:else}
@@ -243,7 +247,7 @@
 		}}
 	>
 		{#if artUrl}
-			<img src={artUrl} alt="" />
+			<img src={artUrl} alt="" onerror={(e) => artOnError(e, artFallback)} />
 		{/if}
 		<button class="lightbox-close" aria-label="Close" onclick={() => (lightboxOpen = false)}>
 			<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">

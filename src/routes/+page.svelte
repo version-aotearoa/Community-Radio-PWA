@@ -3,7 +3,8 @@
 	import { requestPlay, requestTogglePlay, streamPlaying } from '$lib/stores/player';
 	import { playMedia } from '$lib/stores/player';
 	import { live, startLivePolling } from '$lib/stores/live';
-	import { episodeArtUrl } from '$lib/azuracast';
+	import { episodeArtOrDefault } from '$lib/azuracast';
+	import { artOnError } from '$lib/art';
 	import Seo from '$lib/components/Seo.svelte';
 	import { SITE_TITLE } from '$lib/site';
 
@@ -14,10 +15,13 @@
 	const isLiveNow = $derived(livePayload?.live.isLive ?? false);
 
 	const heroTitle = $derived(
-		livePayload?.onAir?.title ?? 'Sounds for the between times'
+		livePayload?.onAir?.title ?? livePayload?.liveShow?.title ?? 'Sounds for the between times'
 	);
 	const heroArt = $derived(
-		livePayload?.nowPlaying?.art ?? livePayload?.onAir?.djImage ?? ''
+		livePayload?.nowPlaying?.art ??
+			livePayload?.liveShow?.djImage ??
+			livePayload?.onAir?.djImage ??
+			''
 	);
 
 	function fmtBroadcastDate(dateStr: string) {
@@ -48,13 +52,13 @@
 			.replace(/\s/g, ' ');
 	}
 
-	function playEpisode(show: { show_id: string; broadcast_id: string; title: string; date: string; replay_url: string | null; art?: string | null; dj_name?: string | null }) {
+	function playEpisode(show: { show_id: string; broadcast_id: string; title: string; date: string; replay_url: string | null; art?: string | null; show_image?: string | null; dj_name?: string | null }) {
 		if (!show.replay_url) return;
 		playMedia({
 			url: show.replay_url,
 			title: show.title,
 			artist: show.dj_name ?? null,
-			art: episodeArtUrl(show.broadcast_id, show),
+			art: episodeArtOrDefault(show.broadcast_id, show, { image: show.show_image }),
 			show: { id: show.show_id, title: show.title },
 			href: `/shows/${show.show_id}/${show.broadcast_id}`,
 			broadcastId: show.broadcast_id,
@@ -63,7 +67,7 @@
 	}
 
 	function featArt(f: { broadcast_id: string; replay_url: string | null; art?: string | null; image: string | null }) {
-		return episodeArtUrl(f.broadcast_id, f) ?? f.image;
+		return episodeArtOrDefault(f.broadcast_id, f, { image: f.image });
 	}
 
 	onMount(() => startLivePolling());
@@ -118,13 +122,15 @@
 	</div>
 	<div class="shows-grid">
 		{#each data.latest as show (show.show_id)}
+			{@const cardArt = episodeArtOrDefault(show.broadcast_id, show, { image: show.show_image })}
 			<a class="showcard" href={`/shows/${show.show_id}/${show.broadcast_id}`}>
 				<div class="showcard-art">
-					{#if episodeArtUrl(show.broadcast_id, show) ?? show.show_image}
+					{#if cardArt}
 						<img
-							src={episodeArtUrl(show.broadcast_id, show) ?? show.show_image ?? ''}
+							src={cardArt}
 							alt=""
 							loading="lazy"
+							onerror={(e) => artOnError(e, show.show_image)}
 						/>
 					{:else}
 						<div class="art-glyph" aria-hidden="true">
@@ -269,7 +275,7 @@
 							<a class="feat-row" href={`/shows/${f.show_id}/${f.broadcast_id}`}>
 								<span class="feat-art">
 									{#if featArt(f)}
-										<img src={featArt(f)} alt="" loading="lazy" />
+										<img src={featArt(f)} alt="" loading="lazy" onerror={(e) => artOnError(e, f.image)} />
 									{:else}
 										<svg viewBox="0 0 80 70" fill="currentColor" width="22" height="19" aria-hidden="true">
 											<path

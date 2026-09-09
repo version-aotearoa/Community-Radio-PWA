@@ -15,6 +15,14 @@ export interface LivePayload {
 		remaining: number | null;
 	} | null;
 	trackShow: { id: string; title: string } | null;
+	/** Show matched from our schedule/roster while a DJ is live (streamer name). */
+	liveShow: {
+		id: string;
+		title: string;
+		djName: string | null;
+		djImage: string | null;
+		image: string | null;
+	} | null;
 	onAir: {
 		id: string;
 		title: string;
