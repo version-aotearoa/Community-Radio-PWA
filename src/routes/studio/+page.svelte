@@ -828,7 +828,7 @@
 				<RichTextEditor bind:value={evPageContent} placeholder="Event page content" />
 			</Field>
 			<Field label="Date">
-				<Text bind:value={evDate} placeholder="YYYY-MM-DD" css="vr-input" />
+				<input type="date" class="vr-input" style="width:100%" bind:value={evDate} />
 			</Field>
 			<div class="row">
 				<Field label="Start hour (24h)">
@@ -882,7 +882,7 @@
 				</select>
 			</Field>
 			<Field label="Date">
-				<Text bind:value={epDate} placeholder="YYYY-MM-DD" css="vr-input" />
+				<input type="date" class="vr-input" style="width:100%" bind:value={epDate} />
 			</Field>
 			<div class="row">
 				<Field label="Start hour (24h)">
@@ -1234,7 +1234,7 @@
 							</Field>
 							{#if show.kind === 'event'}
 								<Field label="Date">
-									<Text bind:value={ef.date} placeholder="YYYY-MM-DD" css="vr-input" />
+									<input type="date" class="vr-input" style="width:100%" bind:value={ef.date} />
 								</Field>
 								<div class="row">
 									<Field label="Start hour (24h)">
@@ -1708,6 +1708,12 @@
 
 	.publish-check input {
 		accent-color: var(--vr-green);
+	}
+
+	input[type='date'].vr-input {
+		color-scheme: dark;
+		min-height: 2.6rem;
+		box-sizing: border-box;
 	}
 
 	@media (max-width: 640px) {
