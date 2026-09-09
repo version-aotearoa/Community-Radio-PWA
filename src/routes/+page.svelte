@@ -14,10 +14,13 @@
 	const isLiveNow = $derived(livePayload?.live.isLive ?? false);
 
 	const heroTitle = $derived(
-		livePayload?.onAir?.title ?? 'Sounds for the between times'
+		livePayload?.onAir?.title ?? livePayload?.liveShow?.title ?? 'Sounds for the between times'
 	);
 	const heroArt = $derived(
-		livePayload?.nowPlaying?.art ?? livePayload?.onAir?.djImage ?? ''
+		livePayload?.nowPlaying?.art ??
+			livePayload?.liveShow?.djImage ??
+			livePayload?.onAir?.djImage ??
+			''
 	);
 
 	function fmtBroadcastDate(dateStr: string) {

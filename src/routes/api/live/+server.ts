@@ -1,6 +1,12 @@
 import { json } from '@sveltejs/kit';
 import { proxiedArtFromUrl } from '$lib/azuracast';
-import { getNextBroadcast, getOnAirBroadcast, getSchedule, zonedNow } from '$lib/server/shows';
+import {
+	getNextBroadcast,
+	getOnAirBroadcast,
+	getSchedule,
+	matchLiveShow,
+	zonedNow
+} from '$lib/server/shows';
 import type { RequestHandler } from './$types';
 
 const AZURACAST = 'https://stream.version.nz/api/nowplaying';
@@ -60,6 +66,22 @@ export const GET: RequestHandler = async ({ platform, fetch: cfFetch }) => {
 			shows
 		);
 
+		// Live DJ identity from our own schedule/roster: the stream's metadata
+		// (song.title/artist) is often stale while a DJ is connected (AzuraCast
+		// only re-reports it on new encoder metadata), so match the reliable
+		// streamer name to a known show instead.
+		const streamerName = typeof live.streamer_name === 'string' ? live.streamer_name : null;
+		const matchedLive = live.is_live ? matchLiveShow(shows, streamerName) : null;
+		const liveShow = matchedLive
+			? {
+					id: matchedLive.id,
+					title: matchedLive.title,
+					djName: matchedLive.dj_name,
+					djImage: matchedLive.dj_image,
+					image: matchedLive.image
+				}
+			: null;
+
 		const [onAir, next] = await Promise.all([
 			getOnAirBroadcast(db, now.date, now.minutes),
 			getNextBroadcast(db, now.date, now.minutes)
@@ -83,6 +105,7 @@ export const GET: RequestHandler = async ({ platform, fetch: cfFetch }) => {
 					remaining: typeof np.remaining === 'number' ? np.remaining : null
 				},
 				trackShow,
+				liveShow,
 				onAir: onAir
 					? {
 							id: onAir.show_id,
@@ -112,7 +135,7 @@ export const GET: RequestHandler = async ({ platform, fetch: cfFetch }) => {
 	);
 } catch {
 	return json(
-		{ isOnline: false, live: { isLive: false, streamerName: null }, nowPlaying: null, trackShow: null, onAir: null, next: null, now },
+		{ isOnline: false, live: { isLive: false, streamerName: null }, nowPlaying: null, trackShow: null, liveShow: null, onAir: null, next: null, now },
 		{ headers: { 'Cache-Control': 'public, max-age=10', ...CORS } }
 	);
 }

@@ -336,6 +336,59 @@ export async function getSchedule(db: D1Database): Promise<ScheduleShow[]> {
 	});
 }
 
+/** Loose name normalisation: lowercase, strip anything but a-z/0-9/spaces. */
+export function normalizeText(s: string): string {
+	return s.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
+}
+
+/** Live-DJ identity block: the active show's display-facing fields. */
+export interface LiveShowIdentity {
+	id: string;
+	title: string;
+	dj_name: string | null;
+	dj_handle: string | null;
+	dj_image: string | null;
+	image: string | null;
+}
+
+/**
+ * Match a connected live streamer's source name to an active show, by show
+ * title, DJ handle, or DJ display name. Exact normalised equality wins; a
+ * containment match (min 4 chars, either direction) is the fallback. Returns
+ * null when nothing plausibly matches (e.g. ad-hoc sources not on the roster).
+ */
+export function matchLiveShow(
+	shows: ScheduleShow[],
+	streamerName: string | null | undefined
+): LiveShowIdentity | null {
+	if (!streamerName) return null;
+	const needle = normalizeText(streamerName);
+	if (needle.length < 4) return null;
+
+	const toIdentity = (s: ScheduleShow): LiveShowIdentity => ({
+		id: s.id,
+		title: s.title,
+		dj_name: s.dj_name,
+		dj_handle: s.dj_handle,
+		dj_image: s.dj_image,
+		image: s.image
+	});
+
+	for (const s of shows) {
+		const exact = [s.title, s.dj_handle ?? '', s.dj_name ?? '']
+			.map(normalizeText)
+			.some((n) => n.length >= 4 && n === needle);
+		if (exact) return toIdentity(s);
+	}
+	for (const s of shows) {
+		const contains = [s.title, s.dj_handle ?? '', s.dj_name ?? '']
+			.map(normalizeText)
+			.some((n) => n.length >= 4 && (n.includes(needle) || needle.includes(n)));
+		if (contains) return toIdentity(s);
+	}
+	return null;
+}
+
 /** Station-wide 4-week cycle anchor (Monday). */
 export const CYCLE_ANCHOR = '2026-01-05';
 

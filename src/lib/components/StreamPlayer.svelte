@@ -63,7 +63,12 @@
 
 	const artSource = $derived(media?.art ?? livePayload?.nowPlaying?.art ?? livePayload?.onAir?.djImage ?? '');
 	const isLive = $derived(!mediaMode && livePayload?.live.isLive === true);
-	const showLink = $derived(livePayload?.trackShow ?? livePayload?.onAir ?? null);
+	/** Authoritative live identity from our DB: scheduled slot first, else a streamer-matched show. */
+	const identity = $derived(isLive ? (livePayload?.onAir ?? livePayload?.liveShow ?? null) : null);
+	/** Show context link: the live identity while a DJ is live, else text-matched/on-air for re-airs. */
+	const showLink = $derived(
+		isLive ? identity : (livePayload?.trackShow ?? livePayload?.onAir ?? null)
+	);
 
 	const stationSticker = $derived(mediaMode ? 'Archive' : isLive ? 'Live now' : 'Replay');
 
@@ -89,6 +94,14 @@
 		if (media) {
 			title = media.title;
 			artist = media.artist ?? '';
+		} else if (isLive) {
+			// Live: never let stale encoder metadata reach the lock screen.
+			if (identity) {
+				title = identity.title;
+				artist = identity.djName ?? livePayload?.live.streamerName ?? '';
+			} else {
+				title = livePayload?.live.streamerName || 'Version Radio';
+			}
 		} else if (livePayload?.onAir?.title) {
 			title = livePayload.onAir.title;
 			artist = livePayload.onAir.djName ?? livePayload.live.streamerName ?? '';
@@ -377,6 +390,11 @@
 
 	function trackText() {
 		if (media) return `${media.title}${media.artist ? ` — ${media.artist}` : ''}`;
+		// A live DJ's stream metadata can be stale until the encoder sends new
+		// metadata, so while live we show the DB show identity (or the streamer
+		// name) instead of the raw nowPlaying text.
+		if (identity) return identity.title;
+		if (isLive) return livePayload?.live.streamerName || 'Live now';
 		if (livePayload?.nowPlaying?.title) {
 			return `${livePayload.nowPlaying.title}${livePayload.nowPlaying.artist ? ` — ${livePayload.nowPlaying.artist}` : ''}`;
 		}
@@ -538,7 +556,17 @@
 				</div>
 				<span class="track big">{trackText()}</span>
 				{#if !mediaMode}
-					{#if showLink}
+					{#if isLive}
+						{#if identity}
+							<a class="showlink" href={`/shows/${identity.id}`} title={identity.title}>
+								{identity.djName ?? livePayload?.live.streamerName ?? 'Live on air'}
+							</a>
+						{:else if livePayload?.next}
+							<span class="track muted">
+								Up next: {livePayload.next.title} · {fmtDt(livePayload.next.date)} {fmtTime(livePayload.next.startMinutes)}
+							</span>
+						{/if}
+					{:else if showLink}
 						<a class="showlink" href={`/shows/${showLink.id}`}>On air: {showLink.title}</a>
 					{:else if livePayload?.next}
 						<span class="track muted">
@@ -681,9 +709,17 @@
 				</span>
 			{/if}
 			<div class="meta">
-				<span class="track mono" class:muted={!media && !livePayload?.nowPlaying?.title}>{trackText()}</span>
+				<span class="track mono" class:muted={!media && !identity && !isLive && !livePayload?.nowPlaying?.title}>{trackText()}</span>
 				{#if !mediaMode}
-					{#if showLink}
+					{#if isLive}
+						{#if identity}
+							<a class="showlink mono" href={`/shows/${identity.id}`} title={identity.title}>
+								{identity.djName ?? 'Live on air'}
+							</a>
+						{:else if livePayload?.next}
+							<span class="showlink mono">Up next: {livePayload.next.title}</span>
+						{/if}
+					{:else if showLink}
 						<a class="showlink mono" href={`/shows/${showLink.id}`}>On air: {showLink.title}</a>
 					{:else if livePayload?.next}
 						<span class="showlink mono">Up next: {livePayload.next.title}</span>
