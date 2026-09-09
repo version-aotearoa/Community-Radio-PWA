@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button, Field, Text } from '@svar-ui/svelte-core';
+	import { onMount } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { authClient } from '$lib/client';
 	import Turnstile from '$lib/components/Turnstile.svelte';
@@ -11,12 +12,25 @@
 	let displayName = $state('');
 	let sent = $state(false);
 	let error = $state('');
+	let urlError = $state('');
 	let busy = $state(false);
 	let turnstileToken = $state('');
 	let turnstileExpired = $state(false);
 
 	const user = $derived(data.user);
 	const { github, google } = $derived(data.providers);
+
+	onMount(() => {
+		// A consumed/expired magic-link bounces back here with ?error (via
+		// errorCallbackURL '/login'). Surface it instead of silently dropping it.
+		const params = new URLSearchParams(window.location.search);
+		if (!params.get('error')) return;
+		urlError =
+			params.get('error_description') ||
+			(params.get('error') === 'INVALID_TOKEN'
+				? 'This sign-in link was already used or has expired — request a new one.'
+				: 'This sign-in link is no longer valid — request a new one.');
+	});
 
 	function onTurnstileToken(token: string) {
 		turnstileToken = token;
@@ -35,6 +49,7 @@
 		if (busy) return;
 		busy = true;
 		error = '';
+		urlError = '';
 		if (!email.trim()) {
 			error = 'Enter your email address first.';
 			busy = false;
@@ -62,6 +77,7 @@
 		const res = await authClient.signIn.magicLink({
 			email,
 			callbackURL: '/',
+			errorCallbackURL: '/login',
 			...(name ? { name } : {})
 		});
 		busy = false;
@@ -100,6 +116,10 @@
 		{:else}
 			<h1>Sign in to Version Radio</h1>
 			<p class="muted">Get a sign-in link by email, or use one of your accounts.</p>
+
+			{#if urlError}
+				<div class="notice bad">{urlError}</div>
+			{/if}
 
 			{#if sent}
 				<div class="notice ok">Check your inbox — we've emailed you a sign-in link.</div>
