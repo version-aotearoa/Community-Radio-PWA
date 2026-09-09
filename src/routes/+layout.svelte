@@ -109,7 +109,7 @@
 				<a href="/chat" class:active={path.startsWith('/chat')}>Chat</a>
 				<a href="/news" class:active={path.startsWith('/news')}>News</a>
 				<a href="/info" class:active={path.startsWith('/info')}>Info</a>
-				{#if user && (user.role === 'dj' || user.role === 'admin')}
+				{#if user && user.role === 'admin'}
 					<a href="/studio" class:active={path.startsWith('/studio')}>Studio</a>
 				{/if}
 				<!-- Install prompt disabled for now
@@ -151,8 +151,8 @@
 					<a href="/news" onclick={closeMenu}>News</a>
 					<a href="/info" onclick={closeMenu}>Info</a>
 					{#if user}
-						{#if user.role === 'dj' || user.role === 'admin'}
-							<a href="/studio" onclick={closeMenu}>DJ Studio</a>
+						{#if user.role === 'admin'}
+							<a href="/studio" onclick={closeMenu}>Studio</a>
 						{/if}
 						<a href="/account" onclick={closeMenu}>My Version</a>
 					{:else}
