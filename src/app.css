@@ -67,6 +67,7 @@
 
 html {
 	-webkit-text-size-adjust: 100%;
+	touch-action: manipulation;
 }
 
 body {
@@ -114,6 +115,22 @@ img {
 	line-height: 1.15;
 	letter-spacing: 0.05em;
 	text-transform: uppercase;
+}
+
+/* Bracketed mono arrow chip for link affordances. VS15 (text presentation)
+   keeps U+2190/2192/2197 from rendering as colour emoji on mobile. */
+.arrow-chip {
+	display: inline-block;
+	font-family: var(--vr-font-mono);
+	font-size: 0.72em;
+	font-weight: 500;
+	line-height: 1;
+	letter-spacing: 0.05em;
+	white-space: nowrap;
+	vertical-align: middle;
+	padding: 0.05em 0.3em;
+	border: 1px solid currentColor;
+	font-variant-emoji: text;
 }
 
 /* Anton sizes */

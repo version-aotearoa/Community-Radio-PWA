@@ -116,7 +116,7 @@
 
 <div class="page">
 	<div class="page-head">
-		<a class="back mono" href={`/shows/${show.id}`}>← {show.title}</a>
+		<a class="back mono" href={`/shows/${show.id}`}><span class="arrow-chip" aria-hidden="true">←︎</span> {show.title}</a>
 		{#if data.canEdit}
 			<a class="btn-outline" href={`/shows/${show.id}/${broadcast.id}/edit`}>Edit</a>
 		{/if}
@@ -220,7 +220,7 @@
 						{/if}
 						{#if t.url}
 							<a class="url-fallback" href={t.url} target="_blank" rel="noopener noreferrer">
-								{hostOf(t.url)} ↗
+								{hostOf(t.url)} <span class="arrow-chip" aria-hidden="true">↗︎</span>
 							</a>
 						{/if}
 					</li>
