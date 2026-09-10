@@ -235,6 +235,12 @@
 	</div>
 </WillowDark>
 
+<div class="rotate-notice" role="status" aria-live="polite">
+	<img class="rotate-logo" src="/version-logo.svg" alt="VERSION" />
+	<p class="rotate-title">Please rotate your device</p>
+	<span class="mono">Version Radio is built for portrait</span>
+</div>
+
 <style>
 	.shell {
 		min-height: 100vh;
@@ -536,6 +542,45 @@
 
 		.site-footer {
 			padding-left: 1rem;
+		}
+	}
+
+	.rotate-notice {
+		display: none;
+	}
+
+	/* Phones held in landscape — block the UI (manifest orientation only locks
+	   the installed Android PWA; iOS/browser need this). Scoped to coarse
+	   pointers and short viewports so desktop/tablets never see it. */
+	@media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+		.rotate-notice {
+			position: fixed;
+			inset: 0;
+			z-index: 1000;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			gap: 0.75rem;
+			padding: 2rem;
+			text-align: center;
+			background: var(--vr-bg-deep);
+			color: var(--vr-text);
+		}
+
+		.rotate-logo {
+			height: 28px;
+			width: auto;
+			display: block;
+		}
+
+		.rotate-title {
+			margin: 0;
+			font-family: var(--vr-font-headline);
+			font-size: 1.5rem;
+			font-weight: 400;
+			text-transform: uppercase;
+			letter-spacing: 0.01em;
 		}
 	}
 </style>

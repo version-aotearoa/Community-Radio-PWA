@@ -23,7 +23,7 @@
 <Seo title={`${post.title} — ${SITE_TITLE}`} description={data.excerpt} image={post.image} />
 
 <div class="page">
-	<a class="back mono" href="/news">← News</a>
+	<a class="back mono" href="/news"><span class="arrow-chip" aria-hidden="true">←︎</span> News</a>
 
 	<article class="article">
 		<p class="mono meta">

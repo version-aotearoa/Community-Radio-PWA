@@ -206,7 +206,7 @@
 								<span class="news-teaser">{post.bodyText.slice(0, 90)}</span>
 							{/if}
 						</span>
-						<span class="arrow" aria-hidden="true">→</span>
+						<span class="arrow-chip" aria-hidden="true">→︎</span>
 					</a>
 				</li>
 			{/each}
@@ -226,15 +226,15 @@
 		<div class="linkrows">
 			<a class="linkrow" href="/chat">
 				<span class="h-sm">Join the community chat</span>
-				<span class="arrow" aria-hidden="true">→</span>
+				<span class="arrow-chip" aria-hidden="true">→︎</span>
 			</a>
 			<a class="linkrow" href="/schedule">
 				<span class="h-sm">See what's on</span>
-				<span class="arrow" aria-hidden="true">→</span>
+				<span class="arrow-chip" aria-hidden="true">→︎</span>
 			</a>
 			<a class="linkrow" href={data.user ? '/account' : '/login'}>
 				<span class="h-sm">Sign in &gt; My Version</span>
-				<span class="arrow" aria-hidden="true">→</span>
+				<span class="arrow-chip" aria-hidden="true">→︎</span>
 			</a>
 		</div>
 	</div>
@@ -612,11 +612,6 @@
 		color: #000;
 	}
 
-	.linkrow .arrow {
-		font-family: var(--vr-font-body);
-		font-weight: 600;
-	}
-
 	.news-list {
 		list-style: none;
 		margin: 0;
@@ -670,11 +665,9 @@
 		height: auto;
 	}
 
-	.news-row .arrow {
+	.news-row .arrow-chip {
 		margin-left: auto;
 		flex-shrink: 0;
-		font-family: var(--vr-font-body);
-		font-weight: 600;
 	}
 
 	.news-main {

@@ -211,7 +211,7 @@
 <div class="page">
 	<header class="head">
 		<div>
-			<p class="mono back"><a href={backHref}>← {backLabel}</a></p>
+			<p class="mono back"><a href={backHref}><span class="arrow-chip" aria-hidden="true">←︎</span> {backLabel}</a></p>
 			<h1 class="h-lg">{title}</h1>
 			{#if show.kind === 'event'}
 				{#if eventDate}
@@ -331,7 +331,7 @@
 						{/if}
 					</header>
 					<div class="replay">
-						<a class="view-show mono" href={`/shows/${show.id}/${b.id}`}>View →</a>
+						<a class="view-show mono" href={`/shows/${show.id}/${b.id}`}>View <span class="arrow-chip" aria-hidden="true">→︎</span></a>
 					</div>
 				</li>
 			{/each}
@@ -404,7 +404,7 @@
 										{/if}
 									</button>
 								{/if}
-								<a class="view-show mono" href={`/shows/${show.id}/${b.id}`}>View →</a>
+								<a class="view-show mono" href={`/shows/${show.id}/${b.id}`}>View <span class="arrow-chip" aria-hidden="true">→︎</span></a>
 							</div>
 						</div>
 					</li>
