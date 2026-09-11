@@ -4,7 +4,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import ShowActions from '$lib/components/ShowActions.svelte';
 	import { playback, playMedia, requestTogglePlay, streamPlaying } from '$lib/stores/player';
-	import { isBandcampUrl } from '$lib/bandcamp';
+	import { bandcampArtUrl, isBandcampPageUrl } from '$lib/bandcamp';
 	import { episodeArtOrDefault } from '$lib/azuracast';
 	import { artOnError } from '$lib/art';
 	import Seo from '$lib/components/Seo.svelte';
@@ -25,6 +25,8 @@
 		// Deferred past the navigation's microtasks: an immediate invalidateAll
 		// aborts the in-flight navigation before SvelteKit resets scroll to top.
 		setTimeout(() => void invalidateAll(), 0);
+		// Fill in name/artist/art for any not-yet-resolved Bandcamp rows.
+		void prefetchMissing();
 	});
 
 	function fmtDate(dateStr: string) {
@@ -114,6 +116,49 @@
 		} finally {
 			resolving[t.id] = false;
 		}
+	}
+
+	/** Artwork for a row: freshly-resolved meta, else the cached Bandcamp art id. */
+	function rowArt(t: { id: string; stream_art_id?: string | null }): string | null {
+		return trackMeta[t.id]?.art ?? bandcampArtUrl(t.stream_art_id ?? null);
+	}
+
+	/**
+	 * Prefetch name/artist/art for Bandcamp rows that haven't been resolved yet
+	 * (no persisted metadata). Runs once per page load, 2 at a time, and updates
+	 * each row as results arrive. Resolved rows are cached in D1, so only the
+	 * first visitor to a tracklist pays the fetch cost.
+	 */
+	async function prefetchMissing() {
+		const pending = tracks.filter(
+			(t) => t.url && isBandcampPageUrl(t.url) && (!t.title || !t.stream_art_id)
+		);
+		let cursor = 0;
+		async function worker() {
+			while (cursor < pending.length) {
+				const t = pending[cursor++];
+				if (trackMeta[t.id]?.title) continue;
+				try {
+					const res = await fetch(`/api/tracks/${t.id}/stream`);
+					if (res.ok) {
+						const body = (await res.json()) as {
+							title?: string | null;
+							artist?: string | null;
+							art?: string | null;
+						};
+						trackMeta[t.id] = {
+							title: body.title ?? null,
+							artist: body.artist ?? null,
+							art: body.art ?? null
+						};
+					}
+				} catch {
+					// best-effort prefetch
+				}
+				if (cursor < pending.length) await new Promise((r) => setTimeout(r, 200));
+			}
+		}
+		await Promise.all([worker(), worker()]);
 	}
 
 	function toggleReplay() {
@@ -253,9 +298,12 @@
 	{#if tracks.length}
 		<ol class="tracklist">
 			{#each tracks as t, i (t.id)}
-				{#if t.url && isBandcampUrl(t.url)}
+				{#if t.url && isBandcampPageUrl(t.url)}
 					<li class="track-row">
 						<span class="num">{i + 1}</span>
+						{#if rowArt(t)}
+							<img class="bc-art" src={rowArt(t)} alt="" width="28" height="28" loading="lazy" />
+						{/if}
 						<button
 							class="track-play"
 							class:playing={trackPlaying(t.id)}
@@ -425,6 +473,14 @@
 
 	.tracklist li.track-row {
 		align-items: center;
+	}
+
+	.bc-art {
+		width: 28px;
+		height: 28px;
+		object-fit: cover;
+		flex-shrink: 0;
+		border: 1px solid var(--vr-line-muted);
 	}
 
 	.track-play {

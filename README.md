@@ -23,6 +23,32 @@ See [ROADMAP.md](ROADMAP.md) for planned features (push notifications).
 - `migrations/` — D1 migrations (domain + auth tables).
 - Live stream: `https://stream.version.nz/hls/version_radio/live.m3u8` (4 audio variants, CORS-enabled).
 
+## Bandcamp playback
+
+Tracklist rows with a Bandcamp link play through the **global player** (the same single `<audio>` element as live/replay), so only one track ever plays — on every browser. (The old EmbeddedPlayer iframes were replaced: a cross-origin embed can't be controlled, and Chrome blocks a second embed's audio.)
+
+**Resolution.** Bandcamp is behind Cloudflare Bot Management, so datacenter egress (our Worker, or a VPS) gets a JS "Client Challenge". We fetch pages through the **Jina reader** (`https://r.jina.ai/<url>` with `x-respond-with: html`, authenticated with `JINA_API_KEY`) and parse the server-rendered `data-tralbum` JSON for:
+
+- a signed `t4.bcbits.com` stream URL (valid ~24h; `stream_expires_at` gates re-resolution),
+- title, artist, duration, and art id (`stream_art_id`).
+
+`GET /api/tracks/:id/stream` is D1-cache-first and resolves on miss. Only Bandcamp **track/album page** URLs resolve; `EmbeddedPlayer`/artist URLs return a "re-link with the page URL" error.
+
+**Metadata prefetch (name/artist/art).** Fills rows so names appear before play. It runs **client-side** (each row is its own short request, so a large import can't hit the Worker's 30s ceiling), 2 at a time with a small stagger, and skips rows that already have metadata:
+
+1. **Editor — after “Save tracklist”**: warms D1 so the public page is already enriched.
+2. **Public broadcast page — on load**: resolves any rows still missing metadata. The first visitor to a tracklist pays the fetch cost; later views render straight from D1.
+
+Clicking a track still resolves as a fallback (usually instant once prefetched).
+
+**Notes / limits**
+
+- Signed stream URLs expire (~24h); a play after expiry re-resolves.
+- Some tracks are preview-only (`capped`) — surfaced as `capped: true`.
+- Migration `0022_track_stream.sql` adds the `stream_*` columns.
+- `JINA_API_KEY` is a Pages secret (staging + prod) and `.dev.vars` locally.
+- Hotlinking Bandcamp streams is a product decision; each row keeps a prominent “Bandcamp ↗” link.
+
 ## Local development
 
 ```sh
@@ -89,7 +115,7 @@ Deploy to staging with `npm run pages:deploy` (local, any branch) **or** the CI 
    ```
    Staging starts fresh (no prod data copy).
 3. **Custom domain** — Pages dashboard → `version-radio-staging` → Custom domains → Set up a domain → `dev.versionradio.live`, then at your DNS provider add `CNAME dev → version-radio-staging.pages.dev`. Associate in the dashboard first (CNAME-only setup causes a 522).
-4. **Secrets (staging project)** — `AUTH_SECRET` (new value, not prod's), `GOOGLE_ID/GOOGLE_SECRET` (reuse prod), `RESEND_API_KEY/RESEND_FROM` (reuse prod), `PUBLIC_CHAT_URL` (staging chat worker URL), `TURNSTILE_SECRET`/`TURNSTILE_HOSTNAMES`/`PUBLIC_TURNSTILE_SITE_KEY` (test keys), `BETTER_AUTH_URL=https://dev.versionradio.live`.
+4. **Secrets (staging project)** — `AUTH_SECRET` (new value, not prod's), `GOOGLE_ID/GOOGLE_SECRET` (reuse prod), `RESEND_API_KEY/RESEND_FROM` (reuse prod), `PUBLIC_CHAT_URL` (staging chat worker URL), `TURNSTILE_SECRET`/`TURNSTILE_HOSTNAMES`/`PUBLIC_TURNSTILE_SITE_KEY` (test keys), `JINA_API_KEY` (Bandcamp playback; see above), `BETTER_AUTH_URL=https://dev.versionradio.live`.
 5. **Chat worker** — from `workers/chat-worker`: `npx wrangler deploy --name chat-worker-staging`, then set `CHAT_IDENTITY_SECRET` + `CHAT_ADMIN_TOKEN` (shared values with the staging app).
 6. **OAuth** — add `https://dev.versionradio.live/api/auth/callback/*` callback URLs to the GitHub/Google OAuth apps.
 
@@ -105,3 +131,4 @@ Staging URL: `https://dev.versionradio.live` (also reachable via `https://versio
 - Onboard a sending domain for Cloudflare Email Service; add the `EMAIL` binding via the Pages dashboard (config-file `send_email` is rejected for Pages) and set `EMAIL_FROM`. Until then magic links log to the console.
 - Set `BETTER_AUTH_URL` (or `baseURL`) once a stable production hostname exists.
 - Add GitHub/Google OAuth client IDs as `GITHUB_ID/GITHUB_SECRET/GOOGLE_ID/GOOGLE_SECRET` secrets.
+- Set `JINA_API_KEY` on the prod Pages project (Bandcamp stream resolution; see [Bandcamp playback](#bandcamp-playback)).

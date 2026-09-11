@@ -36,6 +36,21 @@ export function isBandcampUrl(url: string): boolean {
 	}
 }
 
+/**
+ * True only for a fetchable Bandcamp track/album *page*. Excludes
+ * `EmbeddedPlayer` URLs (and artist/other pages) which have no `data-tralbum`.
+ */
+export function isBandcampPageUrl(url: string): boolean {
+	if (!isBandcampUrl(url)) return false;
+	try {
+		const path = new URL(url).pathname;
+		if (/\/EmbeddedPlayer\//i.test(path)) return false;
+		return /\/(track|album)\//i.test(path);
+	} catch {
+		return false;
+	}
+}
+
 /** Artwork URL for a Bandcamp art id (square thumbnail). */
 export function bandcampArtUrl(artId: string | null | undefined): string | null {
 	return artId ? `https://f4.bcbits.com/img/a${artId}_10.jpg` : null;
@@ -68,7 +83,7 @@ export async function resolveBandcampTrack(
 	url: string,
 	apiKey?: string
 ): Promise<BandcampStream | null> {
-	if (!isBandcampUrl(url)) return null;
+	if (!isBandcampPageUrl(url)) return null;
 
 	let html: string;
 	try {
