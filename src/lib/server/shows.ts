@@ -738,7 +738,11 @@ export async function getTrack(db: D1Database, id: string): Promise<TrackRow | n
 	return row ?? null;
 }
 
-/** Persist a resolved Bandcamp stream (URL + expiry + art/cap metadata). */
+/**
+ * Persist a resolved Bandcamp stream (URL + expiry + art/cap), opportunistically
+ * filling empty title/artist/duration from the resolved metadata (never
+ * overwriting values the DJ typed).
+ */
 export async function setTrackStream(
 	db: D1Database,
 	id: string,
@@ -748,11 +752,18 @@ export async function setTrackStream(
 		format: string;
 		artId: string | null;
 		capped: boolean;
+		title?: string | null;
+		artist?: string | null;
+		durationSeconds?: number | null;
 	}
 ): Promise<void> {
 	await db
 		.prepare(
-			`UPDATE track SET stream_url = ?, stream_expires_at = ?, stream_format = ?, stream_art_id = ?, stream_capped = ?, updated_at = ?
+			`UPDATE track SET
+			   stream_url = ?, stream_expires_at = ?, stream_format = ?, stream_art_id = ?, stream_capped = ?, updated_at = ?,
+			   title = CASE WHEN title = '' THEN ? ELSE title END,
+			   artist = CASE WHEN artist = '' THEN ? ELSE artist END,
+			   duration_seconds = COALESCE(duration_seconds, ?)
 			 WHERE id = ?`
 		)
 		.bind(
@@ -762,6 +773,9 @@ export async function setTrackStream(
 			stream.artId,
 			stream.capped ? 1 : 0,
 			now(),
+			stream.title ?? '',
+			stream.artist ?? '',
+			stream.durationSeconds ?? null,
 			id
 		)
 		.run();

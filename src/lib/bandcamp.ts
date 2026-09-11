@@ -54,7 +54,6 @@ function decodeEntities(s: string): string {
 interface Tralbum {
 	art_id?: number | null;
 	artist?: string | null;
-	play_cap_data?: unknown;
 	trackinfo?: Array<{
 		title?: string | null;
 		artist?: string | null;
@@ -123,6 +122,6 @@ export async function resolveBandcampTrack(
 		artist: track.artist ?? data.artist ?? null,
 		artId,
 		durationSeconds: typeof track.duration === 'number' ? track.duration : null,
-		capped: track.is_capped === true || Boolean(data.play_cap_data)
+		capped: track.is_capped === true
 	};
 }
