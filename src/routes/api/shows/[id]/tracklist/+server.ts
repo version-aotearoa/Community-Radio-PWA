@@ -1,5 +1,4 @@
 import { json } from '@sveltejs/kit';
-import { resolveBandcamp } from '$lib/bandcamp';
 import {
 	ensureBroadcasts,
 	getActiveBroadcast,
@@ -9,25 +8,6 @@ import {
 } from '$lib/server/shows';
 import type { TrackInput } from '$lib/server/shows';
 import type { RequestHandler } from './$types';
-
-async function resolveTrackUrls(tracks: (TrackInput & { url: string | null })[]): Promise<TrackInput[]> {
-	const cache = new Map<string, Awaited<ReturnType<typeof resolveBandcamp>>>();
-	let cursor = 0;
-	async function worker() {
-		while (cursor < tracks.length) {
-			const index = cursor++;
-			const track = tracks[index];
-			if (track.url) {
-				if (!cache.has(track.url)) cache.set(track.url, await resolveBandcamp(track.url));
-				const info = cache.get(track.url) ?? null;
-				track.embedId = info?.embedId ?? null;
-				track.albumId = info?.albumId ?? null;
-			}
-		}
-	}
-	await Promise.all([worker(), worker(), worker(), worker()]);
-	return tracks;
-}
 
 export const GET: RequestHandler = async ({ params, platform }) => {
 	const show = await getShow(platform!.env.DB, params.id);
@@ -71,8 +51,6 @@ export const PUT: RequestHandler = async ({ request, params, locals, platform })
 		}))
 		.filter((t) => t.title.trim() !== '' || t.url !== null);
 
-	const resolved = await resolveTrackUrls(filtered);
-
-	const tracks = await replaceTracklist(platform!.env.DB, broadcast.id, resolved);
+	const tracks = await replaceTracklist(platform!.env.DB, broadcast.id, filtered);
 	return json(tracks);
 };

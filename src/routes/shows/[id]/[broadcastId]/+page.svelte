@@ -4,6 +4,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import ShowActions from '$lib/components/ShowActions.svelte';
 	import { playback, playMedia, requestTogglePlay, streamPlaying } from '$lib/stores/player';
+	import { isBandcampUrl } from '$lib/bandcamp';
 	import { episodeArtOrDefault } from '$lib/azuracast';
 	import { artOnError } from '$lib/art';
 	import Seo from '$lib/components/Seo.svelte';
@@ -50,12 +51,69 @@
 		}
 	}
 
-	/** Legacy size=small compact bar on both branches: square art, play, title, link. */
-	function bandcampEmbed(t: { embed_id: string | null; album_id?: string | null }) {
-		if (t.album_id) {
-			return `https://bandcamp.com/EmbeddedPlayer/album=${t.album_id}/size=small/bgcol=333333/linkcol=0f91ff/track=${t.embed_id}/transparent=true/`;
+	// Bandcamp rows play through the global player: clicking resolves the
+	// signed stream URL (via /api/tracks/:id/stream) then hands off to
+	// playMedia(), which is a single shared <audio> element — so only one
+	// track ever plays, on every browser.
+	let resolving = $state<Record<string, boolean>>({});
+	let trackMeta = $state<
+		Record<string, { title: string | null; artist: string | null; art: string | null }>
+	>({});
+	let trackError = $state<Record<string, string>>({});
+
+	function trackCurrent(trackId: string): boolean {
+		const current = $playback;
+		return current.kind === 'media' && current.trackId === trackId;
+	}
+
+	function trackPlaying(trackId: string): boolean {
+		return trackCurrent(trackId) && $streamPlaying;
+	}
+
+	async function playTrack(t: { id: string; title: string; artist: string; url: string | null }) {
+		if (!t.url) return;
+		if (trackCurrent(t.id)) {
+			requestTogglePlay();
+			return;
 		}
-		return `https://bandcamp.com/EmbeddedPlayer/track=${t.embed_id}/size=small/bgcol=333333/linkcol=0f91ff/transparent=true/`;
+		trackError[t.id] = '';
+		resolving[t.id] = true;
+		try {
+			const res = await fetch(`/api/tracks/${t.id}/stream`);
+			const body = (await res.json().catch(() => null)) as
+				| {
+						streamUrl?: string;
+						title?: string | null;
+						artist?: string | null;
+						art?: string | null;
+						error?: string;
+					}
+				| null;
+			if (!res.ok || !body?.streamUrl) {
+				trackError[t.id] = body?.error ?? `Couldn't start playback (${res.status})`;
+				return;
+			}
+			trackMeta[t.id] = {
+				title: body.title ?? null,
+				artist: body.artist ?? null,
+				art: body.art ?? null
+			};
+			playMedia({
+				url: body.streamUrl,
+				title: body.title || t.title || 'Bandcamp',
+				artist: body.artist || t.artist || null,
+				art: body.art ?? artUrl ?? artFallback,
+				show: { id: show.id, title: show.title },
+				href: `/shows/${show.id}/${broadcast.id}`,
+				broadcastId: broadcast.id,
+				date: broadcast.date,
+				trackId: t.id
+			});
+		} catch {
+			trackError[t.id] = "Couldn't start playback.";
+		} finally {
+			resolving[t.id] = false;
+		}
 	}
 
 	function toggleReplay() {
@@ -195,16 +253,34 @@
 	{#if tracks.length}
 		<ol class="tracklist">
 			{#each tracks as t, i (t.id)}
-				{#if t.embed_id}
-					<li class="embed-row">
+				{#if t.url && isBandcampUrl(t.url)}
+					<li class="track-row">
 						<span class="num">{i + 1}</span>
-						<iframe
-							class="bc-embed"
-							src={bandcampEmbed(t)}
-							title={`Play ${t.title} on Bandcamp`}
-							height="42"
-							loading="lazy"
-						></iframe>
+						<button
+							class="track-play"
+							class:playing={trackPlaying(t.id)}
+							disabled={resolving[t.id]}
+							aria-label={`${trackPlaying(t.id) ? 'Pause' : 'Play'} ${t.title || `track ${i + 1}`}`}
+							onclick={() => playTrack(t)}
+						>
+							{#if resolving[t.id]}
+								<span class="spinner" aria-hidden="true"></span>
+							{:else if trackPlaying(t.id)}
+								<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0zM15 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0z" fill="currentColor" /></svg>
+							{:else}
+								<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z" fill="currentColor" /></svg>
+							{/if}
+						</button>
+						<span class="bc-title">{trackMeta[t.id]?.title || t.title || `Track ${i + 1}`}</span>
+						{#if trackMeta[t.id]?.artist || t.artist}
+							<span class="artist">{trackMeta[t.id]?.artist || t.artist}</span>
+						{/if}
+						{#if trackError[t.id]}
+							<span class="track-err" title={trackError[t.id]}>{trackError[t.id]}</span>
+						{/if}
+						<a class="url-fallback" href={t.url} target="_blank" rel="noopener noreferrer">
+							Bandcamp <span class="arrow-chip" aria-hidden="true">↗︎</span>
+						</a>
 					</li>
 				{:else}
 					<li>
@@ -347,19 +423,63 @@
 		margin-left: 0.5rem;
 	}
 
-	.tracklist li.embed-row {
-		padding: 0;
-		border-bottom: none;
+	.tracklist li.track-row {
 		align-items: center;
 	}
 
-	.bc-embed {
-		width: 100%;
-		max-width: 700px;
-		height: 42px;
-		border: 0;
+	.track-play {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
+		flex-shrink: 0;
+		border: 1px solid var(--vr-line);
+		background: transparent;
+		color: var(--vr-text);
+		cursor: pointer;
+		padding: 0;
+	}
+
+	.track-play svg {
+		width: 15px;
+		height: 15px;
 		display: block;
-		margin-top: 0;
+	}
+
+	.track-play:hover,
+	.track-play.playing {
+		background: var(--vr-text);
+		color: var(--vr-black);
+	}
+
+	.track-play:disabled {
+		cursor: default;
+		opacity: 0.7;
+	}
+
+	.spinner {
+		width: 12px;
+		height: 12px;
+		border: 2px solid currentColor;
+		border-right-color: transparent;
+		border-radius: 50%;
+		animation: track-spin 0.7s linear infinite;
+	}
+
+	@keyframes track-spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	.bc-title {
+		font-weight: 500;
+	}
+
+	.track-err {
+		color: var(--vr-muted);
+		font-size: 0.8rem;
 	}
 
 	.hint {

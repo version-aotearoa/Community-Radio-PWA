@@ -379,8 +379,10 @@
 		tracks = saved;
 		editable = toDisplayPos(saved);
 		saveVersion += 1;
-		const embedded = saved.filter((t) => t.embed_id).length;
-		notice = `Tracklist saved (${saved.length} tracks)${embedded ? ` — embedded ${embedded} Bandcamp player${embedded === 1 ? '' : 's'}` : '.'}`;
+		const bandcamp = saved.filter(
+			(t) => typeof t.url === 'string' && /bandcamp\.com/i.test(t.url)
+		).length;
+		notice = `Tracklist saved (${saved.length} tracks)${bandcamp ? ` — ${bandcamp} Bandcamp track${bandcamp === 1 ? '' : 's'} ready to play` : '.'}`;
 	}
 </script>
 

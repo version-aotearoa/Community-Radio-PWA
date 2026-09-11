@@ -59,6 +59,12 @@ export interface TrackRow {
 	url: string | null;
 	embed_id: string | null;
 	album_id: string | null;
+	/** Bandcamp stream (resolved on demand; signed URL, expires ~24h). */
+	stream_url: string | null;
+	stream_expires_at: number | null;
+	stream_format: string | null;
+	stream_art_id: string | null;
+	stream_capped: number | null;
 	duration_seconds: number | null;
 	created_at: number;
 	updated_at: number;
@@ -724,6 +730,42 @@ export async function createShow(
 /* ------------------------------------------------------------------ */
 /* Tracklists (per broadcast)                                          */
 /* ------------------------------------------------------------------ */
+
+export async function getTrack(db: D1Database, id: string): Promise<TrackRow | null> {
+	const row = (await db.prepare('SELECT * FROM track WHERE id = ?').bind(id).first()) as
+		| TrackRow
+		| null;
+	return row ?? null;
+}
+
+/** Persist a resolved Bandcamp stream (URL + expiry + art/cap metadata). */
+export async function setTrackStream(
+	db: D1Database,
+	id: string,
+	stream: {
+		streamUrl: string;
+		expiresAt: number | null;
+		format: string;
+		artId: string | null;
+		capped: boolean;
+	}
+): Promise<void> {
+	await db
+		.prepare(
+			`UPDATE track SET stream_url = ?, stream_expires_at = ?, stream_format = ?, stream_art_id = ?, stream_capped = ?, updated_at = ?
+			 WHERE id = ?`
+		)
+		.bind(
+			stream.streamUrl,
+			stream.expiresAt,
+			stream.format,
+			stream.artId,
+			stream.capped ? 1 : 0,
+			now(),
+			id
+		)
+		.run();
+}
 
 export async function getTracklist(db: D1Database, broadcastId: string): Promise<TrackRow[]> {
 	const { results } = await db
