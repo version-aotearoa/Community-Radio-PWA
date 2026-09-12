@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
 	import { invalidateAll } from '$app/navigation';
-	import { page } from '$app/state';
+	import { page, updated } from '$app/state';
 	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
 	import InstallPrompt from '$lib/components/InstallPrompt.svelte';
 	import { initBannerDismissed, initPwa, registerServiceWorker } from '$lib/pwa';
@@ -232,6 +232,13 @@
 		</footer>
 
 		<StreamPlayer />
+
+		{#if updated.current}
+			<div class="update-toast" role="status">
+				<span class="mono">New version available</span>
+				<button class="update-refresh" onclick={() => location.reload()}>Refresh</button>
+			</div>
+		{/if}
 	</div>
 </WillowDark>
 
@@ -249,6 +256,37 @@
 		background: var(--vr-bg);
 		color: var(--vr-text);
 		padding-bottom: 64px;
+	}
+
+	.update-toast {
+		position: fixed;
+		left: 50%;
+		bottom: 76px;
+		transform: translateX(-50%);
+		z-index: 60;
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.5rem 0.7rem;
+		border: 1px solid var(--vr-line);
+		background: var(--vr-bg);
+		color: var(--vr-text);
+		font-size: 0.85rem;
+		box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+	}
+
+	.update-refresh {
+		border: 1px solid var(--vr-line);
+		background: var(--vr-text);
+		color: var(--vr-bg);
+		font: inherit;
+		padding: 0.25rem 0.7rem;
+		cursor: pointer;
+	}
+
+	.update-refresh:hover {
+		background: var(--vr-bg);
+		color: var(--vr-text);
 	}
 
 	.site-header {

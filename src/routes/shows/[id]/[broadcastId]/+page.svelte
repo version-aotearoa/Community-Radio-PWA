@@ -408,8 +408,9 @@
 							<span class="album">{t.album}</span>
 						{/if}
 						{#if t.url}
-							<a class="url-fallback" href={t.url} target="_blank" rel="noopener noreferrer">
-								{hostOf(t.url)} <span class="arrow-chip" aria-hidden="true">↗︎</span>
+							<a class="url-fallback" href={t.url} target="_blank" rel="noopener noreferrer" title={t.url}>
+								<span class="url-host">{hostOf(t.url)}</span>
+								<span class="arrow-chip" aria-hidden="true">↗︎</span>
 							</a>
 						{/if}
 					</li>
@@ -738,6 +739,24 @@
 		.card {
 			margin-left: -2rem;
 			margin-right: -2rem;
+		}
+
+		.url-fallback {
+			display: inline-flex;
+			align-items: baseline;
+			gap: 0.35rem;
+			min-width: 0;
+		}
+
+		.url-host {
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			min-width: 0;
+		}
+
+		.url-fallback .arrow-chip {
+			flex-shrink: 0;
 		}
 	}
 
