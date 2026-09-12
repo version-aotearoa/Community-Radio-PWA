@@ -20,6 +20,47 @@
 
 	const user = $derived(page.data.user);
 	let menuOpen = $state(false);
+	let buildId = $state<string | null>(null);
+
+	// Preview builds show their build id so it is obvious which deploy is live;
+	// production stays clean.
+	function isPreviewHost() {
+		if (typeof location === 'undefined') return false;
+		const host = location.hostname;
+		return host === 'localhost' || host.endsWith('.pages.dev') || host === 'dev.versionradio.live';
+	}
+
+	async function loadBuildId() {
+		try {
+			const res = await fetch('/_app/version.json', { cache: 'no-store' });
+			const data = (await res.json()) as { version?: string };
+			buildId = data.version ?? null;
+			console.log('[version]', buildId);
+		} catch {
+			// build id is non-critical
+		}
+	}
+
+	// The update toast's Refresh must not be served by a stale SW or HTTP cache:
+	// purge both, then reload.
+	async function forceRefresh() {
+		try {
+			if ('serviceWorker' in navigator) {
+				const registrations = await navigator.serviceWorker.getRegistrations();
+				await Promise.all(registrations.map((reg) => reg.unregister()));
+			}
+		} catch {
+			// unregister is non-fatal
+		}
+		try {
+			if (typeof caches !== 'undefined') {
+				await Promise.all((await caches.keys()).map((key) => caches.delete(key)));
+			}
+		} catch {
+			// cache purge is non-fatal
+		}
+		location.reload();
+	}
 
 	// Current path for highlighting the active nav link (prefix match so
 	// sub-pages keep their parent item highlighted).
@@ -44,6 +85,7 @@
 		initPwa();
 		initBannerDismissed();
 		registerServiceWorker();
+		void loadBuildId();
 
 		// Tap/click outside the mobile menu (or the toggle) closes it.
 		// Also covers the player bar: its expand chev is outside the menu,
@@ -201,6 +243,9 @@
 		<footer class="site-footer">
 			<img class="footer-logo" src="/version-logo.svg" alt="VERSION" />
 			<span class="footer-note mono">Version Radio · Aotearoa</span>
+			{#if buildId && isPreviewHost()}
+				<span class="build-stamp mono" title="Build id">{buildId}</span>
+			{/if}
 			<nav class="footer-links" aria-label="Footer">
 				<a href="/info#contact">Contact</a>
 				<a href="/info#terms">Terms</a>
@@ -236,7 +281,7 @@
 		{#if updated.current}
 			<div class="update-toast" role="status">
 				<span class="mono">New version available</span>
-				<button class="update-refresh" onclick={() => location.reload()}>Refresh</button>
+				<button class="update-refresh" onclick={forceRefresh}>Refresh</button>
 			</div>
 		{/if}
 	</div>
@@ -515,6 +560,13 @@
 		margin-left: auto;
 	}
 
+	.build-stamp {
+		color: var(--vr-faint);
+		border: 1px solid var(--vr-line-muted);
+		padding: 0.1rem 0.4rem;
+		font-size: 0.66rem;
+	}
+
 	.footer-links {
 		display: flex;
 		gap: 1rem;
@@ -574,6 +626,7 @@
 		}
 
 		.footer-note,
+		.build-stamp,
 		.footer-links {
 			display: none;
 		}
