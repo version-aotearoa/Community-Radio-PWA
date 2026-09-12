@@ -67,7 +67,9 @@ export function registerServiceWorker() {
 	if (!('serviceWorker' in navigator)) return;
 
 	if (!SW_ENABLED) {
-		// Purge any previously installed SW (static/sw.js also self-destructs).
+		// Purge any previously installed SW and its caches (static/sw.js also
+		// self-destructs). A stale SW served cached __data.json (old page data)
+		// most stubbornly in Safari.
 		navigator.serviceWorker
 			.getRegistrations()
 			.then((registrations) => {
@@ -80,6 +82,14 @@ export function registerServiceWorker() {
 			.catch(() => {
 				// removal is non-fatal
 			});
+		if (typeof caches !== 'undefined') {
+			caches
+				.keys()
+				.then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+				.catch(() => {
+					// cache purge is non-fatal
+				});
+		}
 		return;
 	}
 
