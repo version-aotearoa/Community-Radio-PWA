@@ -749,7 +749,10 @@
 				</span>
 			{/if}
 			<div class="meta">
-				<span class="track mono" class:muted={!media && !identity && !isLive && !livePayload?.nowPlaying?.title}>{trackText()}</span>
+				<span class="track mono" class:muted={!media && !identity && !isLive && !livePayload?.nowPlaying?.title}>{media ? media.title : trackText()}</span>
+				{#if media?.artist}
+					<span class="track mono muted">{media.artist}</span>
+				{/if}
 				{#if !mediaMode}
 					{#if isLive}
 						{#if identity}
