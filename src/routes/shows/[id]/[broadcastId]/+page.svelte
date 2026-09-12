@@ -312,7 +312,17 @@
 							onclick={() => playTrack(t)}
 						>
 							{#if resolving[t.id]}
-								<span class="spinner" aria-hidden="true"></span>
+								<svg class="trace" viewBox="0 0 24 24" aria-hidden="true">
+									<path
+										class="trace-path"
+										pathLength="100"
+										d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linejoin="round"
+									/>
+								</svg>
 							{:else if trackPlaying(t.id)}
 								<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0zM15 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0z" fill="currentColor" /></svg>
 							{:else}
@@ -514,18 +524,18 @@
 		opacity: 0.7;
 	}
 
-	.spinner {
-		width: 12px;
-		height: 12px;
-		border: 2px solid currentColor;
-		border-right-color: transparent;
-		border-radius: 50%;
-		animation: track-spin 0.7s linear infinite;
+	/* Same triangle-trace loading animation as the global player. */
+	.track-play svg.trace .trace-path {
+		stroke-dasharray: 34 66;
+		animation: trace-loop 1.8s linear infinite;
 	}
 
-	@keyframes track-spin {
+	@keyframes trace-loop {
+		from {
+			stroke-dashoffset: 0;
+		}
 		to {
-			transform: rotate(360deg);
+			stroke-dashoffset: 100;
 		}
 	}
 

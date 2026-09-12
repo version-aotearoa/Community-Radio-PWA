@@ -726,10 +726,6 @@
 					{:else if livePayload?.live?.streamerName}
 						<span class="showlink mono">{livePayload.live.streamerName}</span>
 					{/if}
-				{:else}
-					{#if media?.date}
-						<span class="showlink mono">{fmtDt(media.date)}</span>
-					{/if}
 				{/if}
 			</div>
 		</div>
