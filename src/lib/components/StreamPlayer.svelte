@@ -5,9 +5,11 @@
 	import {
 		autoplay,
 		playback,
+		advancePlayQueue,
 		playerCollapse,
 		playerRequest,
 		playerSet,
+		previousPlayQueue,
 		requestPlay,
 		streamPlaying
 	} from '$lib/stores/player';
@@ -347,6 +349,8 @@
 				clearStallWatchdog();
 				if (audioEl) audioEl.currentTime = 0;
 				console.info('[vr] media:ended'); // TEMP: pause/resume diagnosis
+				// Auto-advance the tracklist queue (no-op for live/replays).
+				void advancePlayQueue(media?.trackId ?? null);
 			});
 			audioEl.addEventListener('canplay', () => {
 				setLoading(false, 'event:canplay');
@@ -379,6 +383,8 @@
 			navigator.mediaSession.setActionHandler('pause', () => {
 				if (audioEl && !audioEl.paused) void togglePlay();
 			});
+			navigator.mediaSession.setActionHandler('nexttrack', () => void advancePlayQueue());
+			navigator.mediaSession.setActionHandler('previoustrack', () => void previousPlayQueue());
 		}
 		if ($autoplay && !mediaMode) togglePlay();
 	});
@@ -390,6 +396,8 @@
 		if (hasMediaSession) {
 			navigator.mediaSession.setActionHandler('play', null);
 			navigator.mediaSession.setActionHandler('pause', null);
+			navigator.mediaSession.setActionHandler('nexttrack', null);
+			navigator.mediaSession.setActionHandler('previoustrack', null);
 		}
 		if (typeof window !== 'undefined') {
 			window.removeEventListener('keydown', onKey);

@@ -3,7 +3,14 @@
 	import { onMount } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import ShowActions from '$lib/components/ShowActions.svelte';
-	import { playback, playMedia, requestSetPlaying, streamPlaying } from '$lib/stores/player';
+	import {
+		clearPlayQueue,
+		playback,
+		playMedia,
+		requestSetPlaying,
+		startPlayQueue,
+		streamPlaying
+	} from '$lib/stores/player';
 	import { bandcampArtUrl, isBandcampPageUrl } from '$lib/bandcamp';
 	import { episodeArtOrDefault } from '$lib/azuracast';
 	import { artOnError } from '$lib/art';
@@ -109,6 +116,18 @@
 		});
 	}
 
+	/** The ordered, playable Bandcamp rows — the player's auto-advance queue. */
+	function buildQueue() {
+		return tracks
+			.filter((t) => t.url && isBandcampPageUrl(t.url))
+			.map((t) => ({
+				trackId: t.id,
+				title: t.title,
+				artist: t.artist || null,
+				art: trackMeta[t.id]?.art ?? bandcampArtUrl(t.stream_art_id) ?? null
+			}));
+	}
+
 	async function playTrack(t: { id: string; title: string; artist: string; url: string | null }) {
 		if (!t.url) return;
 		trackError[t.id] = '';
@@ -142,6 +161,8 @@
 				trackError[t.id] = body?.error ?? "Couldn't start playback.";
 				return;
 			}
+			// Set this tracklist as the player's queue so it auto-advances.
+			startPlayQueue(buildQueue(), t.id);
 			startTrack(t, body);
 		} catch {
 			trackError[t.id] = "Couldn't start playback.";
@@ -199,6 +220,8 @@
 			requestSetPlaying(false);
 			return;
 		}
+		// Replay isn't the Bandcamp tracklist — stop auto-advancing that queue.
+		clearPlayQueue();
 		playMedia({
 			url: broadcast.replay_url,
 			title: show.title,
