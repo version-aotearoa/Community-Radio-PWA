@@ -5,7 +5,7 @@
 	import { Text, Field, Button } from '@svar-ui/svelte-core';
 	import ShowActions from '$lib/components/ShowActions.svelte';
 	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
-	import { playback, playMedia, requestTogglePlay, streamPlaying } from '$lib/stores/player';
+	import { playback, playMedia, requestSetPlaying, streamPlaying } from '$lib/stores/player';
 	import { episodeArtOrDefault } from '$lib/azuracast';
 	import { artOnError } from '$lib/art';
 	import Seo from '$lib/components/Seo.svelte';
@@ -155,7 +155,7 @@
 	function toggleReplay(b: { id: string; replay_url: string | null; date: string }) {
 		if (!b.replay_url) return;
 		if (replayActive(b.replay_url)) {
-			requestTogglePlay();
+			requestSetPlaying(false);
 			return;
 		}
 		playMedia({

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { requestPlay, requestTogglePlay, streamPlaying } from '$lib/stores/player';
+	import { requestPlay, requestSetPlaying, streamPlaying } from '$lib/stores/player';
 	import { playMedia } from '$lib/stores/player';
 	import { live, startLivePolling } from '$lib/stores/live';
 	import { episodeArtOrDefault } from '$lib/azuracast';
@@ -98,7 +98,7 @@
 			<h1 class="hero-title">{heroTitle}</h1>
 			<p class="hero-meta mono">Version Radio · Aotearoa</p>
 		</div>
-		<button class="btn-block hero-play" onclick={requestTogglePlay}>
+		<button class="btn-block hero-play" onclick={() => requestSetPlaying(!isPlaying)}>
 			{#if isPlaying}
 				<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
 					<path d="M7 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0zM15 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0z" fill="currentColor" />

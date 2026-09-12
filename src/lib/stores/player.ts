@@ -50,6 +50,9 @@ export const playerRequest = writable<PlayerRequest>({ n: 0 });
 /** Play/pause toggle signal: asks the player to flip its current state. */
 export const playerToggle = writable<PlayerRequest>({ n: 0 });
 
+/** Explicit play/pause intent: ensure the player is playing (true) or paused (false). */
+export const playerSet = writable<{ n: number; play: boolean }>({ n: 0, play: false });
+
 /** Minimise-the-player signal (e.g. clicking the home logo while on /). */
 export const playerCollapse = writable<PlayerRequest>({ n: 0 });
 
@@ -58,6 +61,11 @@ export const streamPlaying = writable(false);
 
 export function requestTogglePlay() {
 	playerToggle.update((p) => ({ n: p.n + 1 }));
+}
+
+/** Ask the player to ensure a given state (idempotent — safe against duplicates). */
+export function requestSetPlaying(play: boolean) {
+	playerSet.update((p) => ({ n: p.n + 1, play }));
 }
 
 /** Ask the global stream player to collapse/minimise its max sheet. */

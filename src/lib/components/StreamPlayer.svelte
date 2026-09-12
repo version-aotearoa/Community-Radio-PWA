@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, untrack } from 'svelte';
 	import { page } from '$app/state';
 
 	import {
@@ -7,7 +7,7 @@
 		playback,
 		playerCollapse,
 		playerRequest,
-		playerToggle,
+		playerSet,
 		requestPlay,
 		streamPlaying
 	} from '$lib/stores/player';
@@ -129,9 +129,13 @@
 	});
 
 	$effect(() => {
-		// React to a requestTogglePlay() signal (play/pause flip from external buttons).
-		if ($playerToggle.n === 0) return;
-		togglePlay();
+		// React to an explicit requestSetPlaying() intent: ensure the element is
+		// playing or paused. Idempotent, so duplicate/stray signals are no-ops
+		// (the old blind toggle could flip straight back on a race).
+		if ($playerSet.n === 0) return;
+		const play = $playerSet.play;
+		// Read media state untracked so a source change doesn't re-apply intent.
+		untrack(() => void applyPlaying(play));
 	});
 
 	$effect(() => {
@@ -258,6 +262,27 @@
 		}
 	}
 
+	/** Ensure a target state (idempotent). Handles live-engine init for play. */
+	async function applyPlaying(play: boolean) {
+		if (!audioEl) return;
+		if (play) {
+			if (mediaMode) {
+				if (audioEl.paused) {
+					setLoading(true, 'set:play:media');
+					await audioEl.play().catch(() => setLoading(false, 'play-rejected:set-media'));
+				}
+			} else {
+				await initLiveEngine();
+				if (audioEl.paused) {
+					setLoading(true, 'set:play:live');
+					await audioEl.play().catch(() => setLoading(false, 'play-rejected:set-live'));
+				}
+			}
+		} else if (!audioEl.paused) {
+			audioEl.pause();
+		}
+	}
+
 	function onKey(e: KeyboardEvent) {
 		if (e.key === 'Escape' && expanded) expanded = false;
 	}
@@ -307,11 +332,21 @@
 				streamPlaying.set(true);
 				setLoading(false, 'event:playing');
 				clearStallWatchdog();
+				console.info('[vr] media:playing'); // TEMP: pause/resume diagnosis
 			});
 			audioEl.addEventListener('pause', () => {
 				streamPlaying.set(false);
 				setLoading(false, 'event:pause');
 				clearStallWatchdog();
+				console.info('[vr] media:pause'); // TEMP: pause/resume diagnosis
+			});
+			audioEl.addEventListener('ended', () => {
+				// Reset on finish so state is accurate and a replay starts at 0.
+				streamPlaying.set(false);
+				setLoading(false, 'event:ended');
+				clearStallWatchdog();
+				if (audioEl) audioEl.currentTime = 0;
+				console.info('[vr] media:ended'); // TEMP: pause/resume diagnosis
 			});
 			audioEl.addEventListener('canplay', () => {
 				setLoading(false, 'event:canplay');

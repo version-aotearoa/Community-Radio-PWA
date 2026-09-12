@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import ShowActions from '$lib/components/ShowActions.svelte';
-	import { playback, playMedia, requestTogglePlay, streamPlaying } from '$lib/stores/player';
+	import { playback, playMedia, requestSetPlaying, streamPlaying } from '$lib/stores/player';
 	import { bandcampArtUrl, isBandcampPageUrl } from '$lib/bandcamp';
 	import { episodeArtOrDefault } from '$lib/azuracast';
 	import { artOnError } from '$lib/art';
@@ -72,45 +72,77 @@
 		return trackCurrent(trackId) && $streamPlaying;
 	}
 
+	interface ResolvedStream {
+		streamUrl?: string;
+		title?: string | null;
+		artist?: string | null;
+		art?: string | null;
+		error?: string;
+	}
+
+	async function fetchStream(trackId: string): Promise<ResolvedStream | null> {
+		const res = await fetch(`/api/tracks/${trackId}/stream`);
+		return (await res.json().catch(() => null)) as ResolvedStream | null;
+	}
+
+	/** Hand a resolved stream to the global player (single shared <audio>). */
+	function startTrack(
+		t: { id: string; title: string; artist: string },
+		body: ResolvedStream
+	) {
+		if (!body.streamUrl) return;
+		trackMeta[t.id] = {
+			title: body.title ?? null,
+			artist: body.artist ?? null,
+			art: body.art ?? null
+		};
+		playMedia({
+			url: body.streamUrl,
+			title: body.title || t.title || 'Bandcamp',
+			artist: body.artist || t.artist || null,
+			art: body.art ?? artUrl ?? artFallback,
+			show: { id: show.id, title: show.title },
+			href: `/shows/${show.id}/${broadcast.id}`,
+			broadcastId: broadcast.id,
+			date: broadcast.date,
+			trackId: t.id
+		});
+	}
+
 	async function playTrack(t: { id: string; title: string; artist: string; url: string | null }) {
 		if (!t.url) return;
-		if (trackCurrent(t.id)) {
-			requestTogglePlay();
-			return;
-		}
 		trackError[t.id] = '';
-		resolving[t.id] = true;
-		try {
-			const res = await fetch(`/api/tracks/${t.id}/stream`);
-			const body = (await res.json().catch(() => null)) as
-				| {
-						streamUrl?: string;
-						title?: string | null;
-						artist?: string | null;
-						art?: string | null;
-						error?: string;
-					}
-				| null;
-			if (!res.ok || !body?.streamUrl) {
-				trackError[t.id] = body?.error ?? `Couldn't start playback (${res.status})`;
+
+		if (trackCurrent(t.id)) {
+			// Already the current track: pause explicitly, or resume/restart.
+			if (trackPlaying(t.id)) {
+				requestSetPlaying(false);
 				return;
 			}
-			trackMeta[t.id] = {
-				title: body.title ?? null,
-				artist: body.artist ?? null,
-				art: body.art ?? null
-			};
-			playMedia({
-				url: body.streamUrl,
-				title: body.title || t.title || 'Bandcamp',
-				artist: body.artist || t.artist || null,
-				art: body.art ?? artUrl ?? artFallback,
-				show: { id: show.id, title: show.title },
-				href: `/shows/${show.id}/${broadcast.id}`,
-				broadcastId: broadcast.id,
-				date: broadcast.date,
-				trackId: t.id
-			});
+			resolving[t.id] = true;
+			try {
+				// Re-resolve so a stream URL that expired mid-session is replaced;
+				// otherwise resume in place.
+				const body = await fetchStream(t.id);
+				const currentUrl = $playback.kind === 'media' ? $playback.url : null;
+				if (body?.streamUrl && body.streamUrl !== currentUrl) startTrack(t, body);
+				else requestSetPlaying(true);
+			} catch {
+				requestSetPlaying(true);
+			} finally {
+				resolving[t.id] = false;
+			}
+			return;
+		}
+
+		resolving[t.id] = true;
+		try {
+			const body = await fetchStream(t.id);
+			if (!body?.streamUrl) {
+				trackError[t.id] = body?.error ?? "Couldn't start playback.";
+				return;
+			}
+			startTrack(t, body);
 		} catch {
 			trackError[t.id] = "Couldn't start playback.";
 		} finally {
@@ -164,7 +196,7 @@
 	function toggleReplay() {
 		if (!broadcast.replay_url) return;
 		if (replayActive()) {
-			requestTogglePlay();
+			requestSetPlaying(false);
 			return;
 		}
 		playMedia({
