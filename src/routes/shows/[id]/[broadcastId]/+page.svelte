@@ -463,7 +463,10 @@
 	}
 
 	.back {
-		display: inline-block;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4em;
+		cursor: pointer;
 		color: var(--vr-muted);
 		text-decoration: none;
 		font-size: 0.82rem;
