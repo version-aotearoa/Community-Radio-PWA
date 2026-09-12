@@ -47,9 +47,6 @@ export type PlaybackSource = { kind: 'live' } | ({ kind: 'media' } & MediaSource
 
 export const playerRequest = writable<PlayerRequest>({ n: 0 });
 
-/** Play/pause toggle signal: asks the player to flip its current state. */
-export const playerToggle = writable<PlayerRequest>({ n: 0 });
-
 /** Explicit play/pause intent: ensure the player is playing (true) or paused (false). */
 export const playerSet = writable<{ n: number; play: boolean }>({ n: 0, play: false });
 
@@ -58,10 +55,6 @@ export const playerCollapse = writable<PlayerRequest>({ n: 0 });
 
 /** Whether audio is currently playing (live or recording). */
 export const streamPlaying = writable(false);
-
-export function requestTogglePlay() {
-	playerToggle.update((p) => ({ n: p.n + 1 }));
-}
 
 /** Ask the player to ensure a given state (idempotent — safe against duplicates). */
 export function requestSetPlaying(play: boolean) {

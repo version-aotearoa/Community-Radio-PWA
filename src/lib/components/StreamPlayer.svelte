@@ -334,13 +334,11 @@
 				streamPlaying.set(true);
 				setLoading(false, 'event:playing');
 				clearStallWatchdog();
-				console.info('[vr] media:playing'); // TEMP: pause/resume diagnosis
 			});
 			audioEl.addEventListener('pause', () => {
 				streamPlaying.set(false);
 				setLoading(false, 'event:pause');
 				clearStallWatchdog();
-				console.info('[vr] media:pause'); // TEMP: pause/resume diagnosis
 			});
 			audioEl.addEventListener('ended', () => {
 				// Reset on finish so state is accurate and a replay starts at 0.
@@ -348,7 +346,6 @@
 				setLoading(false, 'event:ended');
 				clearStallWatchdog();
 				if (audioEl) audioEl.currentTime = 0;
-				console.info('[vr] media:ended'); // TEMP: pause/resume diagnosis
 				// Auto-advance the tracklist queue (no-op for live/replays).
 				void advancePlayQueue(media?.trackId ?? null);
 			});

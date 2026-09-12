@@ -41,6 +41,13 @@ Tracklist rows with a Bandcamp link play through the **global player** (the same
 
 Clicking a track still resolves as a fallback (usually instant once prefetched).
 
+**Playback & queue.** Starting a track loads the tracklist into a **persistent queue** (`playQueue` in the player store), so playback keeps advancing even if you navigate away:
+
+- When a track ends, the next playable row plays automatically; the next stream URL is prefetched so transitions are near-instant.
+- Rows that can't resolve are skipped. At the end of the tracklist it returns to the **live stream**.
+- Lock-screen / headset **next/previous** control the queue (Media Session `nexttrack`/`previoustrack`).
+- Starting a replay (or going back to live) clears the queue.
+
 **Notes / limits**
 
 - Signed stream URLs expire (~24h); a play after expiry re-resolves.
