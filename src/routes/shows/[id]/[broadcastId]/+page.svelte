@@ -3,7 +3,15 @@
 	import { onMount } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import ShowActions from '$lib/components/ShowActions.svelte';
-	import { playback, playMedia, requestTogglePlay, streamPlaying } from '$lib/stores/player';
+	import {
+		clearPlayQueue,
+		playback,
+		playMedia,
+		requestSetPlaying,
+		startPlayQueue,
+		streamPlaying
+	} from '$lib/stores/player';
+	import { bandcampArtUrl, isBandcampPageUrl } from '$lib/bandcamp';
 	import { episodeArtOrDefault } from '$lib/azuracast';
 	import { artOnError } from '$lib/art';
 	import Seo from '$lib/components/Seo.svelte';
@@ -24,6 +32,8 @@
 		// Deferred past the navigation's microtasks: an immediate invalidateAll
 		// aborts the in-flight navigation before SvelteKit resets scroll to top.
 		setTimeout(() => void invalidateAll(), 0);
+		// Fill in name/artist/art for any not-yet-resolved Bandcamp rows.
+		void prefetchMissing();
 	});
 
 	function fmtDate(dateStr: string) {
@@ -50,20 +60,168 @@
 		}
 	}
 
-	/** Legacy size=small compact bar on both branches: square art, play, title, link. */
-	function bandcampEmbed(t: { embed_id: string | null; album_id?: string | null }) {
-		if (t.album_id) {
-			return `https://bandcamp.com/EmbeddedPlayer/album=${t.album_id}/size=small/bgcol=333333/linkcol=0f91ff/track=${t.embed_id}/transparent=true/`;
+	// Bandcamp rows play through the global player: clicking resolves the
+	// signed stream URL (via /api/tracks/:id/stream) then hands off to
+	// playMedia(), which is a single shared <audio> element — so only one
+	// track ever plays, on every browser.
+	let resolving = $state<Record<string, boolean>>({});
+	let trackMeta = $state<
+		Record<string, { title: string | null; artist: string | null; art: string | null }>
+	>({});
+	let trackError = $state<Record<string, string>>({});
+
+	function trackCurrent(trackId: string): boolean {
+		const current = $playback;
+		return current.kind === 'media' && current.trackId === trackId;
+	}
+
+	function trackPlaying(trackId: string): boolean {
+		return trackCurrent(trackId) && $streamPlaying;
+	}
+
+	interface ResolvedStream {
+		streamUrl?: string;
+		title?: string | null;
+		artist?: string | null;
+		art?: string | null;
+		error?: string;
+	}
+
+	async function fetchStream(trackId: string): Promise<ResolvedStream | null> {
+		const res = await fetch(`/api/tracks/${trackId}/stream`);
+		return (await res.json().catch(() => null)) as ResolvedStream | null;
+	}
+
+	/** Hand a resolved stream to the global player (single shared <audio>). */
+	function startTrack(
+		t: { id: string; title: string; artist: string },
+		body: ResolvedStream
+	) {
+		if (!body.streamUrl) return;
+		trackMeta[t.id] = {
+			title: body.title ?? null,
+			artist: body.artist ?? null,
+			art: body.art ?? null
+		};
+		playMedia({
+			url: body.streamUrl,
+			title: body.title || t.title || 'Bandcamp',
+			artist: body.artist || t.artist || null,
+			art: body.art ?? artUrl ?? artFallback,
+			show: { id: show.id, title: show.title },
+			href: `/shows/${show.id}/${broadcast.id}`,
+			broadcastId: broadcast.id,
+			date: broadcast.date,
+			trackId: t.id
+		});
+	}
+
+	/** The ordered, playable Bandcamp rows — the player's auto-advance queue. */
+	function buildQueue() {
+		return tracks
+			.filter((t) => t.url && isBandcampPageUrl(t.url))
+			.map((t) => ({
+				trackId: t.id,
+				title: t.title,
+				artist: t.artist || null,
+				art: trackMeta[t.id]?.art ?? bandcampArtUrl(t.stream_art_id) ?? null
+			}));
+	}
+
+	async function playTrack(t: { id: string; title: string; artist: string; url: string | null }) {
+		if (!t.url) return;
+		trackError[t.id] = '';
+
+		if (trackCurrent(t.id)) {
+			// Already the current track: pause explicitly, or resume/restart.
+			if (trackPlaying(t.id)) {
+				requestSetPlaying(false);
+				return;
+			}
+			resolving[t.id] = true;
+			try {
+				// Re-resolve so a stream URL that expired mid-session is replaced;
+				// otherwise resume in place.
+				const body = await fetchStream(t.id);
+				const currentUrl = $playback.kind === 'media' ? $playback.url : null;
+				if (body?.streamUrl && body.streamUrl !== currentUrl) startTrack(t, body);
+				else requestSetPlaying(true);
+			} catch {
+				requestSetPlaying(true);
+			} finally {
+				resolving[t.id] = false;
+			}
+			return;
 		}
-		return `https://bandcamp.com/EmbeddedPlayer/track=${t.embed_id}/size=small/bgcol=333333/linkcol=0f91ff/transparent=true/`;
+
+		resolving[t.id] = true;
+		try {
+			const body = await fetchStream(t.id);
+			if (!body?.streamUrl) {
+				trackError[t.id] = body?.error ?? "Couldn't start playback.";
+				return;
+			}
+			// Set this tracklist as the player's queue so it auto-advances.
+			startPlayQueue(buildQueue(), t.id);
+			startTrack(t, body);
+		} catch {
+			trackError[t.id] = "Couldn't start playback.";
+		} finally {
+			resolving[t.id] = false;
+		}
+	}
+
+	/** Artwork for a row: freshly-resolved meta, else the cached Bandcamp art id. */
+	function rowArt(t: { id: string; stream_art_id?: string | null }): string | null {
+		return trackMeta[t.id]?.art ?? bandcampArtUrl(t.stream_art_id ?? null);
+	}
+
+	/**
+	 * Prefetch name/artist/art for Bandcamp rows that haven't been resolved yet
+	 * (no persisted metadata). Runs once per page load, 2 at a time, and updates
+	 * each row as results arrive. Resolved rows are cached in D1, so only the
+	 * first visitor to a tracklist pays the fetch cost.
+	 */
+	async function prefetchMissing() {
+		const pending = tracks.filter(
+			(t) => t.url && isBandcampPageUrl(t.url) && (!t.title || !t.stream_art_id)
+		);
+		let cursor = 0;
+		async function worker() {
+			while (cursor < pending.length) {
+				const t = pending[cursor++];
+				if (trackMeta[t.id]?.title) continue;
+				try {
+					const res = await fetch(`/api/tracks/${t.id}/stream`);
+					if (res.ok) {
+						const body = (await res.json()) as {
+							title?: string | null;
+							artist?: string | null;
+							art?: string | null;
+						};
+						trackMeta[t.id] = {
+							title: body.title ?? null,
+							artist: body.artist ?? null,
+							art: body.art ?? null
+						};
+					}
+				} catch {
+					// best-effort prefetch
+				}
+				if (cursor < pending.length) await new Promise((r) => setTimeout(r, 200));
+			}
+		}
+		await Promise.all([worker(), worker()]);
 	}
 
 	function toggleReplay() {
 		if (!broadcast.replay_url) return;
 		if (replayActive()) {
-			requestTogglePlay();
+			requestSetPlaying(false);
 			return;
 		}
+		// Replay isn't the Bandcamp tracklist — stop auto-advancing that queue.
+		clearPlayQueue();
 		playMedia({
 			url: broadcast.replay_url,
 			title: show.title,
@@ -195,16 +353,47 @@
 	{#if tracks.length}
 		<ol class="tracklist">
 			{#each tracks as t, i (t.id)}
-				{#if t.embed_id}
-					<li class="embed-row">
+				{#if t.url && isBandcampPageUrl(t.url)}
+					<li class="track-row">
 						<span class="num">{i + 1}</span>
-						<iframe
-							class="bc-embed"
-							src={bandcampEmbed(t)}
-							title={`Play ${t.title} on Bandcamp`}
-							height="42"
-							loading="lazy"
-						></iframe>
+						{#if rowArt(t)}
+							<img class="bc-art" src={rowArt(t)} alt="" width="28" height="28" loading="lazy" />
+						{/if}
+						<button
+							class="track-play"
+							class:playing={trackPlaying(t.id)}
+							disabled={resolving[t.id]}
+							aria-label={`${trackPlaying(t.id) ? 'Pause' : 'Play'} ${t.title || `track ${i + 1}`}`}
+							onclick={() => playTrack(t)}
+						>
+							{#if resolving[t.id]}
+								<svg class="trace" viewBox="0 0 24 24" aria-hidden="true">
+									<path
+										class="trace-path"
+										pathLength="100"
+										d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linejoin="round"
+									/>
+								</svg>
+							{:else if trackPlaying(t.id)}
+								<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0zM15 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0z" fill="currentColor" /></svg>
+							{:else}
+								<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.4v13.2a1 1 0 0 0 1.53.85l10.6-6.6a1 1 0 0 0 0-1.7L9.53 4.55A1 1 0 0 0 8 5.4z" fill="currentColor" /></svg>
+							{/if}
+						</button>
+						<span class="bc-title">{trackMeta[t.id]?.title || t.title || `Track ${i + 1}`}</span>
+						{#if trackMeta[t.id]?.artist || t.artist}
+							<span class="artist">{trackMeta[t.id]?.artist || t.artist}</span>
+						{/if}
+						{#if trackError[t.id]}
+							<span class="track-err" title={trackError[t.id]}>{trackError[t.id]}</span>
+						{/if}
+						<a class="url-fallback" href={t.url} target="_blank" rel="noopener noreferrer">
+							Bandcamp <span class="arrow-chip" aria-hidden="true">↗︎</span>
+						</a>
 					</li>
 				{:else}
 					<li>
@@ -348,19 +537,71 @@
 		margin-left: 0.5rem;
 	}
 
-	.tracklist li.embed-row {
-		padding: 0;
-		border-bottom: none;
+	.tracklist li.track-row {
 		align-items: center;
 	}
 
-	.bc-embed {
-		width: 100%;
-		max-width: 700px;
-		height: 42px;
-		border: 0;
+	.bc-art {
+		width: 28px;
+		height: 28px;
+		object-fit: cover;
+		flex-shrink: 0;
+		border: 1px solid var(--vr-line-muted);
+	}
+
+	.track-play {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
+		flex-shrink: 0;
+		border: 1px solid var(--vr-line);
+		background: transparent;
+		color: var(--vr-text);
+		cursor: pointer;
+		padding: 0;
+	}
+
+	.track-play svg {
+		width: 15px;
+		height: 15px;
 		display: block;
-		margin-top: 0;
+	}
+
+	.track-play:hover,
+	.track-play.playing {
+		background: var(--vr-text);
+		color: var(--vr-black);
+	}
+
+	.track-play:disabled {
+		cursor: default;
+		opacity: 0.7;
+	}
+
+	/* Same triangle-trace loading animation as the global player. */
+	.track-play svg.trace .trace-path {
+		stroke-dasharray: 34 66;
+		animation: trace-loop 1.8s linear infinite;
+	}
+
+	@keyframes trace-loop {
+		from {
+			stroke-dashoffset: 0;
+		}
+		to {
+			stroke-dashoffset: 100;
+		}
+	}
+
+	.bc-title {
+		font-weight: 500;
+	}
+
+	.track-err {
+		color: var(--vr-muted);
+		font-size: 0.8rem;
 	}
 
 	.hint {

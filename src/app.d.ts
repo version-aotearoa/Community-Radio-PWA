@@ -57,6 +57,8 @@ declare global {
 		RESEND_FROM?: string;
 		PUBLIC_CHAT_URL?: string;
 		PUBLIC_GIPHY_API_KEY?: string;
+		/** Jina reader API key (Bandcamp page fetches bypass the bot challenge). */
+		JINA_API_KEY?: string;
 		TURNSTILE_SECRET?: string;
 		TURNSTILE_HOSTNAMES?: string;
 		PUBLIC_TURNSTILE_SITE_KEY?: string;

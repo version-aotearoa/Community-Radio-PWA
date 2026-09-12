@@ -22,6 +22,10 @@ GOOGLE_SECRET=
 # Chat worker public URL (local: http://localhost:8790)
 PUBLIC_CHAT_URL=http://localhost:8790
 
+# Jina reader API key (resolves Bandcamp pages to stream URLs). Optional —
+# unauthenticated works at low volume; a key raises the rate limit.
+JINA_API_KEY=
+
 # Giphy GIF search (client-side key; beta keys ~100 calls/hr). Create at
 # https://developers.giphy.com/dashboard/ and set on Pages projects too.
 PUBLIC_GIPHY_API_KEY=

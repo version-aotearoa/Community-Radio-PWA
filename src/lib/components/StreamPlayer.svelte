@@ -1,13 +1,15 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, untrack } from 'svelte';
 	import { page } from '$app/state';
 
 	import {
 		autoplay,
 		playback,
+		advancePlayQueue,
 		playerCollapse,
 		playerRequest,
-		playerToggle,
+		playerSet,
+		previousPlayQueue,
 		requestPlay,
 		streamPlaying
 	} from '$lib/stores/player';
@@ -129,9 +131,13 @@
 	});
 
 	$effect(() => {
-		// React to a requestTogglePlay() signal (play/pause flip from external buttons).
-		if ($playerToggle.n === 0) return;
-		togglePlay();
+		// React to an explicit requestSetPlaying() intent: ensure the element is
+		// playing or paused. Idempotent, so duplicate/stray signals are no-ops
+		// (the old blind toggle could flip straight back on a race).
+		if ($playerSet.n === 0) return;
+		const play = $playerSet.play;
+		// Read media state untracked so a source change doesn't re-apply intent.
+		untrack(() => void applyPlaying(play));
 	});
 
 	$effect(() => {
@@ -258,6 +264,27 @@
 		}
 	}
 
+	/** Ensure a target state (idempotent). Handles live-engine init for play. */
+	async function applyPlaying(play: boolean) {
+		if (!audioEl) return;
+		if (play) {
+			if (mediaMode) {
+				if (audioEl.paused) {
+					setLoading(true, 'set:play:media');
+					await audioEl.play().catch(() => setLoading(false, 'play-rejected:set-media'));
+				}
+			} else {
+				await initLiveEngine();
+				if (audioEl.paused) {
+					setLoading(true, 'set:play:live');
+					await audioEl.play().catch(() => setLoading(false, 'play-rejected:set-live'));
+				}
+			}
+		} else if (!audioEl.paused) {
+			audioEl.pause();
+		}
+	}
+
 	function onKey(e: KeyboardEvent) {
 		if (e.key === 'Escape' && expanded) expanded = false;
 	}
@@ -313,6 +340,15 @@
 				setLoading(false, 'event:pause');
 				clearStallWatchdog();
 			});
+			audioEl.addEventListener('ended', () => {
+				// Reset on finish so state is accurate and a replay starts at 0.
+				streamPlaying.set(false);
+				setLoading(false, 'event:ended');
+				clearStallWatchdog();
+				if (audioEl) audioEl.currentTime = 0;
+				// Auto-advance the tracklist queue (no-op for live/replays).
+				void advancePlayQueue(media?.trackId ?? null);
+			});
 			audioEl.addEventListener('canplay', () => {
 				setLoading(false, 'event:canplay');
 				clearStallWatchdog();
@@ -344,6 +380,8 @@
 			navigator.mediaSession.setActionHandler('pause', () => {
 				if (audioEl && !audioEl.paused) void togglePlay();
 			});
+			navigator.mediaSession.setActionHandler('nexttrack', () => void advancePlayQueue());
+			navigator.mediaSession.setActionHandler('previoustrack', () => void previousPlayQueue());
 		}
 		if ($autoplay && !mediaMode) togglePlay();
 	});
@@ -355,6 +393,8 @@
 		if (hasMediaSession) {
 			navigator.mediaSession.setActionHandler('play', null);
 			navigator.mediaSession.setActionHandler('pause', null);
+			navigator.mediaSession.setActionHandler('nexttrack', null);
+			navigator.mediaSession.setActionHandler('previoustrack', null);
 		}
 		if (typeof window !== 'undefined') {
 			window.removeEventListener('keydown', onKey);
@@ -725,10 +765,6 @@
 						<span class="showlink mono">Up next: {livePayload.next.title}</span>
 					{:else if livePayload?.live?.streamerName}
 						<span class="showlink mono">{livePayload.live.streamerName}</span>
-					{/if}
-				{:else}
-					{#if media?.date}
-						<span class="showlink mono">{fmtDt(media.date)}</span>
 					{/if}
 				{/if}
 			</div>

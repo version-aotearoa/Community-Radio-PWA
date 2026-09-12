@@ -379,8 +379,59 @@
 		tracks = saved;
 		editable = toDisplayPos(saved);
 		saveVersion += 1;
-		const embedded = saved.filter((t) => t.embed_id).length;
-		notice = `Tracklist saved (${saved.length} tracks)${embedded ? ` — embedded ${embedded} Bandcamp player${embedded === 1 ? '' : 's'}` : '.'}`;
+		const bandcamp = saved.filter(
+			(t) => typeof t.url === 'string' && /bandcamp\.com/i.test(t.url)
+		).length;
+		notice = `Tracklist saved (${saved.length} tracks)${bandcamp ? ` — ${bandcamp} Bandcamp track${bandcamp === 1 ? '' : 's'} ready to play` : '.'}`;
+		// Warm Bandcamp metadata in the background so the public page is already
+		// enriched (see README → "Bandcamp playback").
+		void warmMetadata(saved);
+	}
+
+	/**
+	 * Resolve name/artist (and cache art) for saved Bandcamp rows that are still
+	 * missing it. Client-orchestrated: each row is its own short request, so a
+	 * large import can't blow the Worker time budget.
+	 */
+	async function warmMetadata(rows: TrackRow[]) {
+		const pending = rows.filter(
+			(t) =>
+				typeof t.url === 'string' &&
+				/bandcamp\.com/i.test(t.url) &&
+				!/EmbeddedPlayer/i.test(t.url) &&
+				(!t.title || !t.stream_art_id)
+		);
+		if (pending.length === 0) return;
+
+		const resolved = new Map<string, { title: string; artist: string }>();
+		let cursor = 0;
+		async function worker() {
+			while (cursor < pending.length) {
+				const t = pending[cursor++];
+				try {
+					const res = await fetch(`/api/tracks/${t.id}/stream`);
+					if (res.ok) {
+						const body = (await res.json()) as { title?: string | null; artist?: string | null };
+						if (body.title || body.artist) {
+							resolved.set(t.id, { title: body.title ?? '', artist: body.artist ?? '' });
+						}
+					}
+				} catch {
+					// best-effort enrichment
+				}
+				if (cursor < pending.length) await new Promise((r) => setTimeout(r, 200));
+			}
+		}
+		await Promise.all([worker(), worker()]);
+
+		// Reflect resolved names in the grid, unless the DJ is mid-edit.
+		if (resolved.size > 0 && !gridApi?.getState().editor) {
+			editable = editable.map((row) => {
+				const got = resolved.get(row.id);
+				return got ? { ...row, title: row.title || got.title, artist: row.artist || got.artist } : row;
+			});
+			saveVersion += 1;
+		}
 	}
 </script>
 
