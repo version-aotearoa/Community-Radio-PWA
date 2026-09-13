@@ -24,6 +24,10 @@
 	let playing = $derived($streamPlaying);
 	let loading = $state(false);
 	let expanded = $state(false);
+	let dragging = $state(false);
+	let dragY = $state(0);
+	let dragStartY = 0;
+	let dragStartedAt = 0;
 	let currentTime = $state(0);
 	let duration = $state(NaN);
 
@@ -287,6 +291,46 @@
 
 	function onKey(e: KeyboardEvent) {
 		if (e.key === 'Escape' && expanded) expanded = false;
+	}
+
+	// ---- Swipe down to minimise (mobile) ----
+	// Drag anywhere on the open sheet except interactive controls; follow the
+	// finger and snap closed on a firm pull or flick. Mouse is left alone.
+	const SHEET_COLLAPSE_RATIO = 0.25;
+	const SHEET_FLICK_VELOCITY = 0.5; // px per ms
+
+	function isInteractiveTarget(target: EventTarget | null) {
+		return (
+			target instanceof Element &&
+			!!target.closest('button, a, input, select, textarea, [role="button"]')
+		);
+	}
+
+	function onSheetPointerDown(e: PointerEvent) {
+		if (!expanded || e.pointerType === 'mouse') return;
+		if (isInteractiveTarget(e.target)) return;
+		dragging = true;
+		dragY = 0;
+		dragStartY = e.clientY;
+		dragStartedAt = performance.now();
+		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+	}
+
+	function onSheetPointerMove(e: PointerEvent) {
+		if (!dragging) return;
+		dragY = Math.max(0, e.clientY - dragStartY);
+	}
+
+	function onSheetPointerEnd(e: PointerEvent) {
+		if (!dragging) return;
+		dragging = false;
+		const elapsed = Math.max(1, performance.now() - dragStartedAt);
+		const velocity = dragY / elapsed;
+		const height = (e.currentTarget as HTMLElement).clientHeight || 1;
+		if (dragY > height * SHEET_COLLAPSE_RATIO || velocity > SHEET_FLICK_VELOCITY) {
+			expanded = false;
+		}
+		dragY = 0;
 	}
 
 	// ---- Loading-trace hardening (phantom-stall investigation) ----
@@ -618,8 +662,15 @@
 		id="player-sheet"
 		class="sheet"
 		class:open={expanded}
+		class:dragging
+		style:transform={dragging ? `translateY(${dragY}px)` : null}
+		onpointerdown={onSheetPointerDown}
+		onpointermove={onSheetPointerMove}
+		onpointerup={onSheetPointerEnd}
+		onpointercancel={onSheetPointerEnd}
 		aria-label="Player details"
 	>
+		<div class="grabber" aria-hidden="true"></div>
 		<div class="strip">
 			{#if artSource}
 				<img class="strip-img" src={artSource} alt="" loading="lazy" />
@@ -1248,6 +1299,7 @@
 		background: var(--vr-bg);
 		border-top: 1px solid var(--vr-line);
 		pointer-events: none;
+		touch-action: none;
 		transform: translateY(100%);
 		transition: transform 800ms cubic-bezier(0.33, 1, 0.68, 1);
 	}
@@ -1257,6 +1309,23 @@
 		pointer-events: auto;
 		transition-duration: 550ms;
 		transition-delay: 200ms;
+	}
+
+	/* Swipe-down drag: follow the finger without fighting the open/close anim. */
+	.sheet.dragging {
+		transition: none;
+	}
+
+	.grabber {
+		position: absolute;
+		top: 0.5rem;
+		left: 50%;
+		transform: translateX(-50%);
+		width: 42px;
+		height: 4px;
+		background: var(--vr-line-muted);
+		pointer-events: none;
+		z-index: 3;
 	}
 
 	.strip {
@@ -1274,6 +1343,7 @@
 		object-fit: cover;
 		display: block;
 		border: 1px solid var(--vr-line);
+		-webkit-user-drag: none;
 	}
 
 	.sheet-body {
