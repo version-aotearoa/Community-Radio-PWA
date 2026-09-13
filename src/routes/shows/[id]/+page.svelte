@@ -444,6 +444,10 @@
 	}
 
 	.back a {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4em;
+		cursor: pointer;
 		color: var(--vr-muted);
 		text-decoration: none;
 	}
