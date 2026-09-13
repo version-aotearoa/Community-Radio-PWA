@@ -62,6 +62,8 @@ export function initPwa() {
  */
 const SW_ENABLED = false;
 
+const SW_KILL_RELOAD_KEY = 'vr-sw-kill-reloaded';
+
 export function registerServiceWorker() {
 	if (typeof window === 'undefined') return;
 	if (!('serviceWorker' in navigator)) return;
@@ -70,25 +72,41 @@ export function registerServiceWorker() {
 		// Purge any previously installed SW and its caches (static/sw.js also
 		// self-destructs). A stale SW served cached __data.json (old page data)
 		// most stubbornly in Safari.
-		navigator.serviceWorker
-			.getRegistrations()
-			.then((registrations) => {
-				for (const reg of registrations) {
-					reg.unregister().catch(() => {
-						// removal is non-fatal
-					});
-				}
-			})
-			.catch(() => {
-				// removal is non-fatal
-			});
-		if (typeof caches !== 'undefined') {
-			caches
-				.keys()
-				.then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
-				.catch(() => {
-					// cache purge is non-fatal
-				});
+		const purge = Promise.all([
+			navigator.serviceWorker.getRegistrations().then((registrations) =>
+				Promise.all(
+					registrations.map((reg) =>
+						reg.unregister().catch(() => {
+							// removal is non-fatal
+						})
+					)
+				)
+			),
+			typeof caches !== 'undefined'
+				? caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+				: Promise.resolve()
+		]).catch(() => {
+			// cleanup is non-fatal
+		});
+
+		// A worker that still controls the page keeps serving the old shell no
+		// matter how many times the user reloads — reloads don't bypass the SW.
+		// Reload once per tab so this navigation is served without SW control.
+		let alreadyReloaded = false;
+		try {
+			alreadyReloaded = sessionStorage.getItem(SW_KILL_RELOAD_KEY) === '1';
+		} catch {
+			// storage unavailable
+		}
+		if (navigator.serviceWorker.controller !== null && !alreadyReloaded) {
+			try {
+				sessionStorage.setItem(SW_KILL_RELOAD_KEY, '1');
+			} catch {
+				// storage unavailable
+			}
+			void purge.finally(() => location.reload());
+		} else {
+			void purge;
 		}
 		return;
 	}
