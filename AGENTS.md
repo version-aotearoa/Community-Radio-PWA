@@ -35,6 +35,21 @@
   env vars/secrets, scan `git log -p` for leaked values and flag findings to
   the user.
 
+## Branch creation
+
+When asked to create a new branch, always base it on the freshly-fetched
+`origin/main` (never stale local `main`):
+
+1. `git fetch origin --prune`
+2. Fast-forward local `main` to `origin/main`
+   (`git switch main && git merge --ff-only origin/main`); if it can't
+   fast-forward, stop and ask.
+3. `git switch -c <name> origin/main`
+
+For a stacked branch (explicitly requested), rebase the parent onto
+`origin/main` first. Rebasing an already-pushed branch rewrites history:
+stop and ask before any `git push --force-with-lease`.
+
 ## User instruction is the spec
 
 - The user's explicit instruction is the specification. Do not re-derive,
