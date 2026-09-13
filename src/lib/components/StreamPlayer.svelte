@@ -459,14 +459,18 @@
 
 	let followed = $state(false);
 	let episodeSaved = $state(false);
+	let episodeFavourited = $state(false);
+	let favouriteCount = $state(0);
 	let loginHint = $state(false);
-	let hintKind = $state<'follow' | 'save'>('follow');
+	let hintKind = $state<'follow' | 'save' | 'favourite'>('follow');
 	let copied = $state(false);
 	let copyTimer: ReturnType<typeof setTimeout> | null = null;
 
 	$effect(() => {
 		followed = false;
 		episodeSaved = false;
+		episodeFavourited = false;
+		favouriteCount = 0;
 		loginHint = false;
 		if (!user) return;
 		let cancelled = false;
@@ -483,6 +487,20 @@
 				.then((r) => (r.status === 401 ? null : r.json() as Promise<{ saved: boolean }>))
 				.then((d) => {
 					if (!cancelled && d) episodeSaved = d.saved;
+				})
+				.catch(() => {});
+			fetch(`/api/shows/${showId}/broadcasts/${broadcastId}/favourite`)
+				.then(
+					(r) =>
+						r.status === 401
+							? null
+							: (r.json() as Promise<{ favourited: boolean; count: number }>)
+				)
+				.then((d) => {
+					if (!cancelled && d) {
+						episodeFavourited = d.favourited;
+						favouriteCount = d.count;
+					}
 				})
 				.catch(() => {});
 		}
@@ -531,6 +549,40 @@
 			return;
 		}
 		if (!res.ok) episodeSaved = prev;
+	}
+
+	async function togglePlayerFavourite() {
+		if (!showId || !broadcastId) return;
+		if (!user) {
+			hintKind = 'favourite';
+			loginHint = true;
+			return;
+		}
+		loginHint = false;
+		const prev = episodeFavourited;
+		const prevCount = favouriteCount;
+		episodeFavourited = !prev;
+		favouriteCount = Math.max(0, prevCount + (prev ? -1 : 1));
+		const res = await fetch(`/api/shows/${showId}/broadcasts/${broadcastId}/favourite`, {
+			method: 'POST'
+		});
+		if (res.status === 401) {
+			episodeFavourited = prev;
+			favouriteCount = prevCount;
+			hintKind = 'favourite';
+			loginHint = true;
+			return;
+		}
+		if (!res.ok) {
+			episodeFavourited = prev;
+			favouriteCount = prevCount;
+			return;
+		}
+		const body = (await res.json().catch(() => null)) as
+			| { favourited?: boolean; count?: number }
+			| null;
+		episodeFavourited = body?.favourited ?? !prev;
+		favouriteCount = body?.count ?? favouriteCount;
 	}
 
 	async function shareTrack() {
@@ -656,6 +708,30 @@
 					{/if}
 					{#if broadcastId}
 						<button
+							class="icon-btn favourite"
+							class:active={episodeFavourited}
+							onclick={togglePlayerFavourite}
+							aria-pressed={episodeFavourited}
+							aria-label={episodeFavourited ? 'Remove favourite' : 'Favourite recording'}
+							title={episodeFavourited ? 'Remove favourite' : 'Favourite recording'}
+						>
+							<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+								<path
+									d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"
+									fill={episodeFavourited ? 'currentColor' : 'none'}
+									stroke="currentColor"
+									stroke-width="1.8"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								/>
+							</svg>
+							{#if favouriteCount > 0}
+								<span class="icon-count">{favouriteCount}</span>
+							{/if}
+						</button>
+					{/if}
+					{#if broadcastId}
+						<button
 							class="icon-btn"
 							class:active={episodeSaved}
 							onclick={togglePlayerEpisodeSaved}
@@ -716,7 +792,11 @@
 				<div class="sheet-note">
 					{#if loginHint}
 						<span class="mono">
-							{hintKind === 'follow' ? 'Sign in to follow shows' : 'Sign in to save broadcasts'} — <a class="note-link" href="/login">Sign in</a>
+							{hintKind === 'follow'
+								? 'Sign in to follow shows'
+								: hintKind === 'save'
+									? 'Sign in to save broadcasts'
+									: 'Sign in to favourite recordings'} — <a class="note-link" href="/login">Sign in</a>
 						</span>
 					{:else}
 						<span class="mono note-copied">Copied</span>
@@ -1026,6 +1106,28 @@
 	.icon-btn.active {
 		border-color: var(--vr-line);
 		color: var(--vr-text);
+	}
+
+	.icon-btn.favourite {
+		display: inline-flex;
+		gap: 0.3rem;
+		width: auto;
+		min-width: 40px;
+		padding: 0 0.6rem;
+	}
+
+	.icon-btn.favourite:hover,
+	.icon-btn.favourite.active {
+		background: none;
+		border-color: var(--vr-red);
+		color: var(--vr-red);
+	}
+
+	.icon-count {
+		font-family: var(--vr-font-mono);
+		font-size: 0.72rem;
+		line-height: 1;
+		font-variant-numeric: tabular-nums;
 	}
 
 	.sheet-note {

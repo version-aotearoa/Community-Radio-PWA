@@ -241,7 +241,7 @@
 		return current.kind === 'media' && current.url === url && $streamPlaying;
 	}
 
-	let loginHint = $state<{ show: boolean; kind: 'follow' | 'save' } | null>(null);
+	let loginHint = $state<{ show: boolean; kind: 'follow' | 'save' | 'favourite' } | null>(null);
 
 	let lightboxOpen = $state(false);
 
@@ -336,13 +336,19 @@
 			user={data.user}
 			episode={{ broadcastId: broadcast.id }}
 			episodeSaved={data.savedEpisode}
+			episodeFavourited={data.favourited}
+			favouriteCount={data.favouriteCount}
 			compact
 			hintExternal
 			onHintChange={(h) => (loginHint = h)}
 		/>
 		{#if loginHint?.show}
 			<div class="login-hint hint-row">
-				{loginHint.kind === 'follow' ? 'Sign in to follow shows' : 'Sign in to save broadcasts'} — <a class="hint-link" href="/login">Sign in</a>
+				{loginHint.kind === 'follow'
+					? 'Sign in to follow shows'
+					: loginHint.kind === 'save'
+						? 'Sign in to save broadcasts'
+						: 'Sign in to favourite recordings'} — <a class="hint-link" href="/login">Sign in</a>
 			</div>
 		{/if}
 	</div>

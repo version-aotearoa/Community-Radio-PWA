@@ -29,6 +29,27 @@ export const load: PageServerLoad = async ({ params, locals, platform }) => {
 					.first()
 			)
 		: false;
+	const favourited = user
+		? Boolean(
+				await db
+					.prepare('SELECT 1 AS x FROM favourite_broadcast WHERE user_id = ? AND broadcast_id = ?')
+					.bind(user.id, broadcast.id)
+					.first()
+			)
+		: false;
+	const favouriteTotal = await db
+		.prepare('SELECT COUNT(*) AS n FROM favourite_broadcast WHERE broadcast_id = ?')
+		.bind(broadcast.id)
+		.first();
 
-	return { show, broadcast, tracks, followed, savedEpisode, canEdit };
+	return {
+		show,
+		broadcast,
+		tracks,
+		followed,
+		savedEpisode,
+		favourited,
+		favouriteCount: Number(favouriteTotal?.n ?? 0),
+		canEdit
+	};
 };

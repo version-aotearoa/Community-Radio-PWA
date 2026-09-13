@@ -23,7 +23,7 @@
 
 	const user = $derived(data.user);
 	let busy = $state(false);
-	let activeTab = $state<'profile' | 'following' | 'saved'>('profile');
+	let activeTab = $state<'profile' | 'following' | 'saved' | 'favourites'>('profile');
 
 	let editingName = $state(false);
 	let nameInput = $state('');
@@ -158,6 +158,13 @@
 		</button>
 		<button class="tab" class:active={activeTab === 'saved'} onclick={() => (activeTab = 'saved')}>
 			Saved
+		</button>
+		<button
+			class="tab"
+			class:active={activeTab === 'favourites'}
+			onclick={() => (activeTab = 'favourites')}
+		>
+			Favourites
 		</button>
 	</div>
 
@@ -298,6 +305,46 @@
 			{:else}
 				<ul>
 					{#each data.saved as s (s.broadcast_id)}
+						{@const sArt = episodeArtOrDefault(s.broadcast_id, s, { image: s.image })}
+						<li>
+							<a class="saved-row" href={`/shows/${s.show_id}/${s.broadcast_id}`}>
+								<span class="saved-art">
+									{#if sArt}
+										<img
+											src={sArt}
+											alt=""
+											loading="lazy"
+											onerror={(e) => artOnError(e, s.image)}
+										/>
+									{:else}
+										<svg viewBox="0 0 80 70" fill="currentColor" width="20" height="17" aria-hidden="true">
+											<path
+												fill-rule="evenodd"
+												d="M0 0H40V40H50V0H80V45H70V60H55V70H25V60H10V45H0V5ZM10 5H5V40H15V55H30V65H50V55H65V40H75V5H55V45H35V5H15Z"
+											/>
+										</svg>
+									{/if}
+								</span>
+								<span class="saved-info">
+									<span class="h-sm">{s.title}</span>
+									<span class="mono meta">{fmtDate(s.date)}</span>
+								</span>
+							</a>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</section>
+	{/if}
+
+	{#if activeTab === 'favourites'}
+		<section class="card">
+			<h2 class="card-title">Favourite recordings</h2>
+			{#if data.favourites.length === 0}
+				<p class="muted">No favourites yet.</p>
+			{:else}
+				<ul>
+					{#each data.favourites as s (s.broadcast_id)}
 						{@const sArt = episodeArtOrDefault(s.broadcast_id, s, { image: s.image })}
 						<li>
 							<a class="saved-row" href={`/shows/${s.show_id}/${s.broadcast_id}`}>
