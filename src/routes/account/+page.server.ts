@@ -35,6 +35,18 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 		.bind(user.id)
 		.all();
 
+	const favourites = await db
+		.prepare(
+			`SELECT b.id AS broadcast_id, b.show_id, b.date, b.replay_url, b.art, s.title, s.image AS image
+			 FROM favourite_broadcast f
+			 JOIN broadcast b ON b.id = f.broadcast_id
+			 JOIN show s ON s.id = b.show_id
+			 WHERE f.user_id = ?
+			 ORDER BY f.created_at DESC`
+		)
+		.bind(user.id)
+		.all();
+
 	// Air cadence per followed show (station's 4-week cycle), matching the
 	// shows-list cards. Empty for weekly shows.
 	const today = todayStr();
@@ -61,6 +73,15 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 		createdAt,
 		following: followingWithCadence,
 		saved: saved.results as {
+			broadcast_id: string;
+			show_id: string;
+			date: string;
+			replay_url: string | null;
+			art: string | null;
+			title: string;
+			image: string | null;
+		}[],
+		favourites: favourites.results as {
 			broadcast_id: string;
 			show_id: string;
 			date: string;
