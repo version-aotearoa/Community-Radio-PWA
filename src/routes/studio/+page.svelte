@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { onMount, untrack } from 'svelte';
-	import { invalidateAll } from '$app/navigation';
+	import { onMount, untrack, tick } from 'svelte';
+	import { invalidateAll, replaceState } from '$app/navigation';
+	import { page } from '$app/state';
 	import { Button, Field, Text, Combo } from '@svar-ui/svelte-core';
 	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
 	import type { ShowRow } from '$lib/server/shows';
@@ -115,8 +116,25 @@
 	let chatMessages = $state<ChatMessage[]>([]);
 	let chatLoaded = $state(false);
 	let purgeName = $state('');
-	let activeTab = $state('shows-events');
 	let adminError = $state('');
+
+	const STUDIO_TABS = ['shows-events', 'create', 'add-episode', 'featured', 'news', 'users', 'chat'] as const;
+	type StudioTab = (typeof STUDIO_TABS)[number];
+
+	const requestedTab = page.url.searchParams.get('tab');
+	let activeTab = $state<StudioTab>(
+		requestedTab && (STUDIO_TABS as readonly string[]).includes(requestedTab)
+			? (requestedTab as StudioTab)
+			: 'shows-events'
+	);
+
+	function selectTab(tab: StudioTab) {
+		activeTab = tab;
+		const url = new URL(page.url);
+		url.searchParams.set('tab', tab);
+		url.searchParams.delete('edit');
+		replaceState(url, {});
+	}
 
 	let epShowId = $state('');
 	let epDate = $state('');
@@ -217,6 +235,9 @@
 	let newsFeedback = $state<Record<string, RowFeedback>>({});
 	let newsError = $state('');
 	let newsNotice = $state('');
+	let newsComposerOpen = $state(true);
+	// One-shot deep link from a news post's "Edit in Studio" link.
+	let deepLinkEditId = page.url.searchParams.get('edit') ?? '';
 
 	let newsTitle = $state('');
 	let newsBody = $state('');
@@ -275,6 +296,16 @@
 			newsList = await res.json();
 			newsLoaded = true;
 		}
+		if (deepLinkEditId) {
+			const id = deepLinkEditId;
+			deepLinkEditId = '';
+			const target = newsList.find((p) => p.id === id);
+			if (target) {
+				startEditNews(target);
+				await tick();
+				document.getElementById(`news-edit-${target.id}`)?.scrollIntoView({ block: 'start' });
+			}
+		}
 	}
 
 	async function createNewsPost() {
@@ -311,6 +342,8 @@
 
 	function startEditNews(post: NewsListItem) {
 		editingNewsId = post.id;
+		// Minimise the create composer so the editor is front and centre.
+		newsComposerOpen = false;
 		nfError = '';
 		nf = {
 			title: post.title,
@@ -668,34 +701,34 @@
 	<button
 		class="tab"
 		class:active={activeTab === 'shows-events'}
-		onclick={() => (activeTab = 'shows-events')}
+		onclick={() => selectTab('shows-events')}
 	>
 		Shows/Events
 	</button>
-	<button class="tab" class:active={activeTab === 'create'} onclick={() => (activeTab = 'create')}>
+	<button class="tab" class:active={activeTab === 'create'} onclick={() => selectTab('create')}>
 		Create
 	</button>
 	<button
 		class="tab"
 		class:active={activeTab === 'add-episode'}
-		onclick={() => (activeTab = 'add-episode')}
+		onclick={() => selectTab('add-episode')}
 	>
 		Add Episode
 	</button>
 	<button
 		class="tab"
 		class:active={activeTab === 'featured'}
-		onclick={() => (activeTab = 'featured')}
+		onclick={() => selectTab('featured')}
 	>
 		Featured
 	</button>
-	<button class="tab" class:active={activeTab === 'news'} onclick={() => (activeTab = 'news')}>
+	<button class="tab" class:active={activeTab === 'news'} onclick={() => selectTab('news')}>
 		News
 	</button>
-	<button class="tab" class:active={activeTab === 'users'} onclick={() => (activeTab = 'users')}>
+	<button class="tab" class:active={activeTab === 'users'} onclick={() => selectTab('users')}>
 		Users
 	</button>
-	<button class="tab" class:active={activeTab === 'chat'} onclick={() => (activeTab = 'chat')}>
+	<button class="tab" class:active={activeTab === 'chat'} onclick={() => selectTab('chat')}>
 		Chat
 	</button>
 </div>
@@ -946,33 +979,52 @@
 
 {#if isAdmin && activeTab === 'news'}
 	<section class="card">
-		<h2>Admin — news posts</h2>
+		<div class="news-head">
+			<h2>Admin — news posts</h2>
+			<button
+				class="mini-btn"
+				aria-expanded={newsComposerOpen}
+				aria-controls="news-composer"
+				onclick={() => (newsComposerOpen = !newsComposerOpen)}
+			>
+				{newsComposerOpen ? 'Hide new post' : 'New post'}
+			</button>
+		</div>
 		{#if newsError}
 			<div class="notice bad">{newsError}</div>
 		{/if}
 		{#if newsNotice}
 			<div class="notice ok">{newsNotice}</div>
 		{/if}
-		<form class="news-form" onsubmit={(e) => { e.preventDefault(); createNewsPost(); }}>
-			<Field label="Title">
-				<Text bind:value={newsTitle} placeholder="Post title" css="vr-input" />
-			</Field>
-			<Field label="Body">
-				<RichTextEditor bind:value={newsBody} placeholder="Write the post…" />
-			</Field>
-			<Field label="Image URL (optional)">
-				<Text bind:value={newsImage} placeholder="https://…" css="vr-input" />
-			</Field>
-			<label class="publish-check">
-				<input type="checkbox" bind:checked={newsPublished} />
-				<span class="mono">Published</span>
-			</label>
-			<div class="edit-actions">
-				<Button css="vr-cta" type="primary" disabled={newsSaving} onclick={createNewsPost}>
-					{newsSaving ? 'Saving…' : 'Publish post'}
-				</Button>
-			</div>
-		</form>
+		{#if newsComposerOpen}
+			<form
+				id="news-composer"
+				class="news-form"
+				onsubmit={(e) => {
+					e.preventDefault();
+					createNewsPost();
+				}}
+			>
+				<Field label="Title">
+					<Text bind:value={newsTitle} placeholder="Post title" css="vr-input" />
+				</Field>
+				<Field label="Body">
+					<RichTextEditor bind:value={newsBody} placeholder="Write the post…" />
+				</Field>
+				<Field label="Image URL (optional)">
+					<Text bind:value={newsImage} placeholder="https://…" css="vr-input" />
+				</Field>
+				<label class="publish-check">
+					<input type="checkbox" bind:checked={newsPublished} />
+					<span class="mono">Published</span>
+				</label>
+				<div class="edit-actions">
+					<Button css="vr-cta" type="primary" disabled={newsSaving} onclick={createNewsPost}>
+						{newsSaving ? 'Saving…' : 'Publish post'}
+					</Button>
+				</div>
+			</form>
+		{/if}
 
 		{#if !newsLoaded}
 			<p class="muted">Loading posts…</p>
@@ -1009,6 +1061,7 @@
 					</div>
 					{#if editingNewsId === post.id}
 						<form
+							id={`news-edit-${post.id}`}
 							class="news-edit"
 							onsubmit={(e) => {
 								e.preventDefault();
@@ -1649,6 +1702,22 @@
 		flex-wrap: wrap;
 	}
 
+	.news-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		margin: 0 0 1rem;
+		border-bottom: 1px solid var(--vr-line);
+		padding-bottom: 0.6rem;
+	}
+
+	.news-head h2 {
+		margin: 0;
+		border: none;
+		padding: 0;
+	}
+
 	.news-form,
 	.news-edit {
 		display: flex;
@@ -1664,6 +1733,7 @@
 		border-top: 1px solid var(--vr-line);
 		margin-top: 0.5rem;
 		padding: 1rem 0 0.5rem;
+		scroll-margin-top: 4.5rem;
 	}
 
 	.publish-check {
