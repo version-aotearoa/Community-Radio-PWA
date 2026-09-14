@@ -357,7 +357,8 @@
 	{/if}
 	<h2>Tracklist</h2>
 	{#if tracks.length}
-		<ol class="tracklist">
+		<div class="tracklist-scroll">
+			<ol class="tracklist">
 			{#each tracks as t, i (t.id)}
 				{#if t.url && isBandcampPageUrl(t.url)}
 					<li class="track-row">
@@ -422,7 +423,8 @@
 					</li>
 				{/if}
 			{/each}
-		</ol>
+			</ol>
+		</div>
 	{:else}
 		<p class="hint">No tracklist for this broadcast.</p>
 	{/if}
@@ -750,22 +752,17 @@
 			margin-right: -2rem;
 		}
 
-		.url-fallback {
-			display: inline-flex;
-			align-items: baseline;
-			gap: 0.35rem;
-			min-width: 0;
+		.tracklist-scroll {
+			overflow-x: auto;
+			-webkit-overflow-scrolling: touch;
+			scrollbar-width: thin;
+			margin: 0 -1.5rem;
+			padding: 0 1.5rem;
 		}
 
-		.url-host {
-			overflow: hidden;
-			text-overflow: ellipsis;
-			white-space: nowrap;
-			min-width: 0;
-		}
-
-		.url-fallback .arrow-chip {
-			flex-shrink: 0;
+		.tracklist {
+			width: max-content;
+			min-width: 100%;
 		}
 	}
 

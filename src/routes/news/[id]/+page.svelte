@@ -184,6 +184,10 @@
 	}
 
 	@media (max-width: 640px) {
+		.page {
+			padding: 1rem;
+		}
+
 		.article {
 			padding: 1.25rem;
 		}

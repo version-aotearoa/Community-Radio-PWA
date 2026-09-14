@@ -79,6 +79,8 @@ body {
 	font-size: 1rem;
 	line-height: 1.5;
 	-webkit-font-smoothing: antialiased;
+	/* Long unbroken tokens (URLs in rich text) must never escape their box. */
+	overflow-wrap: break-word;
 }
 
 a {
