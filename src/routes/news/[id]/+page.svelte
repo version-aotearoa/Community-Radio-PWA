@@ -48,7 +48,7 @@
 			<div class="body">{@html post.body}</div>
 		{/if}
 		{#if data.canEdit}
-			<p class="edit mono"><a href="/studio">Edit in Studio</a></p>
+			<p class="edit mono"><a href={`/studio?tab=news&edit=${post.id}`}>Edit in Studio</a></p>
 		{/if}
 	</article>
 </div>
