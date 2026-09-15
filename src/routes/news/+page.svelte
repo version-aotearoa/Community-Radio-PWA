@@ -30,8 +30,13 @@
 
 <div class="page">
 	<header class="head">
-		<h1 class="h-lg">News</h1>
-		<p class="subtitle mono">Station notices, announcements, and goings-on from Version Radio.</p>
+		<div class="head-main">
+			<h1 class="h-lg">News</h1>
+			<p class="subtitle mono">Station notices, announcements, and goings-on from Version Radio.</p>
+		</div>
+		{#if data.canEdit}
+			<a class="btn-outline" href="/studio?tab=news">Edit news</a>
+		{/if}
 	</header>
 
 	{#if posts.length === 0}
@@ -77,6 +82,11 @@
 	}
 
 	.head {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		flex-wrap: wrap;
+		gap: 1rem;
 		margin: 0 0 1.5rem;
 		border-bottom: 1px solid var(--vr-line);
 		padding-bottom: 1rem;
