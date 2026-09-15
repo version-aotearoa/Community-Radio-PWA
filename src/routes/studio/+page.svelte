@@ -92,10 +92,20 @@
 	const isAdmin = $derived(data.user?.role === 'admin');
 
 	let mgrFilter = $state<'all' | 'shows' | 'events'>('all');
+	let mgrEventType = $state<'all' | string>('all');
 
-	const mgrShows = $derived(
-		mgrFilter === 'all' ? shows : shows.filter((s) => (mgrFilter === 'events' ? s.kind === 'event' : s.kind !== 'event'))
-	);
+	const mgrShows = $derived.by(() => {
+		const base =
+			mgrFilter === 'all'
+				? shows
+				: shows.filter((s) => (mgrFilter === 'events' ? s.kind === 'event' : s.kind !== 'event'));
+		if (mgrEventType === 'all') return base;
+		return base.filter((s) => s.kind === 'event' && s.event_type === mgrEventType);
+	});
+
+	$effect(() => {
+		if (mgrFilter === 'shows' && mgrEventType !== 'all') mgrEventType = 'all';
+	});
 
 	interface AdminUser {
 		id: string;
@@ -1266,9 +1276,36 @@
 				Events
 			</button>
 		</div>
+		{#if mgrFilter !== 'shows'}
+			<div class="filter-btns mgr-event-filters" role="group" aria-label="Filter events by type">
+				<span class="filter-label mono">Event type</span>
+				<button
+					class="filter-btn"
+					class:active={mgrEventType === 'all'}
+					onclick={() => (mgrEventType = 'all')}
+				>
+					All
+				</button>
+				{#each EVENT_TYPES as t (t.id)}
+					<button
+						class="filter-btn"
+						class:active={mgrEventType === t.id}
+						onclick={() => (mgrEventType = t.id)}
+					>
+						{t.label}
+					</button>
+				{/each}
+			</div>
+		{/if}
 		{#if mgrShows.length === 0}
 			<p class="muted">
-				{mgrFilter === 'events' ? 'No events yet.' : mgrFilter === 'shows' ? 'No regular shows yet.' : 'No shows yet.'}
+				{mgrEventType !== 'all'
+					? 'No events match.'
+					: mgrFilter === 'events'
+						? 'No events yet.'
+						: mgrFilter === 'shows'
+							? 'No regular shows yet.'
+							: 'No shows yet.'}
 			</p>
 		{:else if adminUsers.length === 0}
 			<p class="muted">Loading users…</p>
@@ -1645,6 +1682,17 @@
 		display: flex;
 		gap: 0.4rem;
 		flex-wrap: wrap;
+	}
+
+	.mgr-event-filters {
+		align-items: center;
+		margin-top: 0.6rem;
+	}
+
+	.filter-label {
+		color: var(--vr-muted);
+		font-size: 0.72rem;
+		margin-right: 0.25rem;
 	}
 
 	.featured-filters {
