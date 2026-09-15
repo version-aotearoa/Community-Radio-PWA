@@ -231,6 +231,15 @@
 	let featuredList = $state<FeaturedCandidate[]>([]);
 	let featuredLoaded = $state(false);
 	let featuredFeedback = $state('');
+	let featuredFilter = $state<'all' | 'featured' | 'latest'>('all');
+
+	const filteredFeatured = $derived(
+		featuredFilter === 'all'
+			? featuredList
+			: featuredFilter === 'featured'
+				? featuredList.filter((c) => c.featured === 1)
+				: featuredList.filter((c) => c.home_ready === 1)
+	);
 
 	let newsList = $state<NewsListItem[]>([]);
 	let newsLoaded = $state(false);
@@ -949,32 +958,59 @@
 				{featuredList.filter((c) => c.home_ready === 1).length} on homepage latest — toggle
 				episodes with replay links below.
 			</p>
+			<div class="filter-btns featured-filters" role="group" aria-label="Filter episodes">
+				<button
+					class="filter-btn"
+					class:active={featuredFilter === 'all'}
+					onclick={() => (featuredFilter = 'all')}
+				>
+					All
+				</button>
+				<button
+					class="filter-btn"
+					class:active={featuredFilter === 'featured'}
+					onclick={() => (featuredFilter = 'featured')}
+				>
+					Featured
+				</button>
+				<button
+					class="filter-btn"
+					class:active={featuredFilter === 'latest'}
+					onclick={() => (featuredFilter = 'latest')}
+				>
+					Latest
+				</button>
+			</div>
 			{#if featuredFeedback}
 				<div class="notice bad">{featuredFeedback}</div>
 			{/if}
-			<div class="admin-table">
-				{#each featuredList as c (c.id)}
-					<div class="admin-row">
-						<div class="user-main">
-							<strong>{c.title}</strong>
-							<span class="meta">{c.date}</span>
+			{#if filteredFeatured.length === 0}
+				<p class="muted">No episodes match.</p>
+			{:else}
+				<div class="admin-table">
+					{#each filteredFeatured as c (c.id)}
+						<div class="admin-row">
+							<div class="user-main">
+								<strong>{c.title}</strong>
+								<span class="meta">{c.date}</span>
+							</div>
+							<div class="admin-actions">
+								<button class="mini-btn" class:off={c.featured === 0} onclick={() => toggleFeatured(c)}>
+									{c.featured === 1 ? 'Unfeature' : 'Feature'}
+								</button>
+								<button
+									class="mini-btn"
+									class:off={c.home_ready === 0}
+									title={c.home_ready === 1 ? 'Hide from homepage latest' : 'Show on homepage latest'}
+									onclick={() => toggleLatest(c)}
+								>
+									Latest
+								</button>
+							</div>
 						</div>
-						<div class="admin-actions">
-							<button class="mini-btn" class:off={c.featured === 0} onclick={() => toggleFeatured(c)}>
-								{c.featured === 1 ? 'Unfeature' : 'Feature'}
-							</button>
-							<button
-								class="mini-btn"
-								class:off={c.home_ready === 0}
-								title={c.home_ready === 1 ? 'Hide from homepage latest' : 'Show on homepage latest'}
-								onclick={() => toggleLatest(c)}
-							>
-								Latest
-							</button>
-						</div>
-					</div>
-				{/each}
-			</div>
+					{/each}
+				</div>
+			{/if}
 		{/if}
 	</section>
 {/if}
@@ -1586,6 +1622,10 @@
 		display: flex;
 		gap: 0.4rem;
 		flex-wrap: wrap;
+	}
+
+	.featured-filters {
+		margin-bottom: 1rem;
 	}
 
 	.create-toggle {
