@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import { Button, Field, Text, Combo } from '@svar-ui/svelte-core';
 	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
+	import { EVENT_TYPES } from '$lib/eventTypes';
 	import type { ShowRow } from '$lib/server/shows';
 	import type { NewsListItem } from '$lib/server/news';
 	import Seo from '$lib/components/Seo.svelte';
@@ -28,6 +29,7 @@
 	let showImage = $state('');
 	let evTitle = $state('');
 	let evDate = $state('');
+	let evEventType = $state('');
 	let evStartHours = $state('18');
 	let evStartMinutes = $state('0');
 	let evReplay = $state('');
@@ -58,6 +60,7 @@
 			body: JSON.stringify({
 				title: evTitle,
 				kind: 'event',
+				eventType: evEventType || null,
 				date: evDate.trim(),
 				startMinutes: Number(evStartHours) * 60 + Number(evStartMinutes),
 				durationMinutes: 60,
@@ -77,6 +80,7 @@
 		evOverlap = overlapText(saved.overlap);
 		evTitle = '';
 		evDate = '';
+		evEventType = '';
 		evReplay = '';
 		evDescription = '';
 		evPageContent = '';
@@ -88,10 +92,20 @@
 	const isAdmin = $derived(data.user?.role === 'admin');
 
 	let mgrFilter = $state<'all' | 'shows' | 'events'>('all');
+	let mgrEventType = $state<'all' | string>('all');
 
-	const mgrShows = $derived(
-		mgrFilter === 'all' ? shows : shows.filter((s) => (mgrFilter === 'events' ? s.kind === 'event' : s.kind !== 'event'))
-	);
+	const mgrShows = $derived.by(() => {
+		const base =
+			mgrFilter === 'all'
+				? shows
+				: shows.filter((s) => (mgrFilter === 'events' ? s.kind === 'event' : s.kind !== 'event'));
+		if (mgrEventType === 'all') return base;
+		return base.filter((s) => s.kind === 'event' && s.event_type === mgrEventType);
+	});
+
+	$effect(() => {
+		if (mgrFilter === 'shows' && mgrEventType !== 'all') mgrEventType = 'all';
+	});
 
 	interface AdminUser {
 		id: string;
@@ -195,6 +209,8 @@
 	let userRoleFilter = $state<'all' | 'listener' | 'dj' | 'admin'>('all');
 	let userSearch = $state('');
 	let userSort = $state<'newest' | 'oldest' | 'name'>('newest');
+	// Only one user's role/active controls are revealed at a time.
+	let userActionsId = $state<string | null>(null);
 
 	const filteredUsers = $derived.by(() => {
 		const q = userSearch.trim().toLowerCase();
@@ -229,13 +245,22 @@
 	let featuredList = $state<FeaturedCandidate[]>([]);
 	let featuredLoaded = $state(false);
 	let featuredFeedback = $state('');
+	let featuredFilter = $state<'all' | 'featured' | 'latest'>('all');
+
+	const filteredFeatured = $derived(
+		featuredFilter === 'all'
+			? featuredList
+			: featuredFilter === 'featured'
+				? featuredList.filter((c) => c.featured === 1)
+				: featuredList.filter((c) => c.home_ready === 1)
+	);
 
 	let newsList = $state<NewsListItem[]>([]);
 	let newsLoaded = $state(false);
 	let newsFeedback = $state<Record<string, RowFeedback>>({});
 	let newsError = $state('');
 	let newsNotice = $state('');
-	let newsComposerOpen = $state(true);
+	let newsComposerOpen = $state(false);
 	// One-shot deep link from a news post's "Edit in Studio" link.
 	let deepLinkEditId = page.url.searchParams.get('edit') ?? '';
 
@@ -419,6 +444,7 @@
 		intervalWeeks: '1',
 		cycleWeek: '',
 		date: '',
+		eventType: '',
 		replay: ''
 	});
 	let efSaving = $state(false);
@@ -458,6 +484,7 @@
 			intervalWeeks: String(fresh.interval_weeks),
 			cycleWeek: fresh.cycleWeek != null ? String(fresh.cycleWeek) : '',
 			date: fresh.anchor_date ?? '',
+			eventType: fresh.event_type ?? '',
 			replay: ''
 		};
 	}
@@ -477,6 +504,7 @@
 		if (show.kind === 'event') {
 			body.date = ef.date;
 			body.startMinutes = Number(ef.startHours) * 60 + Number(ef.startMinutes);
+			body.eventType = ef.eventType || null;
 			if (ef.replay.trim()) body.replayUrl = ef.replay;
 		} else {
 			body.dayOfWeek = Number(ef.dayOfWeek);
@@ -831,6 +859,14 @@
 			<Field label="Event name">
 				<Text bind:value={evTitle} placeholder="e.g. HIFI SESSION" css="vr-input" />
 			</Field>
+			<Field label="Event type">
+				<select class="dj-select" bind:value={evEventType}>
+					<option value="">None</option>
+					{#each EVENT_TYPES as t (t.id)}
+						<option value={t.id}>{t.label}</option>
+					{/each}
+				</select>
+			</Field>
 			<Field label="Description (optional)">
 				<input
 					class="vr-input"
@@ -947,32 +983,59 @@
 				{featuredList.filter((c) => c.home_ready === 1).length} on homepage latest — toggle
 				episodes with replay links below.
 			</p>
+			<div class="filter-btns featured-filters" role="group" aria-label="Filter episodes">
+				<button
+					class="filter-btn"
+					class:active={featuredFilter === 'all'}
+					onclick={() => (featuredFilter = 'all')}
+				>
+					All
+				</button>
+				<button
+					class="filter-btn"
+					class:active={featuredFilter === 'featured'}
+					onclick={() => (featuredFilter = 'featured')}
+				>
+					Featured
+				</button>
+				<button
+					class="filter-btn"
+					class:active={featuredFilter === 'latest'}
+					onclick={() => (featuredFilter = 'latest')}
+				>
+					Latest
+				</button>
+			</div>
 			{#if featuredFeedback}
 				<div class="notice bad">{featuredFeedback}</div>
 			{/if}
-			<div class="admin-table">
-				{#each featuredList as c (c.id)}
-					<div class="admin-row">
-						<div class="user-main">
-							<strong>{c.title}</strong>
-							<span class="meta">{c.date}</span>
+			{#if filteredFeatured.length === 0}
+				<p class="muted">No episodes match.</p>
+			{:else}
+				<div class="admin-table">
+					{#each filteredFeatured as c (c.id)}
+						<div class="admin-row">
+							<div class="user-main">
+								<strong>{c.title}</strong>
+								<span class="meta">{c.date}</span>
+							</div>
+							<div class="admin-actions">
+								<button class="mini-btn" class:off={c.featured === 0} onclick={() => toggleFeatured(c)}>
+									{c.featured === 1 ? 'Unfeature' : 'Feature'}
+								</button>
+								<button
+									class="mini-btn"
+									class:off={c.home_ready === 0}
+									title={c.home_ready === 1 ? 'Hide from homepage latest' : 'Show on homepage latest'}
+									onclick={() => toggleLatest(c)}
+								>
+									Latest
+								</button>
+							</div>
 						</div>
-						<div class="admin-actions">
-							<button class="mini-btn" class:off={c.featured === 0} onclick={() => toggleFeatured(c)}>
-								{c.featured === 1 ? 'Unfeature' : 'Feature'}
-							</button>
-							<button
-								class="mini-btn"
-								class:off={c.home_ready === 0}
-								title={c.home_ready === 1 ? 'Hide from homepage latest' : 'Show on homepage latest'}
-								onclick={() => toggleLatest(c)}
-							>
-								Latest
-							</button>
-						</div>
-					</div>
-				{/each}
-			</div>
+					{/each}
+				</div>
+			{/if}
 		{/if}
 	</section>
 {/if}
@@ -1156,17 +1219,6 @@
 								<strong>{u.name || u.email}</strong>
 								<span class="meta">{u.email}</span>
 							</div>
-							<label class="role-label" title="Role">
-								<span class="meta">Role</span>
-								<select
-									value={u.role}
-									onchange={(e) => setRole(u, e.currentTarget.value as AdminUser['role'])}
-								>
-									<option value="listener">Listener</option>
-									<option value="dj">DJ</option>
-									<option value="admin">Admin</option>
-								</select>
-							</label>
 							{#if userFeedback[u.id]}
 								<span class="row-feedback" class:bad={!userFeedback[u.id].ok}>
 									{userFeedback[u.id].text}
@@ -1174,12 +1226,35 @@
 							{/if}
 							<button
 								class="mini-btn"
-								class:off={u.active === 0}
-								onclick={() => setActive(u, u.active === 0)}
+								aria-expanded={userActionsId === u.id}
+								aria-controls={`user-actions-${u.id}`}
+								onclick={() => (userActionsId = userActionsId === u.id ? null : u.id)}
 							>
-								{u.active ? 'Deactivate' : 'Activate'}
+								{userActionsId === u.id ? 'Close' : 'Actions'}
 							</button>
 						</div>
+						{#if userActionsId === u.id}
+							<div class="user-actions" id={`user-actions-${u.id}`}>
+								<label class="role-label" title="Role">
+									<span class="meta">Role</span>
+									<select
+										value={u.role}
+										onchange={(e) => setRole(u, e.currentTarget.value as AdminUser['role'])}
+									>
+										<option value="listener">Listener</option>
+										<option value="dj">DJ</option>
+										<option value="admin">Admin</option>
+									</select>
+								</label>
+								<button
+									class="mini-btn"
+									class:off={u.active === 0}
+									onclick={() => setActive(u, u.active === 0)}
+								>
+									{u.active ? 'Deactivate' : 'Activate'}
+								</button>
+							</div>
+						{/if}
 					{/each}
 				</div>
 			{/if}
@@ -1201,9 +1276,36 @@
 				Events
 			</button>
 		</div>
+		{#if mgrFilter !== 'shows'}
+			<div class="filter-btns mgr-event-filters" role="group" aria-label="Filter events by type">
+				<span class="filter-label mono">Event type</span>
+				<button
+					class="filter-btn"
+					class:active={mgrEventType === 'all'}
+					onclick={() => (mgrEventType = 'all')}
+				>
+					All
+				</button>
+				{#each EVENT_TYPES as t (t.id)}
+					<button
+						class="filter-btn"
+						class:active={mgrEventType === t.id}
+						onclick={() => (mgrEventType = t.id)}
+					>
+						{t.label}
+					</button>
+				{/each}
+			</div>
+		{/if}
 		{#if mgrShows.length === 0}
 			<p class="muted">
-				{mgrFilter === 'events' ? 'No events yet.' : mgrFilter === 'shows' ? 'No regular shows yet.' : 'No shows yet.'}
+				{mgrEventType !== 'all'
+					? 'No events match.'
+					: mgrFilter === 'events'
+						? 'No events yet.'
+						: mgrFilter === 'shows'
+							? 'No regular shows yet.'
+							: 'No shows yet.'}
 			</p>
 		{:else if adminUsers.length === 0}
 			<p class="muted">Loading users…</p>
@@ -1282,6 +1384,14 @@
 								</select>
 							</Field>
 							{#if show.kind === 'event'}
+								<Field label="Event type">
+									<select class="dj-select" bind:value={ef.eventType}>
+										<option value="">None</option>
+										{#each EVENT_TYPES as t (t.id)}
+											<option value={t.id}>{t.label}</option>
+										{/each}
+									</select>
+								</Field>
 								<Field label="Date">
 									<input type="date" class="vr-input" style="width:100%" bind:value={ef.date} />
 								</Field>
@@ -1538,6 +1648,15 @@
 		padding: 0.25rem 0.4rem;
 	}
 
+	.user-actions {
+		display: flex;
+		align-items: flex-end;
+		gap: 0.75rem;
+		flex-wrap: wrap;
+		border-top: 1px solid var(--vr-line-muted);
+		padding: 0.75rem 0 0.25rem;
+	}
+
 	.row-feedback {
 		font-family: var(--vr-font-mono);
 		font-size: 0.72rem;
@@ -1563,6 +1682,21 @@
 		display: flex;
 		gap: 0.4rem;
 		flex-wrap: wrap;
+	}
+
+	.mgr-event-filters {
+		align-items: center;
+		margin-top: 0.6rem;
+	}
+
+	.filter-label {
+		color: var(--vr-muted);
+		font-size: 0.72rem;
+		margin-right: 0.25rem;
+	}
+
+	.featured-filters {
+		margin-bottom: 1rem;
 	}
 
 	.create-toggle {

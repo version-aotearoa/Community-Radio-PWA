@@ -6,6 +6,7 @@
 	import ShowActions from '$lib/components/ShowActions.svelte';
 	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
 	import { playback, playMedia, requestSetPlaying, streamPlaying } from '$lib/stores/player';
+	import { EVENT_TYPES, eventTypeLabel } from '$lib/eventTypes';
 	import { episodeArtOrDefault } from '$lib/azuracast';
 	import { artOnError } from '$lib/art';
 	import Seo from '$lib/components/Seo.svelte';
@@ -31,6 +32,7 @@
 	let djName = $state<string | null>('');
 	let djId = $state('');
 	let djHandle = $state('');
+	let eventType = $state('');
 
 	// Seed + sync the edit/display buffer from the server show data. Reading
 	// `data.show` here (inside the effect) keeps the state reactive to fresh
@@ -42,6 +44,7 @@
 		djName = data.show.dj_name ?? '';
 		djId = data.show.dj_id;
 		djHandle = data.show.dj_handle ?? '';
+		eventType = data.show.event_type ?? '';
 	});
 
 	let editing = $state(false);
@@ -69,6 +72,7 @@
 		pageContent = data.show.page_content ?? '';
 		djId = data.show.dj_id;
 		djHandle = data.show.dj_handle ?? '';
+		eventType = data.show.event_type ?? '';
 		if (isAdmin && djOptions.length === 0) {
 			const res = await fetch('/api/admin/users');
 			if (res.ok) {
@@ -89,6 +93,7 @@
 		editSaved = false;
 		const body: Record<string, string> = { title, description, pageContent, djHandle };
 		if (isAdmin) body.djId = djId;
+		if (show.kind === 'event') body.eventType = eventType;
 		const res = await fetch(`/api/shows/${data.show.id}`, {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
@@ -217,6 +222,9 @@
 				{#if eventDate}
 					<p class="subtitle mono">{fmtDate(eventDate)}</p>
 				{/if}
+				{#if eventTypeLabel(show.event_type)}
+					<p class="event-type mono">{eventTypeLabel(show.event_type)}</p>
+				{/if}
 			{:else}
 				<p class="subtitle mono">
 					{DAY_NAMES[show.day_of_week]}s · {fmtTime(show.start_minutes)}–{fmtTime(
@@ -252,6 +260,16 @@
 								{/if}
 								{#each djOptions as dj (dj.id)}
 									<option value={dj.id}>{dj.name || dj.email}</option>
+								{/each}
+							</select>
+						</Field>
+					{/if}
+					{#if show.kind === 'event'}
+						<Field label="Event type">
+							<select class="dj-select" bind:value={eventType}>
+								<option value="">None</option>
+								{#each EVENT_TYPES as t (t.id)}
+									<option value={t.id}>{t.label}</option>
 								{/each}
 							</select>
 						</Field>
@@ -470,6 +488,14 @@
 	.dj {
 		margin: 0.4rem 0 0;
 		color: var(--vr-faint);
+	}
+
+	.event-type {
+		display: inline-block;
+		margin: 0.6rem 0 0;
+		padding: 0.2rem 0.5rem;
+		border: 1px solid var(--vr-line);
+		color: var(--vr-text);
 	}
 
 	.cycle-line {

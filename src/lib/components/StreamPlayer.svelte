@@ -78,6 +78,10 @@
 
 	const stationSticker = $derived(mediaMode ? 'Archive' : isLive ? 'Live now' : 'Replay');
 
+	// A re-air's encoder metadata usually repeats the show name, so the title
+	// line above the "On air: <show>" link would duplicate it — drop it then.
+	const onAirLine = $derived(!mediaMode && !isLive && !!showLink);
+
 	// ---- iOS lock-screen / notification metadata (Media Session, metadata-only) ----
 	// No seek actions and no setPositionState: live has no finite timeline and
 	// the HANDOVER cautions to re-verify background audio after any re-enable.
@@ -710,7 +714,7 @@
 							</span>
 						{/if}
 					{:else if showLink}
-						<a class="showlink" href={`/shows/${showLink.id}`}>On air: {showLink.title}</a>
+						<a class="showlink showlink-onair" href={`/shows/${showLink.id}`}>On air: {showLink.title}</a>
 					{:else if livePayload?.next}
 						<span class="track muted">
 							Up next: {livePayload.next.title} · {fmtDt(livePayload.next.date)} {fmtTime(livePayload.next.startMinutes)}
@@ -859,18 +863,17 @@
 
 	<div class="player-bar" class:out={expanded}>
 		<button
-			class="chev"
+			class="bar-toggle mono"
+			class:dark={!isLive && !mediaMode}
 			onclick={() => (expanded = !expanded)}
 			aria-controls="player-sheet"
 			aria-expanded={expanded}
-			aria-label={expanded ? 'Minimise player' : 'Maximise player'}
+			aria-label={`${stationSticker} — ${expanded ? 'Minimise player' : 'Maximise player'}`}
 			title={expanded ? 'Minimise' : 'Maximise'}
 		>
-			{expanded ? '▾' : '▴'}
-		</button>
-		<span class="bar-sticker mono" class:green={isLive} class:dark={!isLive && !mediaMode}>
+			<span class="bar-toggle-chev" aria-hidden="true">{expanded ? '▾' : '▴'}</span>
 			{stationSticker}
-		</span>
+		</button>
 		<div class="bar-meta">
 			{#if artSource}
 				<img class="art" src={artSource} alt="" width="28" height="28" loading="lazy" />
@@ -880,7 +883,9 @@
 				</span>
 			{/if}
 			<div class="meta">
-				<span class="track mono" class:muted={!media && !identity && !isLive && !livePayload?.nowPlaying?.title}>{media ? media.title : trackText()}</span>
+				{#if !onAirLine}
+					<span class="track mono" class:muted={!media && !identity && !isLive && !livePayload?.nowPlaying?.title}>{media ? media.title : trackText()}</span>
+				{/if}
 				{#if media?.artist}
 					<span class="track mono muted">{media.artist}</span>
 				{/if}
@@ -966,11 +971,14 @@
 		transition-delay: 0ms;
 	}
 
-	.bar-sticker {
-		display: flex;
+	.bar-toggle {
+		display: inline-flex;
 		align-items: center;
 		justify-content: center;
+		gap: 0.45rem;
 		padding: 0 1rem;
+		border: none;
+		border-right: 1px solid var(--vr-line-muted);
 		font-family: var(--vr-font-mono);
 		font-size: 0.82rem;
 		font-weight: 700;
@@ -979,12 +987,24 @@
 		color: #000;
 		background: var(--vr-green);
 		white-space: nowrap;
+		cursor: pointer;
 	}
 
-	.bar-sticker.dark {
+	.bar-toggle.dark {
 		background: #000;
 		color: #fff;
-		border-right: 1px solid #fff;
+		border-right-color: #fff;
+	}
+
+	.bar-toggle-chev {
+		font-size: 0.9rem;
+		letter-spacing: 0;
+	}
+
+	.bar-toggle:hover {
+		background: var(--vr-text);
+		color: var(--vr-black);
+		border-right-color: var(--vr-line-muted);
 	}
 
 	.bar-meta {
@@ -1047,6 +1067,10 @@
 
 	.sheet .showlink {
 		color: var(--vr-muted);
+	}
+
+	.sheet .showlink-onair {
+		text-decoration: underline;
 	}
 
 	.showlink:hover {
@@ -1408,7 +1432,7 @@
 	}
 
 	@media (max-width: 720px) {
-		.bar-sticker {
+		.bar-toggle {
 			padding: 0 0.7rem;
 		}
 
@@ -1419,11 +1443,6 @@
 
 		.art {
 			display: none;
-		}
-
-		/* The bar's expand/collapse chevron: comfortable fat-finger target. */
-		.player-bar .chev {
-			width: 48px;
 		}
 
 		.live-btn {

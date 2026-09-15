@@ -13,6 +13,7 @@ export interface LatestShow {
 	show_image: string | null;
 	dj_name: string | null;
 	kind: string;
+	event_type: string | null;
 }
 
 export interface FeaturedShow {
@@ -25,6 +26,7 @@ export interface FeaturedShow {
 	image: string | null;
 	dj_name: string | null;
 	kind: string;
+	event_type: string | null;
 }
 
 export const load: PageServerLoad = async ({ platform, locals, cookies }) => {
@@ -35,7 +37,7 @@ export const load: PageServerLoad = async ({ platform, locals, cookies }) => {
 	// once the admin marks it ready.
 	const { results } = await db
 		.prepare(
-			`SELECT b.id AS broadcast_id, b.show_id, b.date, b.start_minutes, b.replay_url, b.art, s.title, s.image AS show_image, s.kind, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name
+			`SELECT b.id AS broadcast_id, b.show_id, b.date, b.start_minutes, b.replay_url, b.art, s.title, s.image AS show_image, s.kind, s.event_type, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name
 			 FROM broadcast b
 			 JOIN show s ON s.id = b.show_id
 			 LEFT JOIN user u ON u.id = s.dj_id
@@ -62,7 +64,7 @@ export const load: PageServerLoad = async ({ platform, locals, cookies }) => {
 	// most recent first. Falls back to the four earliest-dated broadcasts if
 	// nothing is featured.
 	const featuredSelect = (extra: string) => `
-		SELECT b.id AS broadcast_id, b.date, b.show_id, b.replay_url, b.art, s.title, s.image AS show_image, s.kind, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name
+		SELECT b.id AS broadcast_id, b.date, b.show_id, b.replay_url, b.art, s.title, s.image AS show_image, s.kind, s.event_type, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name
 		FROM broadcast b
 		JOIN show s ON s.id = b.show_id
 		LEFT JOIN user u ON u.id = s.dj_id
@@ -78,6 +80,7 @@ export const load: PageServerLoad = async ({ platform, locals, cookies }) => {
 		show_image: string | null;
 		dj_name: string | null;
 		kind: string;
+		event_type: string | null;
 	};
 
 	const curated = (
@@ -101,7 +104,8 @@ export const load: PageServerLoad = async ({ platform, locals, cookies }) => {
 		title: r.title,
 		image: r.show_image,
 		dj_name: r.dj_name,
-		kind: r.kind
+		kind: r.kind,
+		event_type: r.event_type
 	}));
 
 	const news = await listNews(db, true);

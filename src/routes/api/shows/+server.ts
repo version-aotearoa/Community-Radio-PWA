@@ -8,6 +8,7 @@ import {
 	todayStr,
 	weekdayOf
 } from '$lib/server/shows';
+import { isEventType } from '$lib/eventTypes';
 import type { RequestHandler } from './$types';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -40,6 +41,7 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 		intervalWeeks?: number;
 		cycleWeek?: number;
 		kind?: string;
+		eventType?: string;
 		date?: string;
 		replayUrl?: string;
 	};
@@ -55,6 +57,11 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 	if (!body.title) return json({ error: 'title is required' }, { status: 400 });
 	if (isEvent && (typeof body.date !== 'string' || !DATE_RE.test(body.date))) {
 		return json({ error: 'Events need a valid date (YYYY-MM-DD)' }, { status: 400 });
+	}
+	if (body.eventType !== undefined && body.eventType !== null) {
+		if (typeof body.eventType !== 'string' || !isEventType(body.eventType)) {
+			return json({ error: 'Unknown event type' }, { status: 400 });
+		}
 	}
 	if (!Number.isInteger(dayOfWeek) || !Number.isInteger(startMinutes)) {
 		return json({ error: 'title, dayOfWeek and startMinutes are required' }, { status: 400 });
@@ -85,6 +92,7 @@ export const POST: RequestHandler = async ({ request, locals, platform }) => {
 			intervalWeeks,
 			anchorDate,
 			kind: isEvent ? 'event' : 'show',
+			eventType: isEvent ? body.eventType : undefined,
 			date: isEvent ? body.date : undefined,
 			replayUrl: body.replayUrl
 		});
