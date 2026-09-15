@@ -16,6 +16,11 @@
 	let busy = $state(false);
 	let turnstileToken = $state('');
 	let turnstileExpired = $state(false);
+	let termsDialog = $state<HTMLDialogElement | null>(null);
+
+	function openTerms() {
+		termsDialog?.showModal();
+	}
 
 	const user = $derived(data.user);
 	const { github, google } = $derived(data.providers);
@@ -177,9 +182,44 @@
 					</div>
 				{/if}
 			{/if}
+
+			<p class="terms">
+				By signing in, you agree to our <a
+					href="/info#terms"
+					onclick={(e) => {
+						e.preventDefault();
+						openTerms();
+					}}>Terms of Use</a
+				>.
+			</p>
 		{/if}
 	</section>
 </div>
+
+<dialog
+	bind:this={termsDialog}
+	class="terms-modal"
+	aria-labelledby="terms-title"
+	onclick={(e) => {
+		if (e.target === e.currentTarget) termsDialog?.close();
+	}}
+>
+	<div class="terms-modal-head">
+		<h2 id="terms-title">Terms of Use</h2>
+		<button class="terms-close" type="button" aria-label="Close" onclick={() => termsDialog?.close()}>
+			<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+				<path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+			</svg>
+		</button>
+	</div>
+	<div class="terms-modal-body">
+		{#if data.terms}
+			{@html data.terms}
+		{:else}
+			<p class="muted">Terms are unavailable right now.</p>
+		{/if}
+	</div>
+</dialog>
 
 <style>
 	.login-wrap {
@@ -207,6 +247,23 @@
 	.muted {
 		color: var(--vr-muted);
 		margin: 0 0 1.25rem;
+	}
+
+	.terms {
+		margin: 1.75rem 0 0;
+		padding-top: 1rem;
+		border-top: 1px solid var(--vr-line-muted);
+		color: var(--vr-faint);
+		font-size: 0.8rem;
+	}
+
+	.terms a {
+		color: var(--vr-muted);
+		text-decoration: underline;
+	}
+
+	.terms a:hover {
+		color: var(--vr-text);
 	}
 
 	.divider {
@@ -247,5 +304,124 @@
 
 	.notice.bad {
 		color: var(--vr-text);
+	}
+
+	/* Terms modal (native <dialog>; top-layer gives focus trap + Esc) */
+	.terms-modal {
+		border: 1px solid var(--vr-line);
+		background: var(--vr-surface);
+		color: var(--vr-text);
+		padding: 0;
+		width: min(32rem, calc(100vw - 2rem));
+		max-height: min(80vh, 42rem);
+	}
+
+	/* Native <dialog> is display:none until opened — only lay out once open. */
+	.terms-modal[open] {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.terms-modal::backdrop {
+		background: rgba(0, 0, 0, 0.7);
+		backdrop-filter: blur(2px);
+		-webkit-backdrop-filter: blur(2px);
+	}
+
+	.terms-modal-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		flex-shrink: 0;
+		padding: 1rem 1.25rem;
+		border-bottom: 1px solid var(--vr-line);
+	}
+
+	.terms-modal-head h2 {
+		margin: 0;
+		font-family: var(--vr-font-headline);
+		font-size: 1.25rem;
+		font-weight: 400;
+		line-height: 1;
+		text-transform: uppercase;
+		letter-spacing: 0.01em;
+	}
+
+	.terms-close {
+		display: grid;
+		place-items: center;
+		width: 32px;
+		height: 32px;
+		flex-shrink: 0;
+		border: 1px solid var(--vr-line);
+		background: transparent;
+		color: var(--vr-text);
+		padding: 0;
+		cursor: pointer;
+	}
+
+	.terms-close:hover {
+		background: var(--vr-text);
+		color: var(--vr-black);
+	}
+
+	.terms-modal-body {
+		padding: 1.25rem;
+		overflow-y: auto;
+		min-height: 0;
+		font-size: 0.95rem;
+		line-height: 1.55;
+	}
+
+	.terms-modal-body :global(p) {
+		margin: 0 0 0.85rem;
+	}
+
+	.terms-modal-body :global(p:last-child) {
+		margin-bottom: 0;
+	}
+
+	.terms-modal-body :global(h1),
+	.terms-modal-body :global(h2),
+	.terms-modal-body :global(h3),
+	.terms-modal-body :global(h4) {
+		font-family: var(--vr-font-headline);
+		font-size: 1.1rem;
+		text-transform: uppercase;
+		margin: 1.25rem 0 0.5rem;
+	}
+
+	.terms-modal-body :global(a) {
+		color: var(--vr-green);
+	}
+
+	.terms-modal-body :global(ul),
+	.terms-modal-body :global(ol) {
+		margin: 0 0 0.85rem;
+		padding-left: 1.25rem;
+	}
+
+	.terms-modal-body :global(li) {
+		margin: 0.25rem 0;
+	}
+
+	.terms-modal-body :global(code) {
+		font-family: var(--vr-font-mono);
+		font-size: 0.9em;
+	}
+
+	.terms-modal-body :global(pre) {
+		background: var(--vr-surface-low);
+		border: 1px solid var(--vr-line);
+		padding: 0.75rem;
+		overflow-x: auto;
+	}
+
+	.terms-modal-body :global(blockquote) {
+		border-left: 2px solid var(--vr-green);
+		margin: 0.75rem 0;
+		padding-left: 0.85rem;
+		color: var(--vr-muted);
 	}
 </style>
