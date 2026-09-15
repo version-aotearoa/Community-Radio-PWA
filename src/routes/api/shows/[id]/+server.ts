@@ -11,6 +11,7 @@ import {
 	todayStr,
 	weekdayOf
 } from '$lib/server/shows';
+import { isEventType } from '$lib/eventTypes';
 import { DESCRIPTION_MAX, descriptionToText, sanitizeDescription } from '$lib/server/sanitize';
 import type { RequestHandler } from './$types';
 
@@ -35,6 +36,7 @@ export const POST: RequestHandler = async ({ request, params, locals, platform }
 		image?: string;
 		djId?: string;
 		djHandle?: string;
+		eventType?: string | null;
 		dayOfWeek?: number | string;
 		startMinutes?: number | string;
 		durationMinutes?: number | string;
@@ -70,6 +72,20 @@ export const POST: RequestHandler = async ({ request, params, locals, platform }
 	if (typeof body.djHandle === 'string') {
 		columns.push('dj_handle = ?');
 		values.push(body.djHandle.trim().slice(0, 100));
+	}
+
+	// Event subtype (Guest Mix / HiFi Session); '' or null clears it.
+	if (typeof body.eventType === 'string' || body.eventType === null) {
+		if (!isEvent) return json({ error: 'eventType is event-only' }, { status: 400 });
+		const raw = typeof body.eventType === 'string' ? body.eventType.trim() : '';
+		const next = raw || null;
+		if (next !== null && !isEventType(next)) {
+			return json({ error: 'Unknown event type' }, { status: 400 });
+		}
+		if (next !== (show.event_type ?? null)) {
+			columns.push('event_type = ?');
+			values.push(next);
+		}
 	}
 
 	if (typeof body.image === 'string') {

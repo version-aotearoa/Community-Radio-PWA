@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import { Button, Field, Text, Combo } from '@svar-ui/svelte-core';
 	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
+	import { EVENT_TYPES } from '$lib/eventTypes';
 	import type { ShowRow } from '$lib/server/shows';
 	import type { NewsListItem } from '$lib/server/news';
 	import Seo from '$lib/components/Seo.svelte';
@@ -28,6 +29,7 @@
 	let showImage = $state('');
 	let evTitle = $state('');
 	let evDate = $state('');
+	let evEventType = $state('');
 	let evStartHours = $state('18');
 	let evStartMinutes = $state('0');
 	let evReplay = $state('');
@@ -58,6 +60,7 @@
 			body: JSON.stringify({
 				title: evTitle,
 				kind: 'event',
+				eventType: evEventType || null,
 				date: evDate.trim(),
 				startMinutes: Number(evStartHours) * 60 + Number(evStartMinutes),
 				durationMinutes: 60,
@@ -77,6 +80,7 @@
 		evOverlap = overlapText(saved.overlap);
 		evTitle = '';
 		evDate = '';
+		evEventType = '';
 		evReplay = '';
 		evDescription = '';
 		evPageContent = '';
@@ -430,6 +434,7 @@
 		intervalWeeks: '1',
 		cycleWeek: '',
 		date: '',
+		eventType: '',
 		replay: ''
 	});
 	let efSaving = $state(false);
@@ -469,6 +474,7 @@
 			intervalWeeks: String(fresh.interval_weeks),
 			cycleWeek: fresh.cycleWeek != null ? String(fresh.cycleWeek) : '',
 			date: fresh.anchor_date ?? '',
+			eventType: fresh.event_type ?? '',
 			replay: ''
 		};
 	}
@@ -488,6 +494,7 @@
 		if (show.kind === 'event') {
 			body.date = ef.date;
 			body.startMinutes = Number(ef.startHours) * 60 + Number(ef.startMinutes);
+			body.eventType = ef.eventType || null;
 			if (ef.replay.trim()) body.replayUrl = ef.replay;
 		} else {
 			body.dayOfWeek = Number(ef.dayOfWeek);
@@ -841,6 +848,14 @@
 		{:else}
 			<Field label="Event name">
 				<Text bind:value={evTitle} placeholder="e.g. HIFI SESSION" css="vr-input" />
+			</Field>
+			<Field label="Event type">
+				<select class="dj-select" bind:value={evEventType}>
+					<option value="">None</option>
+					{#each EVENT_TYPES as t (t.id)}
+						<option value={t.id}>{t.label}</option>
+					{/each}
+				</select>
 			</Field>
 			<Field label="Description (optional)">
 				<input
@@ -1332,6 +1347,14 @@
 								</select>
 							</Field>
 							{#if show.kind === 'event'}
+								<Field label="Event type">
+									<select class="dj-select" bind:value={ef.eventType}>
+										<option value="">None</option>
+										{#each EVENT_TYPES as t (t.id)}
+											<option value={t.id}>{t.label}</option>
+										{/each}
+									</select>
+								</Field>
 								<Field label="Date">
 									<input type="date" class="vr-input" style="width:100%" bind:value={ef.date} />
 								</Field>

@@ -2,10 +2,12 @@
 	import { onMount } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import Seo from '$lib/components/Seo.svelte';
+	import { EVENT_TYPES, eventTypeLabel } from '$lib/eventTypes';
 
 	let { data } = $props();
 
 	let filter = $state<'all' | 'shows' | 'events'>('all');
+	let eventTypeFilter = $state<'all' | string>('all');
 	let sort = $state<'az' | 'za' | 'schedule' | 'date'>('az');
 
 	type SortOption = { value: 'az' | 'za' | 'schedule' | 'date'; label: string };
@@ -27,6 +29,9 @@
 	$effect(() => {
 		if (!sortOptions.some((o) => o.value === sort)) {
 			sort = filter === 'events' ? 'date' : 'az';
+		}
+		if (filter === 'shows' && eventTypeFilter !== 'all') {
+			eventTypeFilter = 'all';
 		}
 	});
 
@@ -63,7 +68,10 @@
 	}
 
 	const visible = $derived.by(() => {
-		const list = filtered;
+		const list =
+			eventTypeFilter === 'all'
+				? filtered
+				: allShows.filter((s) => s.kind === 'event' && s.event_type === eventTypeFilter);
 		if (sort === 'za') return [...list].sort((a, b) => b.title.localeCompare(a.title));
 		if (sort === 'schedule') return [...list].sort(scheduleCmp);
 		if (sort === 'date') return [...list].sort(dateCmp);
@@ -136,6 +144,28 @@
 		</div>
 	</div>
 
+	{#if filter !== 'shows'}
+		<div class="filter-btns event-filters" role="group" aria-label="Filter events by type">
+			<span class="filter-label mono">Event type</span>
+			<button
+				class="filter-btn"
+				class:active={eventTypeFilter === 'all'}
+				onclick={() => (eventTypeFilter = 'all')}
+			>
+				All
+			</button>
+			{#each EVENT_TYPES as t (t.id)}
+				<button
+					class="filter-btn"
+					class:active={eventTypeFilter === t.id}
+					onclick={() => (eventTypeFilter = t.id)}
+				>
+					{t.label}
+				</button>
+			{/each}
+		</div>
+	{/if}
+
 	{#if visible.length === 0}
 		<p class="empty mono">
 			{filter === 'events' ? 'No events yet.' : filter === 'shows' ? 'No regular shows yet.' : 'No shows yet.'}
@@ -162,6 +192,7 @@
 						<div class="card-body">
 							<p class="mono card-meta">
 								{#if show.kind === 'event'}
+									{#if eventTypeLabel(show.event_type)}<span class="event-tag">{eventTypeLabel(show.event_type)}</span>{/if}
 									{fmtDate(show.anchor_date)}
 								{:else}
 									{airLabel(show)}{#if show.showCycleWeeks.length > 0}<span class="asterisk" aria-hidden="true">*</span>{/if}
@@ -223,6 +254,17 @@
 		display: flex;
 		gap: 0.4rem;
 		flex-wrap: wrap;
+	}
+
+	.event-filters {
+		align-items: center;
+		margin: -0.75rem 0 1.5rem;
+	}
+
+	.filter-label {
+		color: var(--vr-muted);
+		font-size: 0.72rem;
+		margin-right: 0.25rem;
 	}
 
 	.sort-control {
@@ -344,6 +386,19 @@
 	.asterisk {
 		color: var(--vr-green);
 		margin-left: 0.25rem;
+	}
+
+	.event-tag {
+		display: inline-block;
+		margin-right: 0.5rem;
+		padding: 0.1rem 0.4rem;
+		border: 1px solid var(--vr-line-muted);
+		color: var(--vr-text);
+	}
+
+	.card:hover .event-tag {
+		border-color: rgba(0, 0, 0, 0.6);
+		color: #000;
 	}
 
 	.card:hover .card-meta {

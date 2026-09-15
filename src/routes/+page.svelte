@@ -4,6 +4,7 @@
 	import { playMedia } from '$lib/stores/player';
 	import { live, startLivePolling } from '$lib/stores/live';
 	import { episodeArtOrDefault } from '$lib/azuracast';
+	import { eventTypeLabel } from '$lib/eventTypes';
 	import { artOnError } from '$lib/art';
 	import Seo from '$lib/components/Seo.svelte';
 	import { SITE_TITLE } from '$lib/site';
@@ -162,7 +163,9 @@
 				</div>
 				<div class="showcard-meta mono">
 					<span>{fmtBroadcastDate(show.date)}</span>
-					{#if show.kind !== 'event'}
+					{#if show.kind === 'event' && eventTypeLabel(show.event_type)}
+						<span class="event-tag">{eventTypeLabel(show.event_type)}</span>
+					{:else if show.kind !== 'event'}
 						<span>{show.dj_name ?? 'Version Radio'}</span>
 					{/if}
 				</div>
@@ -255,7 +258,7 @@
 								{#if b.onair}
 									<span class="live-dot" aria-hidden="true"></span>
 								{/if}
-								{b.title}{#if b.dj_name && b.kind !== 'event'} <span class="slot-dj">with {b.dj_name}</span>{/if}
+								{b.title}{#if b.dj_name && b.kind !== 'event'} <span class="slot-dj">with {b.dj_name}</span>{/if}{#if b.kind === 'event' && eventTypeLabel(b.event_type)} <span class="slot-dj">{eventTypeLabel(b.event_type)}</span>{/if}
 							</span>
 						</a>
 					</li>
@@ -288,6 +291,7 @@
 								<span class="feat-info">
 									<span class="h-sm">{f.title}</span>
 									{#if f.dj_name && f.kind !== 'event'}<span class="mono feat-dj">{f.dj_name}</span>{/if}
+									{#if f.kind === 'event' && eventTypeLabel(f.event_type)}<span class="mono feat-dj">{eventTypeLabel(f.event_type)}</span>{/if}
 								</span>
 								<span class="mono feat-when">{fmtBroadcastDate(f.date)}</span>
 							</a>
@@ -539,6 +543,18 @@
 
 	.showcard:hover .showcard-meta {
 		color: rgba(0, 0, 0, 0.75);
+	}
+
+	.event-tag {
+		display: inline-block;
+		padding: 0.1rem 0.4rem;
+		border: 1px solid var(--vr-line-muted);
+		color: var(--vr-text);
+	}
+
+	.showcard:hover .event-tag {
+		border-color: rgba(0, 0, 0, 0.6);
+		color: #000;
 	}
 
 	.showcard-title {

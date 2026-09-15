@@ -3,6 +3,8 @@ export interface ShowRow {
 	dj_id: string;
 	dj_handle: string | null;
 	kind: string;
+	/** Optional subtype for kind='event' rows ('guest-mix' | 'hifi-session'), else null. */
+	event_type: string | null;
 	title: string;
 	description: string;
 	page_content: string;
@@ -41,6 +43,7 @@ import {
 	descriptionToText,
 	sanitizeDescription
 } from '$lib/server/sanitize';
+import { isEventType } from '$lib/eventTypes';
 
 /** Max length of the short plain-text card blurb (show.description). */
 export const SHOW_DESC_MAX = 50;
@@ -90,6 +93,7 @@ const now = () => Math.floor(Date.now() / 1000);
 function sanitizeShowRow<T extends ShowRow>(row: T): T {
 	return {
 		...row,
+		event_type: isEventType(row.event_type) ? row.event_type : null,
 		description: descriptionToText(row.description).slice(0, SHOW_DESC_MAX),
 		page_content: sanitizeDescription(row.page_content).slice(0, DESCRIPTION_MAX)
 	};
@@ -461,6 +465,7 @@ export interface UpcomingBroadcast extends BroadcastRow {
 	title: string;
 	dj_name: string | null;
 	kind: string;
+	event_type: string | null;
 }
 
 export interface AiringInfo extends UpcomingBroadcast {
@@ -476,7 +481,7 @@ export async function getOnAirBroadcast(
 ): Promise<AiringInfo | null> {
 	return db
 		.prepare(
-			`SELECT b.*, s.title, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name, u.image AS dj_image
+			`SELECT b.*, s.title, s.kind, s.event_type, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name, u.image AS dj_image
 			 FROM broadcast b
 			 JOIN show s ON s.id = b.show_id
 			 LEFT JOIN user u ON u.id = s.dj_id
@@ -496,7 +501,7 @@ export async function getNextBroadcast(
 ): Promise<AiringInfo | null> {
 	return db
 		.prepare(
-			`SELECT b.*, s.title, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name, u.image AS dj_image
+			`SELECT b.*, s.title, s.kind, s.event_type, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name, u.image AS dj_image
 			 FROM broadcast b
 			 JOIN show s ON s.id = b.show_id
 			 LEFT JOIN user u ON u.id = s.dj_id
@@ -537,7 +542,7 @@ export async function getUpcomingBroadcasts(
 	const to = addDays(from, days);
 	const { results } = await db
 		.prepare(
-			`SELECT b.*, s.title, s.kind, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name
+			`SELECT b.*, s.title, s.kind, s.event_type, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name
 			 FROM broadcast b
 			 JOIN show s ON s.id = b.show_id
 			 LEFT JOIN user u ON u.id = s.dj_id
@@ -660,12 +665,14 @@ export async function createShow(
 		intervalWeeks?: number;
 		anchorDate?: string;
 		kind?: 'show' | 'event';
+		eventType?: string | null;
 		date?: string;
 		replayUrl?: string;
 	}
 ): Promise<ShowRow> {
 	const t = now();
 	const kind = input.kind === 'event' ? 'event' : 'show';
+	const eventType = kind === 'event' && isEventType(input.eventType) ? input.eventType : null;
 	const intervalWeeks = Math.max(1, Math.floor(input.intervalWeeks ?? 1) || 1);
 	const anchorDate = input.anchorDate ?? input.date ?? nextDateForWeekday(input.dayOfWeek, todayStr());
 	const image = input.image?.trim().slice(0, 500) || null;
@@ -675,8 +682,8 @@ export async function createShow(
 	const id = await uniqueShowId(db, base);
 	await db
 		.prepare(
-			`INSERT INTO show (id, dj_id, title, description, page_content, image, day_of_week, start_minutes, duration_minutes, interval_weeks, anchor_date, kind, active, created_at, updated_at)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
+			`INSERT INTO show (id, dj_id, title, description, page_content, image, day_of_week, start_minutes, duration_minutes, interval_weeks, anchor_date, kind, event_type, active, created_at, updated_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
 		)
 		.bind(
 			id,
@@ -691,6 +698,7 @@ export async function createShow(
 			intervalWeeks,
 			anchorDate,
 			kind,
+			eventType,
 			t,
 			t
 		)
