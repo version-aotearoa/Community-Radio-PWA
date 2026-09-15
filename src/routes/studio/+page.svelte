@@ -235,7 +235,7 @@
 	let newsFeedback = $state<Record<string, RowFeedback>>({});
 	let newsError = $state('');
 	let newsNotice = $state('');
-	let newsComposerOpen = $state(true);
+	let newsComposerOpen = $state(false);
 	// One-shot deep link from a news post's "Edit in Studio" link.
 	let deepLinkEditId = page.url.searchParams.get('edit') ?? '';
 
