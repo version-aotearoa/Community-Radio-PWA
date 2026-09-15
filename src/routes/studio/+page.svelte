@@ -195,6 +195,8 @@
 	let userRoleFilter = $state<'all' | 'listener' | 'dj' | 'admin'>('all');
 	let userSearch = $state('');
 	let userSort = $state<'newest' | 'oldest' | 'name'>('newest');
+	// Only one user's role/active controls are revealed at a time.
+	let userActionsId = $state<string | null>(null);
 
 	const filteredUsers = $derived.by(() => {
 		const q = userSearch.trim().toLowerCase();
@@ -1156,17 +1158,6 @@
 								<strong>{u.name || u.email}</strong>
 								<span class="meta">{u.email}</span>
 							</div>
-							<label class="role-label" title="Role">
-								<span class="meta">Role</span>
-								<select
-									value={u.role}
-									onchange={(e) => setRole(u, e.currentTarget.value as AdminUser['role'])}
-								>
-									<option value="listener">Listener</option>
-									<option value="dj">DJ</option>
-									<option value="admin">Admin</option>
-								</select>
-							</label>
 							{#if userFeedback[u.id]}
 								<span class="row-feedback" class:bad={!userFeedback[u.id].ok}>
 									{userFeedback[u.id].text}
@@ -1174,12 +1165,35 @@
 							{/if}
 							<button
 								class="mini-btn"
-								class:off={u.active === 0}
-								onclick={() => setActive(u, u.active === 0)}
+								aria-expanded={userActionsId === u.id}
+								aria-controls={`user-actions-${u.id}`}
+								onclick={() => (userActionsId = userActionsId === u.id ? null : u.id)}
 							>
-								{u.active ? 'Deactivate' : 'Activate'}
+								{userActionsId === u.id ? 'Close' : 'Actions'}
 							</button>
 						</div>
+						{#if userActionsId === u.id}
+							<div class="user-actions" id={`user-actions-${u.id}`}>
+								<label class="role-label" title="Role">
+									<span class="meta">Role</span>
+									<select
+										value={u.role}
+										onchange={(e) => setRole(u, e.currentTarget.value as AdminUser['role'])}
+									>
+										<option value="listener">Listener</option>
+										<option value="dj">DJ</option>
+										<option value="admin">Admin</option>
+									</select>
+								</label>
+								<button
+									class="mini-btn"
+									class:off={u.active === 0}
+									onclick={() => setActive(u, u.active === 0)}
+								>
+									{u.active ? 'Deactivate' : 'Activate'}
+								</button>
+							</div>
+						{/if}
 					{/each}
 				</div>
 			{/if}
@@ -1536,6 +1550,15 @@
 		color: var(--vr-text);
 		border: 1px solid var(--vr-line);
 		padding: 0.25rem 0.4rem;
+	}
+
+	.user-actions {
+		display: flex;
+		align-items: flex-end;
+		gap: 0.75rem;
+		flex-wrap: wrap;
+		border-top: 1px solid var(--vr-line-muted);
+		padding: 0.75rem 0 0.25rem;
 	}
 
 	.row-feedback {
