@@ -177,6 +177,8 @@
 					</div>
 				{/if}
 			{/if}
+
+			<p class="terms">By signing in, you agree to our <a href="/info#terms">Terms of Use</a>.</p>
 		{/if}
 	</section>
 </div>
@@ -207,6 +209,23 @@
 	.muted {
 		color: var(--vr-muted);
 		margin: 0 0 1.25rem;
+	}
+
+	.terms {
+		margin: 1.75rem 0 0;
+		padding-top: 1rem;
+		border-top: 1px solid var(--vr-line-muted);
+		color: var(--vr-faint);
+		font-size: 0.8rem;
+	}
+
+	.terms a {
+		color: var(--vr-muted);
+		text-decoration: underline;
+	}
+
+	.terms a:hover {
+		color: var(--vr-text);
 	}
 
 	.divider {
