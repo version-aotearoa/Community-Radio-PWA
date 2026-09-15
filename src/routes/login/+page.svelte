@@ -204,20 +204,22 @@
 		if (e.target === e.currentTarget) termsDialog?.close();
 	}}
 >
-	<div class="terms-modal-head">
-		<h2 id="terms-title">Terms of Use</h2>
-		<button class="terms-close" type="button" aria-label="Close" onclick={() => termsDialog?.close()}>
-			<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-				<path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-			</svg>
-		</button>
-	</div>
-	<div class="terms-modal-body">
-		{#if data.terms}
-			{@html data.terms}
-		{:else}
-			<p class="muted">Terms are unavailable right now.</p>
-		{/if}
+	<div class="terms-modal-inner">
+		<div class="terms-modal-head">
+			<h2 id="terms-title">Terms of Use</h2>
+			<button class="terms-close" type="button" aria-label="Close" onclick={() => termsDialog?.close()}>
+				<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+					<path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+				</svg>
+			</button>
+		</div>
+		<div class="terms-modal-body">
+			{#if data.terms}
+				{@html data.terms}
+			{:else}
+				<p class="muted">Terms are unavailable right now.</p>
+			{/if}
+		</div>
 	</div>
 </dialog>
 
@@ -312,14 +314,16 @@
 		background: var(--vr-surface);
 		color: var(--vr-text);
 		padding: 0;
+		margin: auto;
 		width: min(32rem, calc(100vw - 2rem));
-		max-height: min(80vh, 42rem);
 	}
 
-	/* Native <dialog> is display:none until opened — only lay out once open. */
-	.terms-modal[open] {
+	/* Flex lives on an inner wrapper, not the <dialog>: changing the dialog's
+	   own display breaks the UA margin-auto centering in WebKit. */
+	.terms-modal-inner {
 		display: flex;
 		flex-direction: column;
+		max-height: min(80vh, 42rem);
 	}
 
 	.terms-modal::backdrop {
