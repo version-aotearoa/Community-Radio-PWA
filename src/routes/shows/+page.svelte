@@ -30,7 +30,7 @@
 		if (!sortOptions.some((o) => o.value === sort)) {
 			sort = filter === 'events' ? 'date' : 'az';
 		}
-		if (filter === 'shows' && eventTypeFilter !== 'all') {
+		if (filter !== 'events' && eventTypeFilter !== 'all') {
 			eventTypeFilter = 'all';
 		}
 	});
@@ -144,7 +144,7 @@
 		</div>
 	</div>
 
-	{#if filter !== 'shows'}
+	{#if filter === 'events'}
 		<div class="filter-btns event-filters" role="group" aria-label="Filter events by type">
 			<span class="filter-label mono">Event type</span>
 			<button
