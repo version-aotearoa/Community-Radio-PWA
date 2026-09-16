@@ -1,24 +1,47 @@
 /**
- * Resolve a Bandcamp track page into a playable stream URL + metadata.
+ * Resolve a Bandcamp track/album page into a playable stream URL + metadata.
  *
- * Bandcamp is behind Cloudflare Bot Management: datacenter egress (our Worker,
- * or a VPS) gets a JS "Client Challenge". The Jina reader renders the page from
- * its own infrastructure and returns the real HTML, so we fetch through it and
- * read the server-rendered `data-tralbum` JSON.
+ * Bandcamp's web pages sit behind Cloudflare Bot Management (datacenter egress
+ * — our Worker — gets a JS "Client Challenge"), but Bandcamp's public JSON APIs
+ * are not challenged. We call those directly, so there's no browser, no proxy
+ * and no per-token reader service involved:
  *
- * `file` holds signed `t4.bcbits.com` stream URLs that expire in ~24h (the `ts`
- * param), so callers cache until then and re-resolve after.
+ *   1. POST /api/bcsearch_public_api/1/autocomplete_elastic → band_id + tralbum_id
+ *   2. GET  /api/mobile/24/tralbum_details                  → tracks[].streaming_url
+ *
+ * The numeric ids are cached on the track row, so a re-resolve (the signed
+ * stream token expires) skips step 1.
+ *
+ * `streaming_url` is a short-lived `bandcamp.com/stream_redirect` link; we follow
+ * its redirect server-side to the CDN URL and cache until it expires.
  */
 
-const HOST_RE = /(^|\.)bandcamp\.com$/i;
-const JINA_BASE = 'https://r.jina.ai/';
-const TRALBUM_RE = /data-tralbum="([^"]*)"/;
+const SEARCH_API = 'https://bandcamp.com/api/bcsearch_public_api/1/autocomplete_elastic';
+const TRALBUM_API = 'https://bandcamp.com/api/mobile/24/tralbum_details';
+const REDIRECT_PATH_RE = /\/stream_redirect\b/i;
 /** Best quality first. */
-const STREAM_FORMATS = ['mp3-v0', 'mp3-128', 'aac-hi', 'aac-lo'];
+const STREAM_FORMATS = ['mp3-128', 'mp3-v0', 'aac-hi', 'aac-lo'];
+/** Cache window when the stream token carries no usable `ts` expiry. */
+const DEFAULT_TTL_SECONDS = 1800;
+
+/**
+ * Bandcamp rejects the Workers runtime's default/empty User-Agent on its JSON
+ * endpoints, so present as a normal browser. (api/* is otherwise not challenged
+ * the way the HTML pages are.)
+ */
+const API_HEADERS: Record<string, string> = {
+	accept: 'application/json',
+	'user-agent':
+		'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
+	'accept-language': 'en-NZ,en;q=0.9',
+	referer: 'https://bandcamp.com/'
+};
+
+const HOST_RE = /(^|\.)bandcamp\.com$/i;
 
 export interface BandcampStream {
 	streamUrl: string;
-	/** Unix seconds when the signed URL expires (from its `ts` param). */
+	/** Unix seconds when the signed URL expires (best-effort). */
 	expiresAt: number | null;
 	format: string;
 	title: string | null;
@@ -26,6 +49,15 @@ export interface BandcampStream {
 	artId: string | null;
 	durationSeconds: number | null;
 	capped: boolean;
+	/** Numeric ids, cached so the next resolve skips the search call. */
+	bandId: number | null;
+	tralbumId: number | null;
+}
+
+/** Previously-cached numeric ids (skip the search step when present). */
+export interface BandcampIds {
+	bandId?: number | null;
+	tralbumId?: number | null;
 }
 
 export function isBandcampUrl(url: string): boolean {
@@ -38,7 +70,7 @@ export function isBandcampUrl(url: string): boolean {
 
 /**
  * True only for a fetchable Bandcamp track/album *page*. Excludes
- * `EmbeddedPlayer` URLs (and artist/other pages) which have no `data-tralbum`.
+ * `EmbeddedPlayer` URLs (and artist/other pages) which resolve differently.
  */
 export function isBandcampPageUrl(url: string): boolean {
 	if (!isBandcampUrl(url)) return false;
@@ -56,87 +88,199 @@ export function bandcampArtUrl(artId: string | null | undefined): string | null 
 	return artId ? `https://f4.bcbits.com/img/a${artId}_10.jpg` : null;
 }
 
-function decodeEntities(s: string): string {
-	return s
-		.replace(/&quot;/g, '"')
-		.replace(/&apos;/g, "'")
-		.replace(/&#0?39;/g, "'")
-		.replace(/&amp;/g, '&')
-		.replace(/&gt;/g, '>')
-		.replace(/&lt;/g, '<');
+interface SearchResult {
+	type?: string;
+	id?: number;
+	band_id?: number;
+	item_url_path?: string;
 }
 
-interface Tralbum {
+interface TralbumTrack {
+	title?: string | null;
+	duration?: number | null;
 	art_id?: number | null;
-	artist?: string | null;
-	trackinfo?: Array<{
-		title?: string | null;
-		artist?: string | null;
-		duration?: number | null;
-		art_id?: number | null;
-		is_capped?: boolean;
-		file?: Record<string, string> | null;
-	}> | null;
+	band_name?: string | null;
+	streaming_url?: Record<string, string> | null;
+}
+
+interface TralbumDetails {
+	title?: string | null;
+	art_id?: number | null;
+	tralbum_artist?: string | null;
+	band?: { name?: string | null } | null;
+	tracks?: TralbumTrack[] | null;
+}
+
+type TralbumType = 't' | 'a';
+
+/** Host + path, lowercased, no query/hash/trailing slash — for exact matching. */
+function normalizeUrl(s: string): string {
+	try {
+		const u = new URL(s);
+		return `${u.hostname.toLowerCase()}${u.pathname.replace(/\/+$/, '').toLowerCase()}`;
+	} catch {
+		return s.toLowerCase();
+	}
+}
+
+/** Signed token expiry from a `ts` param, if it is still in the future. */
+function expiryOf(url: string): number | null {
+	try {
+		const ts = Number(new URL(url).searchParams.get('ts'));
+		const nowSec = Math.floor(Date.now() / 1000);
+		if (Number.isFinite(ts) && ts > nowSec) return ts;
+	} catch {
+		// no ts param
+	}
+	return null;
+}
+
+/** Search Bandcamp for the exact page URL → its numeric ids. */
+async function lookupIds(
+	url: string,
+	type: TralbumType
+): Promise<{ bandId: number; tralbumId: number; type: TralbumType } | null> {
+	let u: URL;
+	try {
+		u = new URL(url);
+	} catch {
+		return null;
+	}
+	const slug = u.pathname.split('/').filter(Boolean).pop() ?? '';
+	const band = u.hostname.split('.')[0];
+	const searchText = `${slug.replace(/-/g, ' ')} ${band}`.trim();
+
+	let results: SearchResult[];
+	try {
+		const res = await fetch(SEARCH_API, {
+			method: 'POST',
+			headers: { ...API_HEADERS, 'content-type': 'application/json' },
+			body: JSON.stringify({
+				search_text: searchText,
+				search_filter: type,
+				full_page: false,
+				fan_id: null
+			}),
+			signal: AbortSignal.timeout(10000)
+		});
+		if (!res.ok) {
+			console.warn(`[bandcamp] search ${res.status} for ${url}`);
+			return null;
+		}
+		results = ((await res.json()) as { auto?: { results?: SearchResult[] } }).auto?.results ?? [];
+	} catch (e) {
+		console.warn(`[bandcamp] search failed for ${url}:`, e);
+		return null;
+	}
+
+	const want = normalizeUrl(url);
+	const hit =
+		results.find((r) => r.item_url_path && normalizeUrl(r.item_url_path) === want && r.type === type) ??
+		results.find((r) => r.item_url_path && normalizeUrl(r.item_url_path) === want);
+	if (!hit?.id || !hit.band_id) return null;
+	return { bandId: hit.band_id, tralbumId: hit.id, type: hit.type === 'a' ? 'a' : 't' };
+}
+
+async function fetchDetails(
+	bandId: number,
+	tralbumId: number,
+	type: TralbumType
+): Promise<TralbumDetails | null> {
+	const endpoint = TRALBUM_API;
+	try {
+		const res = await fetch(endpoint, {
+			method: 'POST',
+			headers: { ...API_HEADERS, 'content-type': 'application/json' },
+			body: JSON.stringify({ band_id: bandId, tralbum_id: tralbumId, tralbum_type: type }),
+			signal: AbortSignal.timeout(10000)
+		});
+		const text = await res.text();
+		if (!res.ok) {
+			console.warn(`[bandcamp] tralbum_details ${res.status} for band=${bandId} tralbum=${tralbumId}`);
+			return null;
+		}
+		try {
+			return JSON.parse(text) as TralbumDetails;
+		} catch {
+			console.warn(
+				`[bandcamp] tralbum_details non-JSON (status ${res.status}, type ${res.headers.get('content-type')}): ${text.slice(0, 200)}`
+			);
+			return null;
+		}
+	} catch (e) {
+		console.warn(`[bandcamp] tralbum_details failed for band=${bandId} tralbum=${tralbumId}:`, e);
+		return null;
+	}
+}
+
+/** Follow a `stream_redirect` link to the final CDN URL (else return as-is). */
+async function followStreamRedirect(url: string): Promise<string> {
+	let pathname: string;
+	try {
+		pathname = new URL(url).pathname;
+	} catch {
+		return url;
+	}
+	if (!REDIRECT_PATH_RE.test(pathname)) return url;
+	try {
+		const res = await fetch(url, {
+			redirect: 'manual',
+			headers: { ...API_HEADERS, accept: '*/*' },
+			signal: AbortSignal.timeout(8000)
+		});
+		const loc = res.headers.get('location');
+		return loc && /^https?:/i.test(loc) ? loc : url;
+	} catch {
+		return url;
+	}
 }
 
 export async function resolveBandcampTrack(
 	url: string,
-	apiKey?: string
+	ids?: BandcampIds
 ): Promise<BandcampStream | null> {
 	if (!isBandcampPageUrl(url)) return null;
 
-	let html: string;
-	try {
-		const res = await fetch(JINA_BASE + url, {
-			headers: {
-				'x-respond-with': 'html',
-				...(apiKey ? { authorization: `Bearer ${apiKey}` } : {})
-			},
-			signal: AbortSignal.timeout(20000)
-		});
-		if (!res.ok) return null;
-		html = await res.text();
-	} catch {
-		return null;
+	let type: TralbumType = /\/album\//i.test(new URL(url).pathname) ? 'a' : 't';
+	let bandId = ids?.bandId ?? null;
+	let tralbumId = ids?.tralbumId ?? null;
+
+	// Prefer cached ids; fall back to a search (also if the cached ids go stale).
+	let detail = bandId && tralbumId ? await fetchDetails(bandId, tralbumId, type) : null;
+	if (!detail) {
+		const found = await lookupIds(url, type);
+		if (!found) return null;
+		bandId = found.bandId;
+		tralbumId = found.tralbumId;
+		type = found.type;
+		detail = await fetchDetails(bandId, tralbumId, type);
 	}
+	if (!detail) return null;
 
-	const raw = html.match(TRALBUM_RE)?.[1];
-	if (!raw) return null;
-	let data: Tralbum;
-	try {
-		data = JSON.parse(decodeEntities(raw)) as Tralbum;
-	} catch {
-		return null;
-	}
+	const track = detail.tracks?.[0];
+	if (!track) return null;
+	const files = track.streaming_url ?? {};
+	const format = STREAM_FORMATS.find((f) => files[f]) ?? Object.keys(files)[0];
+	if (!format || !files[format]) return null;
 
-	const track = data.trackinfo?.[0];
-	const file = track?.file;
-	if (!track || !file) return null;
-
-	const keys = Object.keys(file).filter((k) => typeof file[k] === 'string' && file[k]);
-	const format = STREAM_FORMATS.find((f) => keys.includes(f)) ?? keys[0];
-	if (!format) return null;
-	const streamUrl = file[format];
-
-	let expiresAt: number | null = null;
-	try {
-		const ts = Number(new URL(streamUrl).searchParams.get('ts'));
-		if (Number.isFinite(ts) && ts > 0) expiresAt = ts;
-	} catch {
-		// no ts param
-	}
+	const rawUrl = files[format];
+	const streamUrl = await followStreamRedirect(rawUrl);
+	const nowSec = Math.floor(Date.now() / 1000);
+	const expiresAt = expiryOf(streamUrl) ?? expiryOf(rawUrl) ?? nowSec + DEFAULT_TTL_SECONDS;
 
 	const artId =
-		track.art_id != null ? String(track.art_id) : data.art_id != null ? String(data.art_id) : null;
+		track.art_id != null ? String(track.art_id) : detail.art_id != null ? String(detail.art_id) : null;
 
 	return {
 		streamUrl,
 		expiresAt,
 		format,
-		title: track.title ?? null,
-		artist: track.artist ?? data.artist ?? null,
+		title: track.title ?? detail.title ?? null,
+		artist: track.band_name ?? detail.tralbum_artist ?? detail.band?.name ?? null,
 		artId,
-		durationSeconds: typeof track.duration === 'number' ? track.duration : null,
-		capped: track.is_capped === true
+		durationSeconds: typeof track.duration === 'number' ? Math.round(track.duration) : null,
+		capped: false,
+		bandId,
+		tralbumId
 	};
 }

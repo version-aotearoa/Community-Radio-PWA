@@ -27,9 +27,14 @@ See [ROADMAP.md](ROADMAP.md) for planned features (push notifications).
 
 Tracklist rows with a Bandcamp link play through the **global player** (the same single `<audio>` element as live/replay), so only one track ever plays — on every browser. (The old EmbeddedPlayer iframes were replaced: a cross-origin embed can't be controlled, and Chrome blocks a second embed's audio.)
 
-**Resolution.** Bandcamp is behind Cloudflare Bot Management, so datacenter egress (our Worker, or a VPS) gets a JS "Client Challenge". We fetch pages through the **Jina reader** (`https://r.jina.ai/<url>` with `x-respond-with: html`, authenticated with `JINA_API_KEY`) and parse the server-rendered `data-tralbum` JSON for:
+**Resolution.** Bandcamp web pages are behind Cloudflare Bot Management, so datacenter egress (our Worker) can't fetch a track/album page. Bandcamp's **public JSON APIs** aren't challenged, so we call those directly — no browser, proxy or reader service:
 
-- a signed `t4.bcbits.com` stream URL (valid ~24h; `stream_expires_at` gates re-resolution),
+1. `POST https://bandcamp.com/api/bcsearch_public_api/1/autocomplete_elastic` → match the stored page URL (`item_url_path`) → numeric `band_id` + `tralbum_id`.
+2. `GET https://bandcamp.com/api/mobile/24/tralbum_details?band_id=…&tralbum_id=…&tralbum_type=t|a` → `tracks[].streaming_url`.
+
+The ids are cached on the track row (`bandcamp_band_id` / `bandcamp_tralbum_id`), so a re-resolve skips step 1. `streaming_url` is a short-lived signed `bandcamp.com/stream_redirect` link; we follow its redirect to the CDN URL and store:
+
+- the stream URL (`stream_url`, `stream_expires_at` gates re-resolution),
 - title, artist, duration, and art id (`stream_art_id`).
 
 `GET /api/tracks/:id/stream` is D1-cache-first and resolves on miss. Only Bandcamp **track/album page** URLs resolve; `EmbeddedPlayer`/artist URLs return a "re-link with the page URL" error.
@@ -50,10 +55,9 @@ Clicking a track still resolves as a fallback (usually instant once prefetched).
 
 **Notes / limits**
 
-- Signed stream URLs expire (~24h); a play after expiry re-resolves.
+- Signed stream URLs expire; a play after expiry re-resolves (ids are cached, so it's one API call).
 - Some tracks are preview-only (`capped`) — surfaced as `capped: true`.
-- Migration `0022_track_stream.sql` adds the `stream_*` columns.
-- `JINA_API_KEY` is a Pages secret (staging + prod) and `.dev.vars` locally.
+- Migrations `0022_track_stream.sql` / `0026_track_bandcamp_ids.sql` add the `stream_*` and `bandcamp_*` columns.
 - Hotlinking Bandcamp streams is a product decision; each row keeps a prominent “Bandcamp ↗” link.
 
 ## Local development
@@ -122,7 +126,7 @@ Deploy to staging with `npm run pages:deploy` (local, any branch) **or** the CI 
    ```
    Staging starts fresh (no prod data copy).
 3. **Custom domain** — Pages dashboard → `version-radio-staging` → Custom domains → Set up a domain → `dev.versionradio.live`, then at your DNS provider add `CNAME dev → version-radio-staging.pages.dev`. Associate in the dashboard first (CNAME-only setup causes a 522).
-4. **Secrets (staging project)** — `AUTH_SECRET` (new value, not prod's), `GOOGLE_ID/GOOGLE_SECRET` (reuse prod), `RESEND_API_KEY/RESEND_FROM` (reuse prod), `PUBLIC_CHAT_URL` (staging chat worker URL), `TURNSTILE_SECRET`/`TURNSTILE_HOSTNAMES`/`PUBLIC_TURNSTILE_SITE_KEY` (test keys), `JINA_API_KEY` (Bandcamp playback; see above), `BETTER_AUTH_URL=https://dev.versionradio.live`.
+4. **Secrets (staging project)** — `AUTH_SECRET` (new value, not prod's), `GOOGLE_ID/GOOGLE_SECRET` (reuse prod), `RESEND_API_KEY/RESEND_FROM` (reuse prod), `PUBLIC_CHAT_URL` (staging chat worker URL), `TURNSTILE_SECRET`/`TURNSTILE_HOSTNAMES`/`PUBLIC_TURNSTILE_SITE_KEY` (test keys), `BETTER_AUTH_URL=https://dev.versionradio.live`.
 5. **Chat worker** — from `workers/chat-worker`: `npx wrangler deploy --name chat-worker-staging`, then set `CHAT_IDENTITY_SECRET` + `CHAT_ADMIN_TOKEN` (shared values with the staging app).
 6. **OAuth** — add `https://dev.versionradio.live/api/auth/callback/*` callback URLs to the GitHub/Google OAuth apps.
 
@@ -138,4 +142,3 @@ Staging URL: `https://dev.versionradio.live` (also reachable via `https://versio
 - Onboard a sending domain for Cloudflare Email Service; add the `EMAIL` binding via the Pages dashboard (config-file `send_email` is rejected for Pages) and set `EMAIL_FROM`. Until then magic links log to the console.
 - Set `BETTER_AUTH_URL` (or `baseURL`) once a stable production hostname exists.
 - Add GitHub/Google OAuth client IDs as `GITHUB_ID/GITHUB_SECRET/GOOGLE_ID/GOOGLE_SECRET` secrets.
-- Set `JINA_API_KEY` on the prod Pages project (Bandcamp stream resolution; see [Bandcamp playback](#bandcamp-playback)).
