@@ -60,6 +60,12 @@ export interface BandcampIds {
 	tralbumId?: number | null;
 }
 
+/** Title/artist from the DB row — used to build better search queries. */
+export interface BandcampHints {
+	title?: string | null;
+	artist?: string | null;
+}
+
 export function isBandcampUrl(url: string): boolean {
 	try {
 		return HOST_RE.test(new URL(url).hostname);
@@ -135,28 +141,40 @@ function expiryOf(url: string): number | null {
 	return null;
 }
 
-/** Search Bandcamp for the exact page URL → its numeric ids. */
-async function lookupIds(
-	url: string,
-	type: TralbumType
-): Promise<{ bandId: number; tralbumId: number; type: TralbumType } | null> {
-	let u: URL;
-	try {
-		u = new URL(url);
-	} catch {
-		return null;
-	}
-	const slug = u.pathname.split('/').filter(Boolean).pop() ?? '';
-	const band = u.hostname.split('.')[0];
-	const searchText = `${slug.replace(/-/g, ' ')} ${band}`.trim();
+/** Strip diacritics/lowercase for a search-safe variant (Hauāuru → hauauru). */
+function ascii(s: string): string {
+	return s
+		.normalize('NFD')
+		.replace(/[\u0300-\u036f]/g, '')
+		.toLowerCase()
+		.replace(/[^a-z0-9 ]/g, ' ')
+		.replace(/\s+/g, ' ')
+		.trim();
+}
 
-	let results: SearchResult[];
+/** Candidate search queries, most specific first. */
+function searchQueries(url: URL, hint?: BandcampHints): string[] {
+	const slug = (url.pathname.split('/').filter(Boolean).pop() ?? '').replace(/-/g, ' ');
+	const band = url.hostname.split('.')[0];
+	const title = hint?.title?.trim() ?? '';
+	const artist = hint?.artist?.trim() ?? '';
+	const candidates = [
+		title && artist ? `${title} ${artist}` : '',
+		title,
+		ascii(`${title} ${artist}`),
+		`${slug} ${band}`,
+		ascii(`${slug} ${band}`)
+	];
+	return [...new Set(candidates.map((c) => c.trim()).filter(Boolean))];
+}
+
+async function search(query: string, type: TralbumType): Promise<SearchResult[] | null> {
 	try {
 		const res = await fetch(SEARCH_API, {
 			method: 'POST',
 			headers: { ...API_HEADERS, 'content-type': 'application/json' },
 			body: JSON.stringify({
-				search_text: searchText,
+				search_text: query,
 				search_filter: type,
 				full_page: false,
 				fan_id: null
@@ -164,21 +182,46 @@ async function lookupIds(
 			signal: AbortSignal.timeout(10000)
 		});
 		if (!res.ok) {
-			console.warn(`[bandcamp] search ${res.status} for ${url}`);
+			console.warn(`[bandcamp] search ${res.status} for "${query}"`);
 			return null;
 		}
-		results = ((await res.json()) as { auto?: { results?: SearchResult[] } }).auto?.results ?? [];
+		return ((await res.json()) as { auto?: { results?: SearchResult[] } }).auto?.results ?? [];
 	} catch (e) {
-		console.warn(`[bandcamp] search failed for ${url}:`, e);
+		console.warn(`[bandcamp] search failed for "${query}":`, e);
 		return null;
 	}
+}
 
+/**
+ * Search Bandcamp for the exact page URL → its numeric ids. Tries several
+ * queries (title/artist first, then the URL slug) and accepts only an exact
+ * `item_url_path` match, so extra queries can't select the wrong track.
+ */
+async function lookupIds(
+	url: string,
+	type: TralbumType,
+	hint?: BandcampHints
+): Promise<{ bandId: number; tralbumId: number; type: TralbumType } | null> {
+	let u: URL;
+	try {
+		u = new URL(url);
+	} catch {
+		return null;
+	}
 	const want = normalizeUrl(url);
-	const hit =
-		results.find((r) => r.item_url_path && normalizeUrl(r.item_url_path) === want && r.type === type) ??
-		results.find((r) => r.item_url_path && normalizeUrl(r.item_url_path) === want);
-	if (!hit?.id || !hit.band_id) return null;
-	return { bandId: hit.band_id, tralbumId: hit.id, type: hit.type === 'a' ? 'a' : 't' };
+
+	for (const query of searchQueries(u, hint)) {
+		const results = await search(query, type);
+		if (!results) continue;
+		const hit =
+			results.find(
+				(r) => r.item_url_path && normalizeUrl(r.item_url_path) === want && r.type === type
+			) ?? results.find((r) => r.item_url_path && normalizeUrl(r.item_url_path) === want);
+		if (hit?.id && hit.band_id) {
+			return { bandId: hit.band_id, tralbumId: hit.id, type: hit.type === 'a' ? 'a' : 't' };
+		}
+	}
+	return null;
 }
 
 async function fetchDetails(
@@ -237,7 +280,8 @@ async function followStreamRedirect(url: string): Promise<string> {
 
 export async function resolveBandcampTrack(
 	url: string,
-	ids?: BandcampIds
+	ids?: BandcampIds,
+	hints?: BandcampHints
 ): Promise<BandcampStream | null> {
 	if (!isBandcampPageUrl(url)) return null;
 
@@ -248,7 +292,7 @@ export async function resolveBandcampTrack(
 	// Prefer cached ids; fall back to a search (also if the cached ids go stale).
 	let detail = bandId && tralbumId ? await fetchDetails(bandId, tralbumId, type) : null;
 	if (!detail) {
-		const found = await lookupIds(url, type);
+		const found = await lookupIds(url, type, hints);
 		if (!found) return null;
 		bandId = found.bandId;
 		tralbumId = found.tralbumId;
