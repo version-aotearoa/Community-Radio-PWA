@@ -104,7 +104,7 @@
 	});
 
 	$effect(() => {
-		if (mgrFilter === 'shows' && mgrEventType !== 'all') mgrEventType = 'all';
+		if (mgrFilter !== 'events' && mgrEventType !== 'all') mgrEventType = 'all';
 	});
 
 	interface AdminUser {
@@ -1276,9 +1276,9 @@
 				Events
 			</button>
 		</div>
-		{#if mgrFilter !== 'shows'}
+		{#if mgrFilter === 'events'}
 			<div class="filter-btns mgr-event-filters" role="group" aria-label="Filter events by type">
-				<span class="filter-label mono">Event type</span>
+				<span class="filter-label mono">Type</span>
 				<button
 					class="filter-btn"
 					class:active={mgrEventType === 'all'}
