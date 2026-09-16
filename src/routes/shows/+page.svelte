@@ -123,16 +123,39 @@
 	</header>
 
 	<div class="toolbar">
-		<div class="filter-btns" role="group" aria-label="Filter shows">
-			<button class="filter-btn" class:active={filter === 'all'} onclick={() => (filter = 'all')}>
-				All
-			</button>
-			<button class="filter-btn" class:active={filter === 'shows'} onclick={() => (filter = 'shows')}>
-				Shows
-			</button>
-			<button class="filter-btn" class:active={filter === 'events'} onclick={() => (filter = 'events')}>
-				Events
-			</button>
+		<div class="filter-stack">
+			<div class="filter-btns" role="group" aria-label="Filter shows">
+				<button class="filter-btn" class:active={filter === 'all'} onclick={() => (filter = 'all')}>
+					All
+				</button>
+				<button class="filter-btn" class:active={filter === 'shows'} onclick={() => (filter = 'shows')}>
+					Shows
+				</button>
+				<button class="filter-btn" class:active={filter === 'events'} onclick={() => (filter = 'events')}>
+					Events
+				</button>
+			</div>
+			{#if filter === 'events'}
+				<div class="filter-btns event-filters" role="group" aria-label="Filter events by type">
+					<span class="filter-label mono">Type</span>
+					<button
+						class="filter-btn"
+						class:active={eventTypeFilter === 'all'}
+						onclick={() => (eventTypeFilter = 'all')}
+					>
+						All
+					</button>
+					{#each EVENT_TYPES as t (t.id)}
+						<button
+							class="filter-btn"
+							class:active={eventTypeFilter === t.id}
+							onclick={() => (eventTypeFilter = t.id)}
+						>
+							{t.label}
+						</button>
+					{/each}
+				</div>
+			{/if}
 		</div>
 		<div class="sort-control">
 			<label class="sort-label mono" for="show-sort">Sort</label>
@@ -143,28 +166,6 @@
 			</select>
 		</div>
 	</div>
-
-	{#if filter === 'events'}
-		<div class="filter-btns event-filters" role="group" aria-label="Filter events by type">
-			<span class="filter-label mono">Event type</span>
-			<button
-				class="filter-btn"
-				class:active={eventTypeFilter === 'all'}
-				onclick={() => (eventTypeFilter = 'all')}
-			>
-				All
-			</button>
-			{#each EVENT_TYPES as t (t.id)}
-				<button
-					class="filter-btn"
-					class:active={eventTypeFilter === t.id}
-					onclick={() => (eventTypeFilter = t.id)}
-				>
-					{t.label}
-				</button>
-			{/each}
-		</div>
-	{/if}
 
 	{#if visible.length === 0}
 		<p class="empty mono">
@@ -244,10 +245,17 @@
 
 	.toolbar {
 		display: flex;
-		align-items: center;
+		align-items: flex-start;
+		justify-content: space-between;
 		gap: 1.5rem;
 		flex-wrap: wrap;
 		margin: 0 0 1.5rem;
+	}
+
+	.filter-stack {
+		display: flex;
+		flex-direction: column;
+		gap: 0.6rem;
 	}
 
 	.filter-btns {
@@ -258,7 +266,7 @@
 
 	.event-filters {
 		align-items: center;
-		margin: -0.75rem 0 1.5rem;
+		margin: 0;
 	}
 
 	.filter-label {
