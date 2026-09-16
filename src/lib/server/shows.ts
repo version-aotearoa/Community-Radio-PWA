@@ -191,7 +191,9 @@ export async function ensureBroadcasts(
 					 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
 				)
 				.bind(
-					crypto.randomUUID(),
+					// Friendly, deterministic episode slug (`<show>-<date>`) — matches
+					// the admin Add-episode route and events, and keeps URLs readable.
+					`${show.id}-${date}`,
 					show.id,
 					date,
 					show.start_minutes,

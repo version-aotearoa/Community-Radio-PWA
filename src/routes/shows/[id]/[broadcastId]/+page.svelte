@@ -291,34 +291,34 @@
 
 <section class="card">
 	<div class="replay">
-		{#if broadcast.replay_url}
-			{#if artUrl}
-				<button
-					class="art-btn"
-					onclick={() => (lightboxOpen = true)}
-					aria-label="View full artwork"
-					title="View full artwork"
-				>
-					<img
-						class="replay-art"
-						src={artUrl}
-						alt=""
-						width="80"
-						height="80"
-						loading="lazy"
-						onerror={(e) => artOnError(e, artFallback)}
+		{#if artUrl}
+			<button
+				class="art-btn"
+				onclick={() => (lightboxOpen = true)}
+				aria-label="View full artwork"
+				title="View full artwork"
+			>
+				<img
+					class="replay-art"
+					src={artUrl}
+					alt=""
+					width="80"
+					height="80"
+					loading="lazy"
+					onerror={(e) => artOnError(e, artFallback)}
+				/>
+			</button>
+		{:else}
+			<span class="replay-art replay-art-fallback" aria-hidden="true">
+				<svg viewBox="0 0 80 70" fill="currentColor" width="36" height="31">
+					<path
+						fill-rule="evenodd"
+						d="M0 0H40V40H50V0H80V45H70V60H55V70H25V60H10V45H0V5ZM10 5H5V40H15V55H30V65H50V55H65V40H75V5H55V45H35V5H15Z"
 					/>
-				</button>
-			{:else}
-				<span class="replay-art replay-art-fallback" aria-hidden="true">
-					<svg viewBox="0 0 80 70" fill="currentColor" width="36" height="31">
-						<path
-							fill-rule="evenodd"
-							d="M0 0H40V40H50V0H80V45H70V60H55V70H25V60H10V45H0V5ZM10 5H5V40H15V55H30V65H50V55H65V40H75V5H55V45H35V5H15Z"
-						/>
-					</svg>
-				</span>
-			{/if}
+				</svg>
+			</span>
+		{/if}
+		{#if broadcast.replay_url}
 			<button class="replay-btn" class:playing={replayActive()} onclick={toggleReplay}>
 				{#if replayActive()}
 					<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0zM15 5.2a1 1 0 0 1 2 0v13.6a1 1 0 0 1-2 0z" fill="currentColor" /></svg>
