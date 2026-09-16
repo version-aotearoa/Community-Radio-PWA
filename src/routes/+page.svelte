@@ -343,7 +343,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1.5rem;
-		padding: 3rem 2rem 3rem;
+		padding: 3rem var(--vr-pad) 3rem;
 		width: 100%;
 	}
 
@@ -376,7 +376,7 @@
 			flex-direction: row;
 			align-items: flex-end;
 			justify-content: space-between;
-			padding: 3rem 2rem;
+			padding: 3rem var(--vr-pad);
 		}
 
 		.hero-play {
@@ -385,7 +385,7 @@
 	}
 
 	.section {
-		padding: 2rem;
+		padding: var(--vr-pad);
 		border-bottom: 1px solid var(--vr-line);
 	}
 

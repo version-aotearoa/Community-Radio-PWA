@@ -1509,7 +1509,7 @@
 
 <style>
 	.page {
-		padding: 2rem;
+		padding: var(--vr-pad);
 		max-width: 60rem;
 	}
 
