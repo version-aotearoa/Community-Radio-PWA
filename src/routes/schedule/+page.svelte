@@ -1,10 +1,10 @@
 <script lang="ts">
 	import Seo from '$lib/components/Seo.svelte';
+	import { cycleWeekOf, startOfWeek } from '$lib/cycle';
 
 	let { data } = $props();
 
 	const upcoming = $derived(data.upcoming);
-	const cycleWeek = $derived(data.cycleWeek);
 
 	interface Day {
 		date: string;
@@ -12,6 +12,13 @@
 		today: boolean;
 		tomorrow: boolean;
 		items: typeof upcoming;
+	}
+
+	interface Week {
+		monday: string;
+		cycleWeek: number;
+		range: string;
+		days: Day[];
 	}
 
 	const days = $derived.by<Day[]>(() => {
@@ -30,6 +37,23 @@
 		}));
 	});
 
+	// Mon–Sun calendar weeks; each divider is labelled with its station cycle week.
+	const weeks = $derived.by<Week[]>(() => {
+		const groups = new Map<string, Day[]>();
+		for (const day of days) {
+			const monday = startOfWeek(day.date);
+			const list = groups.get(monday) ?? [];
+			list.push(day);
+			groups.set(monday, list);
+		}
+		return Array.from(groups.entries()).map(([monday, weekDays]) => ({
+			monday,
+			cycleWeek: cycleWeekOf(monday),
+			range: formatWeekRange(monday),
+			days: weekDays
+		}));
+	});
+
 	function formatDate(dateStr: string) {
 		return new Intl.DateTimeFormat('en-NZ', {
 			weekday: 'short',
@@ -39,13 +63,27 @@
 		}).format(new Date(`${dateStr}T00:00:00Z`));
 	}
 
+	/** Mon–Sun range, e.g. "15–21 Sep" (same month) or "29 Sep – 5 Oct". */
+	function formatWeekRange(monday: string): string {
+		const start = new Date(`${monday}T00:00:00Z`);
+		const end = new Date(start);
+		end.setUTCDate(end.getUTCDate() + 6);
+		const day = new Intl.DateTimeFormat('en-NZ', { day: 'numeric', timeZone: 'UTC' });
+		const dayMonth = new Intl.DateTimeFormat('en-NZ', {
+			day: 'numeric',
+			month: 'short',
+			timeZone: 'UTC'
+		});
+		return start.getUTCMonth() === end.getUTCMonth()
+			? `${day.format(start)}–${dayMonth.format(end)}`
+			: `${dayMonth.format(start)} – ${dayMonth.format(end)}`;
+	}
+
 	function fmtTime(mins: number) {
 		const h = Math.floor(mins / 60);
 		const m = mins % 60;
 		return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 	}
-
-	const CYCLE_WEEKS = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
 </script>
 
 <svelte:head>
@@ -60,50 +98,48 @@
 		<p class="subtitle mono">Next 30 days of broadcasts. All times local (NZ).</p>
 	</header>
 
-	<section class="cycle-strip" aria-label="Station 4-week cycle">
-		{#each CYCLE_WEEKS as w, i (w)}
-			<span class="cycle-week mono" class:active={cycleWeek === i + 1}>
-				{w}
-			</span>
-		{/each}
-		<span class="cycle-note mono">Cycle week {cycleWeek} of 4</span>
-	</section>
-
 	{#if days.length === 0}
 		<p class="empty mono">Nothing scheduled over the next 30 days.</p>
 	{:else}
-		<div class="days">
-			{#each days as day (day.date)}
-				<section class="day" class:today={day.today} class:tomorrow={day.tomorrow}>
-					<h2 class="day-head">
-						<span class="day-label">
-							{day.label}
-							{#if day.today}
-								<span class="sticker">Today</span>
-							{:else if day.tomorrow}
-								<span class="sticker">Tomorrow</span>
-							{/if}
-						</span>
+		<div class="weeks">
+			{#each weeks as week (week.monday)}
+				<div class="week">
+					<h2 class="week-divider mono">
+						Week {week.cycleWeek} of 4 <span class="week-range">· {week.range}</span>
 					</h2>
-					<ul>
-						{#each day.items as b (b.id)}
-							<li>
-								<a class="slot" class:onair={b.onair} href={`/shows/${b.show_id}?from=schedule`}>
-									<span class="time mono" class:onair={b.onair}>
-										{#if b.onair}
-											<span class="live-dot" aria-hidden="true"></span>
-										{/if}
-										{fmtTime(b.start_minutes)}–{fmtTime(b.start_minutes + b.duration_minutes)}
-									</span>
-									<span class="show-title h-sm">{b.title}</span>
-									{#if b.dj_name && b.kind !== 'event'}
-										<span class="dj mono">{b.dj_name}</span>
+					{#each week.days as day (day.date)}
+						<section class="day" class:today={day.today} class:tomorrow={day.tomorrow}>
+							<h3 class="day-head">
+								<span class="day-label">
+									{day.label}
+									{#if day.today}
+										<span class="sticker">Today</span>
+									{:else if day.tomorrow}
+										<span class="sticker">Tomorrow</span>
 									{/if}
-								</a>
-							</li>
-						{/each}
-					</ul>
-				</section>
+								</span>
+							</h3>
+							<ul>
+								{#each day.items as b (b.id)}
+									<li>
+										<a class="slot" class:onair={b.onair} href={`/shows/${b.show_id}?from=schedule`}>
+											<span class="time mono" class:onair={b.onair}>
+												{#if b.onair}
+													<span class="live-dot" aria-hidden="true"></span>
+												{/if}
+												{fmtTime(b.start_minutes)}–{fmtTime(b.start_minutes + b.duration_minutes)}
+											</span>
+											<span class="show-title h-sm">{b.title}</span>
+											{#if b.dj_name && b.kind !== 'event'}
+												<span class="dj mono">{b.dj_name}</span>
+											{/if}
+										</a>
+									</li>
+								{/each}
+							</ul>
+						</section>
+					{/each}
+				</div>
 			{/each}
 		</div>
 	{/if}
@@ -111,7 +147,7 @@
 
 <style>
 	.page {
-		padding: 2rem;
+		padding: var(--vr-pad);
 		max-width: 72rem;
 	}
 
@@ -130,66 +166,61 @@
 		color: var(--vr-muted);
 	}
 
-	.cycle-strip {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		flex-wrap: wrap;
-		margin-bottom: 1.75rem;
-	}
-
-	.cycle-week {
-		padding: 0.4rem 0.85rem;
-		border: 1px solid transparent;
-		color: var(--vr-muted);
-	}
-
-	.cycle-week.active {
-		background: var(--vr-text);
-		border-color: var(--vr-line);
-		color: var(--vr-black);
-	}
-
-	.cycle-note {
-		color: var(--vr-faint);
-		margin-left: 0.5rem;
-	}
-
 	.empty {
 		color: var(--vr-muted);
 	}
 
-	.days {
+	.weeks {
 		display: flex;
 		flex-direction: column;
+		gap: 1.5rem;
 	}
 
-	.day {
+	.week {
 		border: 1px solid var(--vr-line-muted);
-		border-bottom: none;
 	}
 
-	.day:last-child {
-		border-bottom: 1px solid var(--vr-line-muted);
+	/* The one banded header: week divider with its station cycle week + date range. */
+	.week-divider {
+		display: flex;
+		align-items: baseline;
+		gap: 0.5rem;
+		margin: 0;
+		padding: 0.7rem 1.25rem;
+		background: var(--vr-surface-high);
+		font-size: 0.82rem;
+		font-weight: 500;
+		color: var(--vr-text);
+	}
+
+	.week-range {
+		color: var(--vr-muted);
+		font-weight: 400;
+	}
+
+	/* Slim per-day label (the week divider carries the hierarchy). */
+	.day {
+		border-top: 1px solid var(--vr-line-muted);
 	}
 
 	.day.today,
 	.day.tomorrow {
-		border-color: var(--vr-line);
+		border-top-color: var(--vr-line);
 	}
 
 	.day-head {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
 		margin: 0;
-		padding: 0.7rem 1.25rem;
-		background: var(--vr-surface-high);
+		padding: 0.5rem 1.25rem;
 		font-family: var(--vr-font-mono);
-		font-size: 0.82rem;
+		font-size: 0.72rem;
 		font-weight: 500;
 		letter-spacing: 0.05em;
 		text-transform: uppercase;
+		color: var(--vr-muted);
+	}
+
+	.day.today .day-head,
+	.day.tomorrow .day-head {
 		color: var(--vr-text);
 	}
 
@@ -201,7 +232,7 @@
 	}
 
 	.day-head .sticker {
-		padding: 0.3rem 0.45rem;
+		padding: 0.25rem 0.45rem;
 	}
 
 	.day ul {

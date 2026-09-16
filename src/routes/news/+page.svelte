@@ -78,7 +78,7 @@
 
 <style>
 	.page {
-		padding: 2rem;
+		padding: var(--vr-pad);
 	}
 
 	.head {

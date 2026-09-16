@@ -458,7 +458,7 @@
 
 <style>
 	.page {
-		padding: 2rem;
+		padding: var(--vr-pad);
 		max-width: 56rem;
 	}
 
@@ -748,8 +748,8 @@
 
 	@media (max-width: 640px) {
 		.card {
-			margin-left: -2rem;
-			margin-right: -2rem;
+			margin-left: calc(-1 * var(--vr-pad));
+			margin-right: calc(-1 * var(--vr-pad));
 		}
 
 		.tracklist-scroll {
