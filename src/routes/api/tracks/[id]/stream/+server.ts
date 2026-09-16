@@ -38,7 +38,11 @@ export const GET: RequestHandler = async ({ params, platform }) => {
 			);
 		}
 
-		const resolved = await resolveBandcampTrack(track.url, platform!.env.JINA_API_KEY);
+		const resolved = await resolveBandcampTrack(
+			track.url,
+			{ bandId: track.bandcamp_band_id, tralbumId: track.bandcamp_tralbum_id },
+			{ title: track.title, artist: track.artist }
+		);
 		if (!resolved) {
 			return json({ error: "Couldn't start playback for this track." }, { status: 502 });
 		}

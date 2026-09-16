@@ -69,6 +69,9 @@ export interface TrackRow {
 	stream_art_id: string | null;
 	stream_capped: number | null;
 	duration_seconds: number | null;
+	/** Bandcamp numeric ids (cached from the search API) so re-resolve skips search. */
+	bandcamp_band_id: number | null;
+	bandcamp_tralbum_id: number | null;
 	created_at: number;
 	updated_at: number;
 }
@@ -763,6 +766,8 @@ export async function setTrackStream(
 		title?: string | null;
 		artist?: string | null;
 		durationSeconds?: number | null;
+		bandId?: number | null;
+		tralbumId?: number | null;
 	}
 ): Promise<void> {
 	await db
@@ -771,7 +776,9 @@ export async function setTrackStream(
 			   stream_url = ?, stream_expires_at = ?, stream_format = ?, stream_art_id = ?, stream_capped = ?, updated_at = ?,
 			   title = CASE WHEN title = '' THEN ? ELSE title END,
 			   artist = CASE WHEN artist = '' THEN ? ELSE artist END,
-			   duration_seconds = COALESCE(duration_seconds, ?)
+			   duration_seconds = COALESCE(duration_seconds, ?),
+			   bandcamp_band_id = COALESCE(?, bandcamp_band_id),
+			   bandcamp_tralbum_id = COALESCE(?, bandcamp_tralbum_id)
 			 WHERE id = ?`
 		)
 		.bind(
@@ -784,6 +791,8 @@ export async function setTrackStream(
 			stream.title ?? '',
 			stream.artist ?? '',
 			stream.durationSeconds ?? null,
+			stream.bandId ?? null,
+			stream.tralbumId ?? null,
 			id
 		)
 		.run();
