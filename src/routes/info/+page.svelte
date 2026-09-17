@@ -4,6 +4,7 @@
 	import RichTextEditor from '$lib/components/RichTextEditor.svelte';
 	import Turnstile from '$lib/components/Turnstile.svelte';
 	import Seo from '$lib/components/Seo.svelte';
+	import SocialLinks from '$lib/components/SocialLinks.svelte';
 
 	let { data } = $props();
 
@@ -145,7 +146,10 @@
 	</section>
 
 	<section class="card" id="contact">
-		<h2 class="card-title">Contact</h2>
+		<div class="card-head">
+			<h2 class="card-title">Contact</h2>
+			<SocialLinks />
+		</div>
 		{#if sent}
 			<p>Thanks — we'll get back to you.</p>
 		{:else}
@@ -206,7 +210,7 @@
 
 <style>
 	.page {
-		padding: 2rem;
+		padding: var(--vr-pad);
 		max-width: 48rem;
 	}
 
@@ -245,7 +249,7 @@
 	}
 
 	.card#contact .card-title {
-		margin-bottom: 0.75rem;
+		margin-bottom: 0;
 	}
 
 	.card-head {

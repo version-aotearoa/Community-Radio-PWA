@@ -44,6 +44,7 @@ import {
 	sanitizeDescription
 } from '$lib/server/sanitize';
 import { isEventType } from '$lib/eventTypes';
+import { cycleWeekOf } from '$lib/cycle';
 
 /** Max length of the short plain-text card blurb (show.description). */
 export const SHOW_DESC_MAX = 50;
@@ -443,7 +444,7 @@ export function matchLiveShow(
 }
 
 /** Station-wide 4-week cycle anchor (Monday). */
-export const CYCLE_ANCHOR = '2026-01-05';
+export { CYCLE_ANCHOR, cycleWeekOf } from '$lib/cycle';
 
 /**
  * The first date on/after `fromDate` whose weekday is `dayOfWeek` and whose
@@ -455,15 +456,6 @@ export function nextCycleWeekDate(dayOfWeek: number, targetWeek: number, fromDat
 		date = addDays(date, 7);
 	}
 	return date;
-}
-
-/** 1-4: which week of the 4-week station cycle contains `dateStr`. */
-export function cycleWeekOf(dateStr: string): number {
-	const [y, m, d] = dateStr.split('-').map(Number);
-	const [ay, am, ad] = CYCLE_ANCHOR.split('-').map(Number);
-	const ms = new Date(Date.UTC(y, m - 1, d)).getTime() - new Date(Date.UTC(ay, am - 1, ad)).getTime();
-	const weeks = Math.floor(ms / (7 * 24 * 3600 * 1000));
-	return ((weeks % 4) + 4) % 4 + 1;
 }
 
 export interface UpcomingBroadcast extends BroadcastRow {

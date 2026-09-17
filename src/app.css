@@ -38,7 +38,17 @@
 	--vr-border: #333333;
 	--vr-surface-raised: #201f1f;
 
+	/* Spacing */
+	/* Page gutter: 2rem desktop, a minimal 1rem on phones. */
+	--vr-pad: 2rem;
+
 	color-scheme: dark;
+}
+
+@media (max-width: 720px) {
+	:root {
+		--vr-pad: 1rem;
+	}
 }
 
 /* WillowDark (svar-ui) palette overrides — monomochrome, not the library's purple */
