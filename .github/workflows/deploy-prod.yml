@@ -3,6 +3,11 @@ name: Deploy prod
 on:
   push:
     branches: [main]
+    # Docs-only changes don't affect the build — skip the prod deploy for them.
+    # (pr-checks still runs on the PR, so branch protection is unaffected.)
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
 
 jobs:
   deploy:
