@@ -14,6 +14,7 @@
 		streamPlaying
 	} from '$lib/stores/player';
 	import { live, startLivePolling } from '$lib/stores/live';
+	import SeekControl from '$lib/components/SeekControl.svelte';
 
 	const STREAM_URL = 'https://stream.version.nz/hls/version_radio/live.m3u8';
 
@@ -451,12 +452,6 @@
 		}
 	});
 
-	function fmtTime(mins: number) {
-		const h = Math.floor(mins / 60);
-		const m = mins % 60;
-		return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-	}
-
 	function fmtDt(dateStr: string) {
 		return new Intl.DateTimeFormat('en-NZ', {
 			weekday: 'short',
@@ -466,14 +461,12 @@
 		}).format(new Date(`${dateStr}T00:00:00Z`));
 	}
 
-	function fmtClock(secs: number) {
-		if (!Number.isFinite(secs) || secs < 0) return '--:--';
-		const s = Math.floor(secs);
-		const h = Math.floor(s / 3600);
-		const m = Math.floor((s % 3600) / 60);
-		const r = s % 60;
-		if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
-		return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
+	/** Seek a recording to `sec` (live/HLS has no finite timeline, so ignore). */
+	function seekTo(sec: number) {
+		if (!audioEl || !Number.isFinite(duration) || duration <= 0) return;
+		const target = Math.max(0, Math.min(sec, duration));
+		audioEl.currentTime = target;
+		currentTime = target;
 	}
 
 	function trackText() {
@@ -697,31 +690,25 @@
 					</span>
 					<span class="station-name">
 						{#if mediaMode}
-							Recording{media?.date ? ` · ${fmtDt(media.date)}` : ''} · {fmtClock(currentTime)} / {Number.isFinite(duration) ? fmtClock(duration) : '--:--'}
+							Recording{media?.date ? ` · ${fmtDt(media.date)}` : ''}
 						{/if}
 					</span>
 				</div>
 				<span class="track big">{trackText()}</span>
+				{#if mediaMode && Number.isFinite(duration) && duration > 0}
+					<SeekControl {currentTime} {duration} onSeek={seekTo} />
+				{/if}
 				{#if !mediaMode}
 					{#if isLive}
 						{#if identity}
 							<a class="showlink" href={`/shows/${identity.id}`} title={identity.title}>
 								{identity.djName ?? livePayload?.live.streamerName ?? 'Live on air'}
 							</a>
-						{:else if livePayload?.next}
-							<span class="track muted">
-								Up next: {livePayload.next.title} · {fmtDt(livePayload.next.date)} {fmtTime(livePayload.next.startMinutes)}
-							</span>
 						{/if}
 					{:else if showLink}
 						<a class="showlink showlink-onair" href={`/shows/${showLink.id}`}>On air: {showLink.title}</a>
-					{:else if livePayload?.next}
-						<span class="track muted">
-							Up next: {livePayload.next.title} · {fmtDt(livePayload.next.date)} {fmtTime(livePayload.next.startMinutes)}
-						</span>
 					{/if}
 				{:else}
-					<span class="track muted">From the show archive</span>
 					{#if media?.show}
 						<a class="showlink mono" href={`/shows/${media.show.id}`}>{media.show.title} <span class="arrow-chip" aria-hidden="true">→︎</span></a>
 					{/if}
@@ -886,7 +873,9 @@
 				{#if !onAirLine}
 					<span class="track mono" class:muted={!media && !identity && !isLive && !livePayload?.nowPlaying?.title}>{media ? media.title : trackText()}</span>
 				{/if}
-				{#if media?.artist}
+				{#if mediaMode && Number.isFinite(duration) && duration > 0}
+					<SeekControl {currentTime} {duration} onSeek={seekTo} compact />
+				{:else if media?.artist}
 					<span class="track mono muted">{media.artist}</span>
 				{/if}
 				{#if !mediaMode}
@@ -895,13 +884,9 @@
 							<a class="showlink mono" href={`/shows/${identity.id}`} title={identity.title}>
 								{identity.djName ?? 'Live on air'}
 							</a>
-						{:else if livePayload?.next}
-							<span class="showlink mono">Up next: {livePayload.next.title}</span>
 						{/if}
 					{:else if showLink}
 						<a class="showlink mono" href={`/shows/${showLink.id}`}>On air: {showLink.title}</a>
-					{:else if livePayload?.next}
-						<span class="showlink mono">Up next: {livePayload.next.title}</span>
 					{:else if livePayload?.live?.streamerName}
 						<span class="showlink mono">{livePayload.live.streamerName}</span>
 					{/if}
@@ -1030,6 +1015,7 @@
 		gap: 0.15rem;
 		line-height: 1.2;
 		min-width: 0;
+		flex: 1;
 	}
 
 	.track {
