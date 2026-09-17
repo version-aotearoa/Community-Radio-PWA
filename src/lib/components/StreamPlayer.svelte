@@ -452,12 +452,6 @@
 		}
 	});
 
-	function fmtTime(mins: number) {
-		const h = Math.floor(mins / 60);
-		const m = mins % 60;
-		return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-	}
-
 	function fmtDt(dateStr: string) {
 		return new Intl.DateTimeFormat('en-NZ', {
 			weekday: 'short',
@@ -710,20 +704,11 @@
 							<a class="showlink" href={`/shows/${identity.id}`} title={identity.title}>
 								{identity.djName ?? livePayload?.live.streamerName ?? 'Live on air'}
 							</a>
-						{:else if livePayload?.next}
-							<span class="track muted">
-								Up next: {livePayload.next.title} · {fmtDt(livePayload.next.date)} {fmtTime(livePayload.next.startMinutes)}
-							</span>
 						{/if}
 					{:else if showLink}
 						<a class="showlink showlink-onair" href={`/shows/${showLink.id}`}>On air: {showLink.title}</a>
-					{:else if livePayload?.next}
-						<span class="track muted">
-							Up next: {livePayload.next.title} · {fmtDt(livePayload.next.date)} {fmtTime(livePayload.next.startMinutes)}
-						</span>
 					{/if}
 				{:else}
-					<span class="track muted">From the show archive</span>
 					{#if media?.show}
 						<a class="showlink mono" href={`/shows/${media.show.id}`}>{media.show.title} <span class="arrow-chip" aria-hidden="true">→︎</span></a>
 					{/if}
@@ -899,13 +884,9 @@
 							<a class="showlink mono" href={`/shows/${identity.id}`} title={identity.title}>
 								{identity.djName ?? 'Live on air'}
 							</a>
-						{:else if livePayload?.next}
-							<span class="showlink mono">Up next: {livePayload.next.title}</span>
 						{/if}
 					{:else if showLink}
 						<a class="showlink mono" href={`/shows/${showLink.id}`}>On air: {showLink.title}</a>
-					{:else if livePayload?.next}
-						<span class="showlink mono">Up next: {livePayload.next.title}</span>
 					{:else if livePayload?.live?.streamerName}
 						<span class="showlink mono">{livePayload.live.streamerName}</span>
 					{/if}
