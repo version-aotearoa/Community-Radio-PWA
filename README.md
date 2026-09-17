@@ -21,6 +21,7 @@ See [ROADMAP.md](ROADMAP.md) for planned features (push notifications).
 - `src/` — SvelteKit app (Pages). Server routes access Cloudflare bindings via `event.platform.env`.
 - `workers/chat-worker/` — separate Worker owning the `ChatRoom` Durable Object (WebSockets + DO SQLite). SvelteKit does not export DO classes (adapter limitation), so the chat worker is deployed independently and the app connects to it via `PUBLIC_CHAT_URL`.
 - `migrations/` — D1 migrations (domain + auth tables).
+- [`docs/shows-schedule.md`](docs/shows-schedule.md) — shows/broadcasts data model + recurrence/4-week-cycle math.
 - Live stream: `https://stream.version.nz/hls/version_radio/live.m3u8` (4 audio variants, CORS-enabled).
 
 ## Bandcamp playback
