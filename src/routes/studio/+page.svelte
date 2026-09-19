@@ -32,6 +32,7 @@
 	let evEventType = $state('');
 	let evStartHours = $state('18');
 	let evStartMinutes = $state('0');
+	let evDuration = $state('60');
 	let evReplay = $state('');
 	let evDescription = $state('');
 	let evPageContent = $state('');
@@ -63,7 +64,7 @@
 				eventType: evEventType || null,
 				date: evDate.trim(),
 				startMinutes: Number(evStartHours) * 60 + Number(evStartMinutes),
-				durationMinutes: 60,
+				durationMinutes: Number(evDuration) || 60,
 				replayUrl: evReplay,
 				description: evDescription,
 				pageContent: evPageContent,
@@ -81,6 +82,7 @@
 		evTitle = '';
 		evDate = '';
 		evEventType = '';
+		evDuration = '60';
 		evReplay = '';
 		evDescription = '';
 		evPageContent = '';
@@ -504,6 +506,7 @@
 		if (show.kind === 'event') {
 			body.date = ef.date;
 			body.startMinutes = Number(ef.startHours) * 60 + Number(ef.startMinutes);
+			body.durationMinutes = Number(ef.duration);
 			body.eventType = ef.eventType || null;
 			if (ef.replay.trim()) body.replayUrl = ef.replay;
 		} else {
@@ -888,6 +891,9 @@
 				</Field>
 				<Field label="Minute">
 					<Text bind:value={evStartMinutes} placeholder="0" css="vr-input" />
+				</Field>
+				<Field label="Duration (min)">
+					<Text bind:value={evDuration} placeholder="60" css="vr-input" />
 				</Field>
 			</div>
 			<Field label="Replay link (optional)">
@@ -1401,6 +1407,9 @@
 									</Field>
 									<Field label="Minute">
 										<Text bind:value={ef.startMinutes} css="vr-input" />
+									</Field>
+									<Field label="Duration (min)">
+										<Text bind:value={ef.duration} css="vr-input" />
 									</Field>
 								</div>
 								<Field label="Replay link (blank keeps current)">
