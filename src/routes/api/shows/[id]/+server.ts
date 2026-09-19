@@ -113,6 +113,7 @@ export const POST: RequestHandler = async ({ request, params, locals, platform }
 	let newDow: number | null = null;
 	let eventDate: string | null = null;
 	let eventStart: number | null = null;
+	let eventDuration: number | null = null;
 	let eventReplay: string | null | undefined;
 
 	if (isAdmin) {
@@ -151,6 +152,7 @@ export const POST: RequestHandler = async ({ request, params, locals, platform }
 				columns.push('duration_minutes = ?');
 				values.push(dm);
 				scheduleChanged = true;
+				eventDuration = dm;
 			}
 		}
 
@@ -241,6 +243,10 @@ export const POST: RequestHandler = async ({ request, params, locals, platform }
 		if (eventStart !== null) {
 			bcols.push('start_minutes = ?');
 			bvals.push(eventStart);
+		}
+		if (eventDuration !== null) {
+			bcols.push('duration_minutes = ?');
+			bvals.push(eventDuration);
 		}
 		if (eventReplay !== undefined) {
 			bcols.push('replay_url = ?');
