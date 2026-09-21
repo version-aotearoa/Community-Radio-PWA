@@ -1,10 +1,33 @@
 <script lang="ts">
 	import Seo from '$lib/components/Seo.svelte';
 	import { cycleWeekOf, startOfWeek } from '$lib/cycle';
+	import { zonedWallTimeToUtcMs } from '$lib/time';
 
 	let { data } = $props();
 
 	const upcoming = $derived(data.upcoming);
+
+	// Start instants are static per broadcast; convert once so the ticking
+	// countdown below only has to compare against the current time.
+	const starts = $derived(
+		upcoming.map((b) => ({ date: b.date, startMs: zonedWallTimeToUtcMs(b.date, b.start_minutes) }))
+	);
+
+	// Null until mounted so the SSR/first paint is identical to hydration.
+	let nowMs = $state<number | null>(null);
+
+	$effect(() => {
+		nowMs = Date.now();
+		const id = setInterval(() => (nowMs = Date.now()), 1000);
+		return () => clearInterval(id);
+	});
+
+	// Earliest broadcast that hasn't started yet; advances as each one begins.
+	const next = $derived.by(() => {
+		const t = nowMs;
+		if (t === null) return null;
+		return starts.find((s) => s.startMs > t) ?? null;
+	});
 
 	interface Day {
 		date: string;
@@ -84,6 +107,17 @@
 		const m = mins % 60;
 		return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 	}
+
+	function fmtCountdown(ms: number): string {
+		const total = Math.max(0, Math.floor(ms / 1000));
+		const h = Math.floor(total / 3600);
+		const m = Math.floor((total % 3600) / 60);
+		const s = total % 60;
+		const pad = (n: number) => String(n).padStart(2, '0');
+		if (h > 0) return `${h}h ${pad(m)}m ${pad(s)}s`;
+		if (m > 0) return `${m}m ${pad(s)}s`;
+		return `${s}s`;
+	}
 </script>
 
 <svelte:head>
@@ -114,8 +148,18 @@
 									{day.label}
 									{#if day.today}
 										<span class="sticker">Today</span>
+										{#if nowMs !== null && next?.date === data.today}
+											<span class="countdown">
+												next in {fmtCountdown(next.startMs - nowMs)}
+											</span>
+										{/if}
 									{:else if day.tomorrow}
 										<span class="sticker">Tomorrow</span>
+										{#if nowMs !== null && next?.date === data.tomorrow}
+											<span class="countdown">
+												next in {fmtCountdown(next.startMs - nowMs)}
+											</span>
+										{/if}
 									{/if}
 								</span>
 							</h3>
@@ -233,6 +277,13 @@
 
 	.day-head .sticker {
 		padding: 0.25rem 0.45rem;
+	}
+
+	.countdown {
+		color: var(--vr-faint);
+		letter-spacing: 0.02em;
+		text-transform: none;
+		font-variant-numeric: tabular-nums;
 	}
 
 	.day ul {
