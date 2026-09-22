@@ -97,7 +97,8 @@ a {
 	color: var(--vr-text);
 }
 
-a[href] {
+a[href],
+a[href] * {
 	cursor: pointer;
 }
 
@@ -134,20 +135,33 @@ img {
 }
 
 /* Bracketed mono arrow chip for link affordances. VS15 (text presentation)
-   keeps U+2190/2192/2197 from rendering as colour emoji on mobile. */
+   keeps U+2190/2192/2197 from rendering as colour emoji on mobile. The chip is
+   an inline-flex box so the arrow stays optically centred inside its border. */
 .arrow-chip {
-	display: inline-block;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 1.15em;
+	min-height: 1.15em;
 	font-family: var(--vr-font-mono);
-	font-size: 0.72em;
+	font-size: 0.78em;
 	font-weight: 500;
 	line-height: 1;
 	letter-spacing: 0.05em;
 	white-space: nowrap;
-	vertical-align: middle;
-	padding: 0.05em 0.3em;
+	vertical-align: -0.06em;
+	padding: 0.08em 0.28em;
 	border: 1px solid currentColor;
 	cursor: pointer;
 	font-variant-emoji: text;
+}
+
+@media (max-width: 720px) {
+	.arrow-chip {
+		font-size: 0.9em;
+		min-width: 1.25em;
+		min-height: 1.25em;
+	}
 }
 
 /* Anton sizes */

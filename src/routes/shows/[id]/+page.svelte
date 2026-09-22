@@ -216,7 +216,7 @@
 <div class="page">
 	<header class="head">
 		<div>
-			<p class="mono back"><a href={backHref}><span class="arrow-chip" aria-hidden="true">←︎</span> {backLabel}</a></p>
+			<a class="back mono" href={backHref}><span class="arrow-chip" aria-hidden="true">←︎</span> {backLabel}</a>
 			<h1 class="h-lg">{title}</h1>
 			{#if show.kind === 'event'}
 				{#if eventDate}
@@ -458,19 +458,17 @@
 	}
 
 	.back {
-		margin: 0 0 0.5rem;
-	}
-
-	.back a {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.4em;
+		margin: 0 0 0.5rem;
+		padding: 0.25rem 0;
 		cursor: pointer;
 		color: var(--vr-muted);
 		text-decoration: none;
 	}
 
-	.back a:hover {
+	.back:hover {
 		color: var(--vr-text);
 		text-decoration: underline;
 	}

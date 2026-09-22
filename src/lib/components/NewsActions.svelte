@@ -142,9 +142,9 @@
 		min-width: 40px;
 		height: 40px;
 		padding: 0 0.65rem;
-		border: 1px solid var(--vr-line-muted);
+		border: 1px solid var(--na-line, var(--vr-line-muted));
 		background: transparent;
-		color: var(--vr-muted);
+		color: var(--na-ink, var(--vr-muted));
 		cursor: pointer;
 		text-decoration: none;
 		transition: color 150ms, border-color 150ms, background-color 150ms;
@@ -157,17 +157,21 @@
 		flex-shrink: 0;
 	}
 
-	.na-btn:hover {
-		border-color: var(--vr-line);
-		background: var(--vr-text);
-		color: var(--vr-black);
+	.na-btn:hover,
+	.na-btn.active {
+		border-color: var(--na-line-hover, var(--vr-line));
+		color: var(--na-ink-hover, var(--vr-text));
 	}
 
-	.na-btn.active,
 	.na-btn.heart:hover,
 	.na-btn.heart.active {
+		border-color: var(--vr-red);
 		color: var(--vr-red);
-		background: none;
+	}
+
+	.na-btn:focus-visible {
+		outline: none;
+		box-shadow: 0 0 0 2px var(--vr-bg), 0 0 0 3px var(--vr-line);
 	}
 
 	.na-count {

@@ -191,6 +191,14 @@
 		color: rgba(0, 0, 0, 0.8);
 	}
 
+	/* The inverted (white) row hover needs dark action buttons to stay legible. */
+	.row:hover :global(.na-btn) {
+		--na-ink: #000;
+		--na-line: rgba(0, 0, 0, 0.35);
+		--na-ink-hover: #000;
+		--na-line-hover: #000;
+	}
+
 	@media (max-width: 480px) {
 		.row {
 			flex-direction: column;
