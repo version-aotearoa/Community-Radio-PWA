@@ -124,13 +124,19 @@
 		name: string;
 		content: string;
 		userId?: string | null;
+		deleted?: boolean;
 	}
+
+	const CHAT_PAGE_SIZE = 100;
 
 	let adminUsers = $state<AdminUser[]>([]);
 	const emailById = $derived(new Map(adminUsers.map((u) => [u.id, u.email])));
 	const djUsers = $derived(adminUsers.filter((u) => u.role === 'dj' || u.role === 'admin'));
 	let chatMessages = $state<ChatMessage[]>([]);
 	let chatLoaded = $state(false);
+	let chatHasMore = $state(false);
+	let chatCursor = $state<{ ts: number; id: string } | null>(null);
+	let chatLoadingMore = $state(false);
 	let purgeName = $state('');
 	let adminError = $state('');
 
@@ -570,11 +576,40 @@
 		await loadNews();
 	}
 
+	interface ChatPage {
+		messages: ChatMessage[];
+		hasMore: boolean;
+		nextCursor: { ts: number; id: string } | null;
+	}
+
 	async function loadChat() {
-		const res = await fetch('/api/admin/chat');
+		const res = await fetch(`/api/admin/chat?limit=${CHAT_PAGE_SIZE}`);
 		if (res.ok) {
-			chatMessages = await res.json();
+			const data = (await res.json()) as ChatPage;
+			chatMessages = data.messages;
+			chatHasMore = data.hasMore;
+			chatCursor = data.nextCursor;
 			chatLoaded = true;
+		}
+	}
+
+	async function loadMoreChat() {
+		if (!chatCursor || chatLoadingMore) return;
+		chatLoadingMore = true;
+		try {
+			const params = new URLSearchParams({
+				limit: String(CHAT_PAGE_SIZE),
+				beforeTs: String(chatCursor.ts),
+				beforeId: chatCursor.id
+			});
+			const res = await fetch(`/api/admin/chat?${params.toString()}`);
+			if (!res.ok) return;
+			const data = (await res.json()) as ChatPage;
+			chatMessages = [...chatMessages, ...data.messages];
+			chatHasMore = data.hasMore;
+			chatCursor = data.nextCursor;
+		} finally {
+			chatLoadingMore = false;
 		}
 	}
 
@@ -620,7 +655,11 @@
 
 	async function deleteMessage(id: string) {
 		const res = await fetch(`/api/admin/chat/messages/${id}`, { method: 'DELETE' });
-		if (res.ok) chatMessages = chatMessages.filter((m) => m.id !== id);
+		if (res.ok) {
+			// Soft delete: keep the row in the moderation trail, flagged.
+			const msg = chatMessages.find((m) => m.id === id);
+			if (msg) msg.deleted = true;
+		}
 	}
 
 	async function purgeChatByName() {
@@ -1487,7 +1526,7 @@
 		{:else}
 			<div class="admin-table chat-list">
 				{#each chatMessages as m (m.id)}
-					<div class="admin-row">
+					<div class="admin-row" class:deleted={m.deleted}>
 						<div class="user-main">
 							<span class="chat-line">
 								<strong>{m.name}</strong> <em class="chat-time">{fmtChatTime(m.ts)}</em>
@@ -1506,10 +1545,21 @@
 									Purge user
 								</button>
 							{/if}
-							<button class="mini-btn danger" onclick={() => deleteMessage(m.id)}>Delete</button>
+							{#if m.deleted}
+								<span class="deleted-tag mono">Deleted</span>
+							{:else}
+								<button class="mini-btn danger" onclick={() => deleteMessage(m.id)}>Delete</button>
+							{/if}
 						</div>
 					</div>
 				{/each}
+				{#if chatHasMore}
+					<div class="chat-more">
+						<Button css="vr-cta ghost" onclick={loadMoreChat}>
+							{chatLoadingMore ? 'Loading…' : 'Load more'}
+						</Button>
+					</div>
+				{/if}
 			</div>
 		{/if}
 	</section>
@@ -1836,6 +1886,23 @@
 		display: flex;
 		gap: 0.5rem;
 		align-items: center;
+	}
+
+	.admin-row.deleted .chat-content {
+		text-decoration: line-through;
+		color: var(--vr-faint);
+	}
+
+	.deleted-tag {
+		color: var(--vr-red);
+		font-size: 0.72rem;
+		white-space: nowrap;
+	}
+
+	.chat-more {
+		display: flex;
+		justify-content: center;
+		padding: 1rem 0 0.25rem;
 	}
 
 	.purge-row {

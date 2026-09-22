@@ -18,6 +18,10 @@ export interface ChatMessage {
 	gif?: GifMedia | null;
 	reactions?: Record<string, number>;
 	my?: string[];
+	/** True when this connection authored the message (per-connection). */
+	mine?: boolean;
+	/** True for soft-deleted messages (admin moderation view only). */
+	deleted?: boolean;
 }
 
 /** A Giphy GIF attached to a chat message (URLs only — no bytes stored). */
@@ -41,8 +45,8 @@ interface IdentityPayload {
 	exp: number;
 }
 
-const HISTORY_LIMIT = 100;
-const MAX_STORED = 1000;
+const HISTORY_LIMIT = 299;
+const MAX_STORED = 10000;
 const RATE_LIMIT_MS = 500;
 const MAX_CONTENT_LENGTH = 500;
 const MAX_NAME_LENGTH = 40;
@@ -125,6 +129,17 @@ export class ChatRoom extends DurableObject<Env> {
 				INSERT INTO _sql_schema_migrations (id) VALUES (5);
 			`);
 		}
+		if (version < 6) {
+			// pid: anonymous ownership key. deleted_*: soft-delete (tombstone) trail.
+			this.ctx.storage.sql.exec(`
+				ALTER TABLE messages ADD COLUMN pid TEXT;
+				ALTER TABLE messages ADD COLUMN deleted_at INTEGER;
+				ALTER TABLE messages ADD COLUMN deleted_by TEXT;
+				CREATE INDEX IF NOT EXISTS idx_messages_pid ON messages (pid);
+				CREATE INDEX IF NOT EXISTS idx_messages_deleted ON messages (deleted_at);
+				INSERT INTO _sql_schema_migrations (id) VALUES (6);
+			`);
+		}
 	}
 
 	/** Allocate the next anonymous handle: `Listener N` (per room, sequential). */
@@ -172,7 +187,7 @@ export class ChatRoom extends DurableObject<Env> {
 			const pair = new WebSocketPair();
 			pair[1].serializeAttachment({ name, uid, pid, lastTs: 0 } satisfies ConnectionMeta);
 			this.ctx.acceptWebSocket(pair[1]);
-			pair[1].send(JSON.stringify({ type: 'history', messages: this.recent(HISTORY_LIMIT, uid ?? pid) }));
+			pair[1].send(JSON.stringify({ type: 'history', messages: this.recent(HISTORY_LIMIT, uid, pid) }));
 			pair[1].send(JSON.stringify({ type: 'name', name }));
 			return new Response(null, { status: 101, webSocket: pair[0] });
 		}
@@ -182,7 +197,7 @@ export class ChatRoom extends DurableObject<Env> {
 			return Response.json({ ok: true });
 		}
 		if (url.pathname === '/api/history') {
-			return Response.json({ messages: this.recent(HISTORY_LIMIT, null) });
+			return Response.json({ messages: this.recent(HISTORY_LIMIT, null, null) });
 		}
 
 		// Admin moderation (bearer token shared with the app).
@@ -191,11 +206,24 @@ export class ChatRoom extends DurableObject<Env> {
 			: false;
 		if (!adminOk) return new Response('Unauthorized', { status: 401 });
 
+		// Admin moderation view: newest-first, includes soft-deleted, keyset-paged.
+		if (request.method === 'GET' && url.pathname === '/api/admin/history') {
+			const rawLimit = Number(url.searchParams.get('limit') ?? '100');
+			const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.trunc(rawLimit), 1), 500) : 100;
+			return Response.json(
+				this.adminHistory(limit, url.searchParams.get('beforeTs'), url.searchParams.get('beforeId'))
+			);
+		}
+
 		const del = url.pathname.match(/^\/api\/messages\/([A-Za-z0-9-]+)$/);
 		if (request.method === 'DELETE' && del) {
 			const id = decodeURIComponent(del[1]);
-			this.ctx.storage.sql.exec('DELETE FROM reactions WHERE message_id = ?', id);
-			const cursor = this.ctx.storage.sql.exec('DELETE FROM messages WHERE id = ?', id);
+			const cursor = this.ctx.storage.sql.exec(
+				'UPDATE messages SET deleted_at = ?, deleted_by = ? WHERE id = ? AND deleted_at IS NULL',
+				Date.now(),
+				'admin',
+				id
+			);
 			cursor.toArray();
 			const deleted = cursor.rowsWritten;
 			if (deleted > 0) this.broadcast({ type: 'deleted', id });
@@ -249,6 +277,10 @@ export class ChatRoom extends DurableObject<Env> {
 			this.handleReaction(ws, meta, data);
 			return;
 		}
+		if (data.type === 'delete') {
+			this.handleDelete(ws, meta, data.id);
+			return;
+		}
 		if (data.type !== 'message') return;
 
 		const content = String(data.content ?? '')
@@ -263,8 +295,8 @@ export class ChatRoom extends DurableObject<Env> {
 		}
 		ws.serializeAttachment({ ...meta, lastTs: now });
 
-		const chatMessage = this.insert(meta.name, content, meta.uid, gif);
-		this.broadcast({ type: 'message', message: chatMessage });
+		const chatMessage = this.insert(meta.name, content, meta.uid, gif, meta.pid);
+		this.broadcastMessage(chatMessage, meta);
 	}
 
 	async webSocketClose(_ws: WebSocket) {
@@ -306,7 +338,13 @@ export class ChatRoom extends DurableObject<Env> {
 		this.broadcast({ type: 'reacted', id, emoji, count });
 	}
 
-	private insert(name: string, content: string, userId: string | null, gif: GifMedia | null): ChatMessage {
+	private insert(
+		name: string,
+		content: string,
+		userId: string | null,
+		gif: GifMedia | null,
+		pid: string | null
+	): ChatMessage {
 		const msg: ChatMessage = {
 			id: crypto.randomUUID(),
 			ts: Date.now(),
@@ -316,12 +354,13 @@ export class ChatRoom extends DurableObject<Env> {
 			...(gif ? { gif } : {})
 		};
 		this.ctx.storage.sql.exec(
-			'INSERT INTO messages (id, ts, name, content, user_id, gif_url, gif_preview, gif_width, gif_height) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+			'INSERT INTO messages (id, ts, name, content, user_id, pid, gif_url, gif_preview, gif_width, gif_height) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
 			msg.id,
 			msg.ts,
 			msg.name,
 			msg.content,
 			msg.userId,
+			pid,
 			gif?.url ?? null,
 			gif?.preview ?? null,
 			gif?.width ?? null,
@@ -337,62 +376,130 @@ export class ChatRoom extends DurableObject<Env> {
 		return msg;
 	}
 
-	private recent(limit: number, userKey: string | null): ChatMessage[] {
-		const messages = this.ctx.storage.sql
+	/** Author ownership: signed-in by uid; anonymous by pid (never crossed). */
+	private ownsRow(
+		uid: string | null,
+		pid: string | null,
+		owner: { user_id: string | null; pid: string | null }
+	): boolean {
+		if (uid) return owner.user_id === uid;
+		if (!pid) return false;
+		return owner.user_id === null && owner.pid === pid;
+	}
+
+	private recent(limit: number, uid: string | null, pid: string | null): ChatMessage[] {
+		const rows = this.ctx.storage.sql
 			.exec<Record<string, string | number | null>>(
-				'SELECT id, ts, name, content, user_id, gif_url, gif_preview, gif_width, gif_height FROM messages ORDER BY ts DESC LIMIT ?',
+				`SELECT id, ts, name, content, user_id, pid, gif_url, gif_preview, gif_width, gif_height
+				 FROM messages WHERE deleted_at IS NULL ORDER BY ts DESC LIMIT ?`,
 				limit
 			)
 			.toArray()
-			.map((row) => {
-				const gif =
-					row.gif_url === undefined || row.gif_url === null
-						? null
-						: {
-								url: String(row.gif_url),
-								preview: row.gif_preview == null ? null : String(row.gif_preview),
-								width: row.gif_width == null ? null : Number(row.gif_width),
-								height: row.gif_height == null ? null : Number(row.gif_height)
-							};
-				return {
-					id: String(row.id),
-					ts: Number(row.ts),
-					name: String(row.name),
-					content: String(row.content),
-					userId: row.user_id === undefined || row.user_id === null ? null : String(row.user_id),
-					...(gif ? { gif } : {})
-				};
-			})
 			.reverse();
 
-		const ids = messages.map((m) => m.id);
 		const counts: Record<string, Record<string, number>> = {};
 		const mine: Record<string, string[]> = {};
-		if (ids.length > 0) {
-			const placeholders = ids.map(() => '?').join(',');
-			const rows = this.ctx.storage.sql
+		if (rows.length > 0) {
+			// Windowed join binds the same LIMIT rather than one parameter per id,
+			// so this stays well under the 100-bound-parameter ceiling even at
+			// large HISTORY_LIMIT.
+			const reactionRows = this.ctx.storage.sql
 				.exec<Record<string, number | string | null>>(
-					`SELECT message_id, emoji, count(*) AS c,
-					        SUM(CASE WHEN user_key = ? THEN 1 ELSE 0 END) AS m
-					 FROM reactions
-					 WHERE message_id IN (${placeholders})
-					 GROUP BY message_id, emoji`,
-					userKey,
-					...ids
+					`SELECT r.message_id, r.emoji, count(*) AS c,
+					        SUM(CASE WHEN r.user_key = ? THEN 1 ELSE 0 END) AS m
+					 FROM reactions r
+					 JOIN (SELECT id FROM messages WHERE deleted_at IS NULL ORDER BY ts DESC LIMIT ?) m
+					   ON m.id = r.message_id
+					 GROUP BY r.message_id, r.emoji`,
+					uid ?? pid,
+					limit
 				)
 				.toArray();
-			for (const row of rows) {
+			for (const row of reactionRows) {
 				const mid = String(row.message_id);
 				const emoji = String(row.emoji);
 				(counts[mid] ??= {})[emoji] = Number(row.c);
 				if (Number(row.m) > 0) (mine[mid] ??= []).push(emoji);
 			}
 		}
-		return messages.map((m) => ({
-			...m,
-			reactions: counts[m.id] ?? {},
-			...(mine[m.id] ? { my: mine[m.id] } : {})
+
+		return rows.map((row) => {
+			const message = rowToPublicMessage(row);
+			return {
+				...message,
+				mine: this.ownsRow(uid, pid, {
+					user_id: row.user_id == null ? null : String(row.user_id),
+					pid: row.pid == null ? null : String(row.pid)
+				}),
+				reactions: counts[message.id] ?? {},
+				...(mine[message.id] ? { my: mine[message.id] } : {})
+			};
+		});
+	}
+
+	/** Admin moderation view: newest-first, includes soft-deleted, keyset-paged. */
+	private adminHistory(
+		limit: number,
+		beforeTs: string | null,
+		beforeId: string | null
+	): { messages: ChatMessage[]; hasMore: boolean; nextCursor: { ts: number; id: string } | null } {
+		const useCursor =
+			beforeTs !== null && beforeId !== null && beforeTs !== '' && Number.isFinite(Number(beforeTs));
+		const where = useCursor ? 'WHERE ts < ? OR (ts = ? AND id < ?)' : '';
+		const bindings: (number | string)[] = useCursor
+			? [Number(beforeTs), Number(beforeTs), beforeId]
+			: [];
+		const rows = this.ctx.storage.sql
+			.exec<Record<string, string | number | null>>(
+				`SELECT id, ts, name, content, user_id, deleted_at, gif_url, gif_preview, gif_width, gif_height
+				 FROM messages ${where}
+				 ORDER BY ts DESC, id DESC
+				 LIMIT ?`,
+				...bindings,
+				limit + 1
+			)
+			.toArray();
+		const hasMore = rows.length > limit;
+		const page = rows.slice(0, limit).map((row) => ({
+			...rowToPublicMessage(row),
+			...(row.deleted_at == null ? {} : { deleted: true })
 		}));
+		const last = page[page.length - 1];
+		return {
+			messages: page,
+			hasMore,
+			nextCursor: hasMore && last ? { ts: last.ts, id: last.id } : null
+		};
+	}
+
+	/** Author self-delete: soft-delete (tombstone) when the caller owns the message. */
+	private handleDelete(ws: WebSocket, meta: ConnectionMeta, rawId: unknown) {
+		const id = String(rawId ?? '').slice(0, 64);
+		if (!/^[\w-]{1,64}$/.test(id)) return;
+		const row = this.ctx.storage.sql
+			.exec<{ user_id: string | null; pid: string | null }>(
+				'SELECT user_id, pid FROM messages WHERE id = ?',
+				id
+			)
+			.toArray()[0];
+		if (!row) return;
+		if (
+			!this.ownsRow(meta.uid, meta.pid, {
+				user_id: row.user_id ?? null,
+				pid: row.pid ?? null
+			})
+		) {
+			ws.send(JSON.stringify({ type: 'error', message: 'You can only delete your own messages.' }));
+			return;
+		}
+		const cursor = this.ctx.storage.sql.exec(
+			'UPDATE messages SET deleted_at = ?, deleted_by = ? WHERE id = ? AND deleted_at IS NULL',
+			Date.now(),
+			meta.uid ?? meta.pid ?? 'unknown',
+			id
+		);
+		cursor.toArray();
+		if (cursor.rowsWritten > 0) this.broadcast({ type: 'deleted', id });
 	}
 
 	/**
@@ -445,6 +552,21 @@ export class ChatRoom extends DurableObject<Env> {
 			}
 		}
 	}
+
+	/** Broadcast a new message, tagging each recipient's own copy with `mine`. */
+	private broadcastMessage(msg: ChatMessage, owner: ConnectionMeta) {
+		for (const ws of this.ctx.getWebSockets()) {
+			const meta = ws.deserializeAttachment() as ConnectionMeta | null;
+			const mine = meta
+				? this.ownsRow(meta.uid, meta.pid, { user_id: owner.uid, pid: owner.pid })
+				: false;
+			try {
+				ws.send(JSON.stringify({ type: 'message', message: { ...msg, mine } }));
+			} catch {
+				// Connection already closed; ignore.
+			}
+		}
+	}
 }
 
 export default {
@@ -455,6 +577,27 @@ export default {
 		return env.CHAT_ROOM.getByName(room).fetch(request);
 	}
 };
+
+/** Map a stored message row to the public message shape (never exposes `pid`). */
+function rowToPublicMessage(row: Record<string, string | number | null>): ChatMessage {
+	const gif =
+		row.gif_url === undefined || row.gif_url === null
+			? null
+			: {
+					url: String(row.gif_url),
+					preview: row.gif_preview == null ? null : String(row.gif_preview),
+					width: row.gif_width == null ? null : Number(row.gif_width),
+					height: row.gif_height == null ? null : Number(row.gif_height)
+				};
+	return {
+		id: String(row.id),
+		ts: Number(row.ts),
+		name: String(row.name),
+		content: String(row.content),
+		userId: row.user_id === undefined || row.user_id === null ? null : String(row.user_id),
+		...(gif ? { gif } : {})
+	};
+}
 
 /**
  * Validate an incoming GIF payload: https + provider host allowlist only, so
