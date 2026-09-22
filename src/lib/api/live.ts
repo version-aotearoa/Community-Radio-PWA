@@ -26,6 +26,7 @@ export interface LivePayload {
 	onAir: {
 		id: string;
 		title: string;
+		image: string | null;
 		djName: string | null;
 		djImage: string | null;
 		date: string;

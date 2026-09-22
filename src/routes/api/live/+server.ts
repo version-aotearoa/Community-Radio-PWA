@@ -110,6 +110,7 @@ export const GET: RequestHandler = async ({ platform, fetch: cfFetch }) => {
 					? {
 							id: onAir.show_id,
 							title: onAir.title,
+							image: onAir.image,
 							djName: onAir.dj_name,
 							djImage: onAir.dj_image,
 							date: onAir.date,

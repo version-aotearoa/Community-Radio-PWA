@@ -467,6 +467,7 @@ export interface UpcomingBroadcast extends BroadcastRow {
 
 export interface AiringInfo extends UpcomingBroadcast {
 	show_id: string;
+	image: string | null;
 	dj_image: string | null;
 }
 
@@ -478,7 +479,7 @@ export async function getOnAirBroadcast(
 ): Promise<AiringInfo | null> {
 	return db
 		.prepare(
-			`SELECT b.*, s.title, s.kind, s.event_type, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name, u.image AS dj_image
+			`SELECT b.*, s.title, s.kind, s.event_type, s.image, COALESCE(NULLIF(s.dj_handle, ''), u.name) AS dj_name, u.image AS dj_image
 			 FROM broadcast b
 			 JOIN show s ON s.id = b.show_id
 			 LEFT JOIN user u ON u.id = s.dj_id

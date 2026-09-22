@@ -68,8 +68,35 @@
 	const media = $derived($playback.kind === 'media' ? $playback : null);
 	const mediaMode = $derived(media !== null);
 
-	const artSource = $derived(media?.art ?? livePayload?.nowPlaying?.art ?? livePayload?.onAir?.djImage ?? '');
 	const isLive = $derived(!mediaMode && livePayload?.live.isLive === true);
+
+	// Live shows prefer our own artwork (curated show image, then DJ avatar) over
+	// the encoder's now-playing art, which goes stale while a DJ is connected.
+	const liveArt = $derived(
+		livePayload?.onAir?.image ??
+			livePayload?.liveShow?.image ??
+			livePayload?.onAir?.djImage ??
+			livePayload?.liveShow?.djImage ??
+			livePayload?.nowPlaying?.art ??
+			''
+	);
+
+	const artSource = $derived(
+		media?.art ??
+			(isLive
+				? liveArt
+				: (livePayload?.nowPlaying?.art ?? livePayload?.onAir?.djImage ?? ''))
+	);
+
+	/** Set when the chosen art URL fails to load, so we drop to the eq-bars. */
+	let artFailed = $state(false);
+	$effect(() => {
+		artSource;
+		artFailed = false;
+	});
+	function onArtError() {
+		artFailed = true;
+	}
 	/** Authoritative live identity from our DB: scheduled slot first, else a streamer-matched show. */
 	const identity = $derived(isLive ? (livePayload?.onAir ?? livePayload?.liveShow ?? null) : null);
 	/** Show context link: the live identity while a DJ is live, else text-matched/on-air for re-airs. */
@@ -669,8 +696,8 @@
 	>
 		<div class="grabber" aria-hidden="true"></div>
 		<div class="strip">
-			{#if artSource}
-				<img class="strip-img" src={artSource} alt="" loading="lazy" />
+			{#if artSource && !artFailed}
+				<img class="strip-img" src={artSource} alt="" loading="lazy" onerror={onArtError} />
 			{:else}
 				<span class="eq big" class:playing={playing} aria-hidden="true">
 					<i></i><i></i><i></i><i></i>
@@ -862,8 +889,8 @@
 			{stationSticker}
 		</button>
 		<div class="bar-meta">
-			{#if artSource}
-				<img class="art" src={artSource} alt="" width="28" height="28" loading="lazy" />
+			{#if artSource && !artFailed}
+				<img class="art" src={artSource} alt="" width="28" height="28" loading="lazy" onerror={onArtError} />
 			{:else}
 				<span class="eq" class:playing={playing} aria-hidden="true">
 					<i></i><i></i><i></i><i></i>
