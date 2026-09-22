@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Tipex, defaultExtensions } from '@friendofsvelte/tipex';
+	import { Link } from '@tiptap/extension-link';
 	import { Placeholder } from '@tiptap/extension-placeholder';
 	import '@friendofsvelte/tipex/styles/index.css';
 
@@ -14,6 +15,9 @@
 		defaultExtensions
 			.map((ext) => {
 				if (ext.name === 'image') return null; // no base64 images in D1
+				// Strip the package's forced target="_blank"; the sanitizer
+				// decides per-link whether external links open in a new tab.
+				if (ext.name === 'link') return Link.configure({ openOnClick: false });
 				if (ext.name === 'placeholder') {
 					return Placeholder.configure({
 						placeholder,

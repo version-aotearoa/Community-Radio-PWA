@@ -1,5 +1,21 @@
 import sanitizeHtml from 'sanitize-html';
 
+/** Hosts treated as our own: links to them stay in the current tab. */
+const INTERNAL_HOSTS = new Set(['versionradio.live', 'www.versionradio.live', 'dev.versionradio.live']);
+
+/** Whether an href points within the site (relative, hash, mail/tel, our hosts). */
+function isInternalHref(href: string): boolean {
+	if (!href) return false;
+	if (href.startsWith('/') || href.startsWith('#') || href.startsWith('?')) return true;
+	if (href.startsWith('mailto:') || href.startsWith('tel:')) return true;
+	try {
+		const host = new URL(href).hostname;
+		return INTERNAL_HOSTS.has(host) || host.endsWith('.pages.dev');
+	} catch {
+		return false;
+	}
+}
+
 /**
  * Allowlist sanitizer for rich-text descriptions.
  *
@@ -9,8 +25,9 @@ import sanitizeHtml from 'sanitize-html';
  * scripts, event handlers, styles, media and any tag outside the list below.
  *
  * The allowlist mirrors what the Tipex editor (StarterKit + Link) emits:
- * paragraphs, headings, lists, quotes, inline code/code blocks, emphasis,
- * and safe `target=_blank rel=noopener noreferrer` links.
+ * paragraphs, headings, lists, quotes, inline code/code blocks and emphasis.
+ * Internal links navigate in the same tab; external links open in a new one
+ * with `rel=noopener noreferrer`.
  */
 export function sanitizeDescription(input: unknown): string {
 	const raw = typeof input === 'string' ? input : '';
@@ -43,16 +60,17 @@ export function sanitizeDescription(input: unknown): string {
 		},
 		allowedSchemes: ['http', 'https', 'mailto'],
 		allowedSchemesByTag: { a: ['http', 'https', 'mailto'] },
-		// Hard-force link safety regardless of what the editor/author wrote.
+		// Links: internal nav stays in-tab; external opens a new tab safely.
 		transformTags: {
-			a: (tagName, attribs) => ({
-				tagName,
-				attribs: {
-					href: attribs.href ?? '',
-					rel: 'noopener noreferrer nofollow',
-					target: '_blank'
+			a: (tagName, attribs) => {
+				const href = attribs.href ?? '';
+				const out: Record<string, string> = { href };
+				if (!isInternalHref(href)) {
+					out.rel = 'noopener noreferrer nofollow';
+					out.target = '_blank';
 				}
-			})
+				return { tagName, attribs: out };
+			}
 		},
 		// Drop links whose href was stripped by the scheme filter (e.g.
 		// javascript:) instead of leaving an empty shell behind.
