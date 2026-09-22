@@ -1,12 +1,26 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ locals, platform }) => {
+export const GET: RequestHandler = async ({ url, locals, platform }) => {
 	if (locals.user?.role !== 'admin') return json({ error: 'Forbidden' }, { status: 403 });
-	const chatUrl = platform?.env.PUBLIC_CHAT_URL;
-	if (!chatUrl) return json({ error: 'Chat not configured' }, { status: 503 });
-	const res = await fetch(`${chatUrl}/api/history`);
+	const env = platform!.env;
+	const chatUrl = env.PUBLIC_CHAT_URL;
+	const token = env.CHAT_ADMIN_TOKEN;
+	if (!chatUrl || !token) return json({ error: 'Chat moderation not configured' }, { status: 503 });
+
+	const params = new URLSearchParams();
+	const limit = url.searchParams.get('limit');
+	if (limit) params.set('limit', limit);
+	const beforeTs = url.searchParams.get('beforeTs');
+	const beforeId = url.searchParams.get('beforeId');
+	if (beforeTs && beforeId) {
+		params.set('beforeTs', beforeTs);
+		params.set('beforeId', beforeId);
+	}
+
+	const res = await fetch(`${chatUrl}/api/admin/history?${params.toString()}`, {
+		headers: { authorization: `Bearer ${token}` }
+	});
 	if (!res.ok) return json({ error: 'Chat unavailable' }, { status: 502 });
-	const data = (await res.json()) as { messages: unknown[] };
-	return json(data.messages);
+	return json(await res.json());
 };

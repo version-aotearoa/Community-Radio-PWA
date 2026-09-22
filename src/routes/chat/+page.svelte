@@ -23,7 +23,13 @@
 		gif?: GifMedia | null;
 		reactions?: Record<string, number>;
 		my?: string[];
+		/** True when this connection authored the message. */
+		mine?: boolean;
 	}
+
+	// Keep no more than the worker's history window (HISTORY_LIMIT = 299 + the
+	// newest incoming message) so nothing is silently dropped on each append.
+	const MAX_CLIENT_MESSAGES = 300;
 
 	function getPid(): string {
 		try {
@@ -171,7 +177,7 @@
 				return;
 			}
 			if (frame.type === 'history' && frame.messages) {
-				messages = frame.messages;
+				messages = frame.messages.slice(-MAX_CLIENT_MESSAGES);
 				myHearts.clear();
 				for (const m of frame.messages) {
 					if (m.my?.includes('heart')) myHearts.add(m.id);
@@ -185,7 +191,7 @@
 				assignedName = frame.name;
 				if (!handle) handleInput = frame.name;
 			} else if (frame.type === 'message' && frame.message) {
-				messages = [...messages, frame.message as ChatMessage].slice(-300);
+				messages = [...messages, frame.message as ChatMessage].slice(-MAX_CLIENT_MESSAGES);
 			} else if (frame.type === 'deleted' && frame.id) {
 				messages = messages.filter((m) => m.id !== frame.id);
 			} else if (frame.type === 'purged' && frame.name) {
@@ -215,6 +221,12 @@
 		if (!content || !ws || ws.readyState !== WebSocket.OPEN) return;
 		ws.send(JSON.stringify({ type: 'message', content }));
 		input = '';
+	}
+
+	function deleteMessage(msg: ChatMessage) {
+		if (!msg.mine || !ws || ws.readyState !== WebSocket.OPEN) return;
+		ws.send(JSON.stringify({ type: 'delete', id: msg.id }));
+		messages = messages.filter((m) => m.id !== msg.id);
 	}
 
 	function onPickGif(gif: GifMedia) {
@@ -268,7 +280,7 @@
 					<p class="empty">No messages yet. Say hello!</p>
 				{/if}
 				{#each messages as msg (msg.id)}
-					<div class="msg" class:mine={msg.name === displayName}>
+					<div class="msg" class:mine={msg.mine ?? msg.name === displayName}>
 						<div class="msg-meta">
 							<span class="msg-name">{msg.name}</span>
 							<span class="msg-time">{new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
@@ -291,6 +303,24 @@
 								</svg>
 								{#if heartCount(msg) > 0}<span>{heartCount(msg)}</span>{/if}
 							</button>
+							{#if msg.mine}
+								<button
+									class="x-btn"
+									onclick={() => deleteMessage(msg)}
+									title="Delete message"
+									aria-label="Delete message"
+								>
+									<svg viewBox="0 0 24 24" aria-hidden="true">
+										<path
+											d="M6 6l12 12M18 6L6 18"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="1.8"
+											stroke-linecap="round"
+										/>
+									</svg>
+								</button>
+							{/if}
 						</div>
 					{#if msg.gif}
 						<img
@@ -554,6 +584,28 @@
 
 	.heart-btn:hover,
 	.heart-btn.active {
+		color: var(--vr-red);
+	}
+
+	.x-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		background: none;
+		border: none;
+		color: var(--vr-faint);
+		cursor: pointer;
+		padding: 0.1rem 0.15rem;
+		line-height: 1;
+		flex-shrink: 0;
+	}
+
+	.x-btn svg {
+		width: 14px;
+		height: 14px;
+	}
+
+	.x-btn:hover {
 		color: var(--vr-red);
 	}
 
