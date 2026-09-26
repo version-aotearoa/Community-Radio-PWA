@@ -3,6 +3,7 @@
 	import { requestPlay, requestSetPlaying, streamPlaying } from '$lib/stores/player';
 	import { playMedia } from '$lib/stores/player';
 	import { live, startLivePolling } from '$lib/stores/live';
+	import { liveArtOf } from '$lib/api/live';
 	import { episodeArtOrDefault } from '$lib/azuracast';
 	import { eventTypeLabel } from '$lib/eventTypes';
 	import { artOnError } from '$lib/art';
@@ -18,12 +19,7 @@
 	const heroTitle = $derived(
 		livePayload?.onAir?.title ?? livePayload?.liveShow?.title ?? 'Sounds for the between times'
 	);
-	const heroArt = $derived(
-		livePayload?.nowPlaying?.art ??
-			livePayload?.liveShow?.djImage ??
-			livePayload?.onAir?.djImage ??
-			''
-	);
+	const heroArt = $derived(liveArtOf(livePayload, isLiveNow));
 
 	function fmtBroadcastDate(dateStr: string) {
 		return new Intl.DateTimeFormat('en-NZ', {
@@ -760,13 +756,15 @@
 		border-top: 1px solid var(--vr-line-muted);
 	}
 
-	.slot:hover {
+	.slot:hover,
+	.slot.onair:hover {
 		background: var(--vr-text);
 		color: var(--vr-black);
 	}
 
 	.slot:hover .slot-time,
-	.slot:hover .slot-dj {
+	.slot:hover .slot-dj,
+	.slot.onair:hover .slot-dj {
 		color: rgba(0, 0, 0, 0.8);
 	}
 
