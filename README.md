@@ -1,6 +1,6 @@
-# Version Radio — Svelte PWA on Cloudflare
+# Version Radio — Svelte app on Cloudflare
 
-Independent radio PWA: live stream player, DJ tracklist editor, public schedule, and community chat.
+Independent radio: live stream player, DJ tracklist editor, public schedule, and community chat.
 
 See [ROADMAP.md](ROADMAP.md) for planned features (push notifications).
 
