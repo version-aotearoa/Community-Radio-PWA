@@ -306,7 +306,8 @@
 		border-top: none;
 	}
 
-	.slot:hover {
+	.slot:hover,
+	.slot.onair:hover {
 		background: var(--vr-text);
 		color: var(--vr-black);
 	}

@@ -66,6 +66,9 @@
 	}
 
 	let ws = $state<WebSocket | null>(null);
+	// Non-reactive in-flight guard (see connect()): prevents overlapping connects
+	// from opening duplicate sockets, whose duplicate broadcasts crash the list.
+	let connecting = false;
 	let messages = $state<ChatMessage[]>([]);
 	let input = $state('');
 	let connected = $state(false);
@@ -111,97 +114,129 @@
 	}
 
 	async function connect() {
-		let name = '';
-		if (user) {
-			const cached = identityCache;
-			if (cached && cached.exp * 1000 - Date.now() > 240_000) {
-				identity = { token: cached.token, name: cached.name };
-			} else {
-				try {
-					const res = await fetch('/api/chat/identity');
-					if (res.ok) {
-						const fresh = (await res.json()) as { token: string; name: string };
-						identity = fresh;
-						const payload = fresh.token.split('.')[0];
-						const exp = Number(JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/'))).exp);
-						identityCache = { token: fresh.token, name: fresh.name, exp: Number.isFinite(exp) ? exp : 0 };
+		// One socket at a time: concurrent connects (the connect effect racing a
+		// fresh Turnstile token, etc.) would open duplicate sockets, and their
+		// duplicate broadcasts crash the keyed message list.
+		if (closed || connecting) return;
+		const current = ws;
+		if (
+			current &&
+			(current.readyState === WebSocket.CONNECTING || current.readyState === WebSocket.OPEN)
+		) {
+			return;
+		}
+		connecting = true;
+		try {
+			if (user) {
+				const cached = identityCache;
+				if (cached && cached.exp * 1000 - Date.now() > 240_000) {
+					identity = { token: cached.token, name: cached.name };
+				} else {
+					try {
+						const res = await fetch('/api/chat/identity');
+						if (res.ok) {
+							const fresh = (await res.json()) as { token: string; name: string };
+							identity = fresh;
+							const payload = fresh.token.split('.')[0];
+							const exp = Number(JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/'))).exp);
+							identityCache = { token: fresh.token, name: fresh.name, exp: Number.isFinite(exp) ? exp : 0 };
+						}
+					} catch {
+						identity = null;
 					}
-				} catch {
-					identity = null;
 				}
 			}
-		}
-		const params = new URLSearchParams({
-			room: 'main',
-			turnstile: turnstileToken,
-			pid: getPid()
-		});
-		if (identity || user) {
-			params.set('name', displayName);
-		} else if (handle) {
-			params.set('name', handle);
-		} else if (assignedName) {
-			params.set('name', assignedName);
-		} else {
-			params.set('anonymous', '1');
-		}
-		if (identity) params.set('token', identity.token);
-		const base = data.chatUrl.replace(/^http/, 'ws');
-		const url = `${base}/api/chat/ws?${params.toString()}`;
-		const socket = new WebSocket(url);
+			const params = new URLSearchParams({
+				room: 'main',
+				turnstile: turnstileToken,
+				pid: getPid()
+			});
+			if (identity || user) {
+				params.set('name', displayName);
+			} else if (handle) {
+				params.set('name', handle);
+			} else if (assignedName) {
+				params.set('name', assignedName);
+			} else {
+				params.set('anonymous', '1');
+			}
+			if (identity) params.set('token', identity.token);
+			const base = data.chatUrl.replace(/^http/, 'ws');
+			const url = `${base}/api/chat/ws?${params.toString()}`;
+			const socket = new WebSocket(url);
 
-		socket.onopen = () => {
-			connected = true;
-			error = '';
-		};
-		socket.onclose = () => {
-			connected = false;
-			ws = null;
-			if (!closed && turnstileToken) setTimeout(connect, 2000);
-		};
-		socket.onerror = () => socket.close();
-		socket.onmessage = (e: MessageEvent) => {
-			let frame: {
-				type?: string;
-				messages?: ChatMessage[];
-				message?: ChatMessage | string;
-				id?: string;
-				name?: string;
-				userId?: string | null;
-				emoji?: string;
-				count?: number;
+			socket.onopen = () => {
+				if (ws !== socket) {
+					socket.close();
+					return;
+				}
+				connected = true;
+				error = '';
 			};
-			try {
-				frame = JSON.parse(String(e.data));
-			} catch {
-				return;
-			}
-			if (frame.type === 'history' && frame.messages) {
-				messages = frame.messages.slice(-MAX_CLIENT_MESSAGES);
-				myHearts.clear();
-				for (const m of frame.messages) {
-					if (m.my?.includes('heart')) myHearts.add(m.id);
+			socket.onclose = () => {
+				// Ignore closes from sockets that are no longer the active one.
+				if (ws !== socket) return;
+				connected = false;
+				ws = null;
+				// Turnstile tokens are single-use: drop the consumed one and let the
+				// widget mount again so the reconnect uses a fresh token.
+				if (data.siteKey) turnstileToken = '';
+			};
+			socket.onerror = () => socket.close();
+			socket.onmessage = (e: MessageEvent) => {
+				let frame: {
+					type?: string;
+					messages?: ChatMessage[];
+					message?: ChatMessage | string;
+					id?: string;
+					name?: string;
+					userId?: string | null;
+					emoji?: string;
+					count?: number;
+				};
+				try {
+					frame = JSON.parse(String(e.data));
+				} catch {
+					return;
 				}
-			} else if (frame.type === 'reacted' && frame.id) {
-				const msg = messages.find((m) => m.id === frame.id);
-				if (msg) {
-					msg.reactions = { ...(msg.reactions ?? {}), heart: frame.count ?? 0 };
+				if (frame.type === 'history' && frame.messages) {
+					// Merge by id instead of replacing: a late history frame (from a
+					// reconnect) must not wipe messages already appended locally.
+					const merged = new Map<string, ChatMessage>();
+					for (const m of frame.messages) merged.set(m.id, m);
+					for (const m of messages) if (!merged.has(m.id)) merged.set(m.id, m);
+					messages = [...merged.values()]
+						.sort((a, b) => a.ts - b.ts || a.id.localeCompare(b.id))
+						.slice(-MAX_CLIENT_MESSAGES);
+					for (const m of frame.messages) {
+						if (m.my?.includes('heart')) myHearts.add(m.id);
+					}
+				} else if (frame.type === 'reacted' && frame.id) {
+					const msg = messages.find((m) => m.id === frame.id);
+					if (msg) {
+						msg.reactions = { ...(msg.reactions ?? {}), heart: frame.count ?? 0 };
+					}
+				} else if (frame.type === 'name' && frame.name) {
+					assignedName = frame.name;
+					if (!handle) handleInput = frame.name;
+				} else if (frame.type === 'message' && frame.message) {
+					const incoming = frame.message as ChatMessage;
+					if (!messages.some((m) => m.id === incoming.id)) {
+						messages = [...messages, incoming].slice(-MAX_CLIENT_MESSAGES);
+					}
+				} else if (frame.type === 'deleted' && frame.id) {
+					messages = messages.filter((m) => m.id !== frame.id);
+				} else if (frame.type === 'purged' && frame.name) {
+					messages = messages.filter((m) => m.name !== frame.name);
+				} else if (frame.type === 'error') {
+					error = String(frame.message ?? '');
 				}
-			} else if (frame.type === 'name' && frame.name) {
-				assignedName = frame.name;
-				if (!handle) handleInput = frame.name;
-			} else if (frame.type === 'message' && frame.message) {
-				messages = [...messages, frame.message as ChatMessage].slice(-MAX_CLIENT_MESSAGES);
-			} else if (frame.type === 'deleted' && frame.id) {
-				messages = messages.filter((m) => m.id !== frame.id);
-			} else if (frame.type === 'purged' && frame.name) {
-				messages = messages.filter((m) => m.name !== frame.name);
-			} else if (frame.type === 'error') {
-				error = String(frame.message ?? '');
-			}
-		};
+			};
 
-		ws = socket;
+			ws = socket;
+		} finally {
+			connecting = false;
+		}
 	}
 
 	onMount(() => {
@@ -231,7 +266,10 @@
 
 	function onPickGif(gif: GifMedia) {
 		gifPickerOpen = false;
-		if (!ws || ws.readyState !== WebSocket.OPEN) return;
+		if (!ws || ws.readyState !== WebSocket.OPEN) {
+			error = 'Still reconnecting — try the GIF again in a moment.';
+			return;
+		}
 		ws.send(JSON.stringify({ type: 'message', content: '', gif }));
 	}
 
@@ -350,6 +388,7 @@
 						type="button"
 						class="gif-btn"
 						class:active={gifPickerOpen}
+						disabled={!connected}
 						onclick={() => (gifPickerOpen = !gifPickerOpen)}
 						aria-label="Add a GIF"
 						title="Add a GIF"
@@ -631,6 +670,11 @@
 	.gif-btn.active {
 		color: var(--vr-text);
 		border-color: var(--vr-text);
+	}
+
+	.gif-btn:disabled {
+		opacity: 0.4;
+		cursor: not-allowed;
 	}
 
 	.gif-btn-label {

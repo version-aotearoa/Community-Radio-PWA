@@ -14,6 +14,7 @@
 		streamPlaying
 	} from '$lib/stores/player';
 	import { live, startLivePolling } from '$lib/stores/live';
+	import { liveArtOf } from '$lib/api/live';
 	import SeekControl from '$lib/components/SeekControl.svelte';
 
 	const STREAM_URL = 'https://stream.version.nz/hls/version_radio/live.m3u8';
@@ -72,21 +73,7 @@
 
 	// Live shows prefer our own artwork (curated show image, then DJ avatar) over
 	// the encoder's now-playing art, which goes stale while a DJ is connected.
-	const liveArt = $derived(
-		livePayload?.onAir?.image ??
-			livePayload?.liveShow?.image ??
-			livePayload?.onAir?.djImage ??
-			livePayload?.liveShow?.djImage ??
-			livePayload?.nowPlaying?.art ??
-			''
-	);
-
-	const artSource = $derived(
-		media?.art ??
-			(isLive
-				? liveArt
-				: (livePayload?.nowPlaying?.art ?? livePayload?.onAir?.djImage ?? ''))
-	);
+	const artSource = $derived(media?.art ?? liveArtOf(livePayload, isLive));
 
 	/** Set when the chosen art URL fails to load, so we drop to the eq-bars. */
 	let artFailed = $state(false);

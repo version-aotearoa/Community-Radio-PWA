@@ -35,6 +35,12 @@ export function createAuth(env: CloudflareBindings) {
 			}
 		},
 		socialProviders,
+		session: {
+			// 30 days of inactivity; expiry and cookie slide forward once the
+			// session is older than a day, so regular visitors stay signed in.
+			expiresIn: 60 * 60 * 24 * 30,
+			updateAge: 60 * 60 * 24
+		},
 		plugins: [
 			magicLink({
 				expiresIn: 600,

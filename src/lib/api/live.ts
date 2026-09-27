@@ -44,6 +44,23 @@ export interface LivePayload {
 	now: { date: string; minutes: number };
 }
 
+/**
+ * Artwork for whatever is airing. While a DJ is live, prefer our own show
+ * identity (curated show image, then DJ avatar) because the encoder's
+ * now-playing art goes stale; otherwise prefer the track art and fall back to
+ * the show/DJ image.
+ */
+export function liveArtOf(payload: LivePayload | null, isLive: boolean): string {
+	const show =
+		payload?.onAir?.image ??
+		payload?.liveShow?.image ??
+		payload?.onAir?.djImage ??
+		payload?.liveShow?.djImage ??
+		null;
+	const track = payload?.nowPlaying?.art ?? null;
+	return (isLive ? (show ?? track) : (track ?? show)) ?? '';
+}
+
 export async function fetchLive(): Promise<LivePayload | null> {
 	try {
 		const res = await fetch('/api/live', { headers: { accept: 'application/json' } });
