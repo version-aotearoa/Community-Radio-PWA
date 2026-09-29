@@ -17,7 +17,7 @@
 	</a>
 	<a
 		class="social"
-		href="https://github.com/version-aotearoa/Community-Radio-PWA"
+		href="https://github.com/version-aotearoa/Community-Radio-Website-CMS"
 		target="_blank"
 		rel="noopener noreferrer"
 		aria-label="GitHub"
