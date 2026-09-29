@@ -48,7 +48,7 @@ Indexes: `(dj_id)`, `(day_of_week, start_minutes)`.
 | `date` | TEXT | airing date; **`UNIQUE(show_id, date)`** |
 | `start_minutes`, `duration_minutes` | INTEGER | copied from the show when materialised |
 | `interval_weeks` | INTEGER | snapshot of the show's interval at materialisation |
-| `replay_url` | TEXT | AzuraCast on-demand link (`0004`) |
+| `replay_url` | TEXT | AzuraCast [on-demand link](../README.md#azuracast-streaming-backend) (`0004`) |
 | `description` | TEXT | rich HTML episode notes (`0016`) |
 | `featured` | INTEGER | homepage "Featured Shows" (`0017`) |
 | `home_ready` | INTEGER | homepage "Latest Shows" (`0020`) |

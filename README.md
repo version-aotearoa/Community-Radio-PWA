@@ -14,6 +14,7 @@ See [ROADMAP.md](ROADMAP.md) for planned features (push notifications).
 
 - **Frontend**: SvelteKit (Runes), SVAR Svelte UI (WillowDark theme), hls.js
 - **Platform**: Cloudflare Pages (full-stack) · D1 (SQLite) · Durable Objects (chat) · Better Auth (magic links + social) · Cloudflare Turnstile
+- **Streaming**: self-hosted **AzuraCast** (live HLS, now-playing, replays, artwork) — see [AzuraCast (streaming backend)](#azuracast-streaming-backend)
 - **PWA**: manifest + service worker (offline app shell)
 
 ## Architecture
@@ -22,7 +23,43 @@ See [ROADMAP.md](ROADMAP.md) for planned features (push notifications).
 - `workers/chat-worker/` — separate Worker owning the `ChatRoom` Durable Object (WebSockets + DO SQLite). SvelteKit does not export DO classes (adapter limitation), so the chat worker is deployed independently and the app connects to it via `PUBLIC_CHAT_URL`.
 - `migrations/` — D1 migrations (domain + auth tables).
 - [`docs/shows-schedule.md`](docs/shows-schedule.md) — shows/broadcasts data model + recurrence/4-week-cycle math.
-- Live stream: `https://stream.version.nz/hls/version_radio/live.m3u8` (4 audio variants, CORS-enabled).
+- Live stream, now-playing, replays and artwork come from the self-hosted **AzuraCast** backend (`stream.version.nz`) — see [AzuraCast (streaming backend)](#azuracast-streaming-backend).
+
+## AzuraCast (streaming backend)
+
+AzuraCast is an **external, self-hosted dependency** (not run by the app). Instance: `https://stream.version.nz` — station id `1`, shortcode `version_radio`, configured in `src/lib/azuracast.ts` (the public endpoints used need **no API key**). It provides the 24/7 live HLS stream (AutoDJ re-air + live DJ input), now-playing/live metadata, on-demand replays, and artwork.
+
+**API / stream data used**
+
+| Endpoint | Purpose | App route |
+|---|---|---|
+| `GET /api/nowplaying` | now-playing song/art, `duration`/`elapsed`/`remaining`/`played_at`, `live.is_live` + `live.streamer_name`, `playlist` | `/api/live` (proxied, `Cache-Control: max-age=15`; client polls every 30 s) |
+| `GET /hls/version_radio/live.m3u8` | live audio (4 AAC variants, 52.8–352 kbps) | `src/lib/components/StreamPlayer.svelte` (`STREAM_URL`) |
+| `GET /api/station/version_radio/art/<file>` | artwork | `/media/[file]` (edge-cached, year immutable) |
+| `GET /api/station/1/ondemand/download/<track_id>` | replay audio (Range-capable, server-side seekable) | stored in `broadcast.replay_url` (`replayPlayUrl`) |
+| `/api/stream/[...path]` *(our route)* | same-origin passthrough for `/hls/`, `/media/`, `/api/station/` | hls.js XHR (Chrome/desktop) |
+
+- **Replay art** derives from the on-demand track id → `/media/<track_id>.jpg` (`replayArtFromUrl`); `show.image` may also be an AzuraCast-provided URL.
+- Admin replay fields accept a bare 24-hex track id or an on-demand URL (`extractReplayTrackId`).
+
+**Behaviour / quirks**
+
+- **Live vs re-air**: `live.is_live` is true only for a real DJ; the 24/7 re-air is the station's `default` playlist playing recorded files through the same HLS stream (`playlist: "default"`).
+- **`elapsed` drifts** (the now-playing cache is ~15 s stale), so the client anchors a wall clock and resyncs on each 30 s poll.
+- **iOS** must play the origin `live.m3u8` directly; hls.js (Chrome/desktop) goes through `/api/stream` for CORS. Proxying iOS native HLS stalls segments and breaks background/lock-screen playback.
+- HLS segments rotate every ~4 s; pruned replays return `text/html`, so replay buttons require a live on-demand file.
+- Auth-gated AzuraCast endpoints (history, media detail) are **not** used.
+
+**Failure handling**: if AzuraCast is unreachable the site still loads — `/api/live` returns `isOnline: false`, `/media` art 404s, and live/replay playback is unavailable.
+
+## External dependencies
+
+- **AzuraCast** (self-hosted) — live stream, now-playing, replays, artwork
+- **Bandcamp** public JSON APIs — tracklist playback resolution
+- **GIPHY** — chat GIFs (client-side; `PUBLIC_GIPHY_API_KEY`)
+- **Cloudflare Turnstile** — bot protection (auth + chat)
+- **Resend / Cloudflare Email Service** — transactional email (magic links)
+- Cloudflare **Stream / R2** — *not used*; evaluated as a possible AzuraCast replacement
 
 ## Bandcamp playback
 
