@@ -7,6 +7,27 @@
 /favicon.svg
 	Cache-Control: no-cache
 
+/icons/favicon-light-16.png
+	Cache-Control: no-cache
+
+/icons/favicon-light-32.png
+	Cache-Control: no-cache
+
+/icons/favicon-light-48.png
+	Cache-Control: no-cache
+
+/icons/favicon-dark-16.png
+	Cache-Control: no-cache
+
+/icons/favicon-dark-32.png
+	Cache-Control: no-cache
+
+/icons/favicon-dark-48.png
+	Cache-Control: no-cache
+
+/icons/apple-touch-icon.png
+	Cache-Control: no-cache
+
 /logo.svg
 	Cache-Control: no-cache
 

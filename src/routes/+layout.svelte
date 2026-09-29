@@ -118,9 +118,6 @@
 
 <svelte:head>
 	<title>{SITE_TITLE}</title>
-	<meta name="theme-color" content="#141313" />
-	<link rel="apple-touch-icon" href="/icons/icon-192.png" />
-	<link rel="manifest" href="/manifest.webmanifest" />
 </svelte:head>
 
 <WillowDark fonts={false}>
